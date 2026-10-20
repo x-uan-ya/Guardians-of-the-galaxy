@@ -8,9 +8,15 @@
       name="description"
       content="MARS: OUTPOST ZERO — manage a Mars outpost, balance resources, and survive."
     />
-    <title>MARS: OUTPOST ZERO</title>
+    <title>MARS: OUTPOST ZERO — Mission Control</title>
   </head>
   <body>
+    <!--
+      The React app mounts into #root and controls everything inside it.
+      The decorative mission backdrop is rendered by the <MissionBackdrop />
+      React component (fixed, behind all UI) — do NOT put static markup inside
+      #root, React will replace it on load.
+    -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

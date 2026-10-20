@@ -78,6 +78,16 @@ export default {
           '0%': { color: '#e07a3f' },
           '100%': { color: 'inherit' },
         },
+        // Drifting wind-blown dust particles over the surface.
+        'dust-move': {
+          '0%': { backgroundPosition: '0 0' },
+          '100%': { backgroundPosition: '-550px 550px' },
+        },
+        // Continuous radar sweep.
+        'radar-sweep': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.25s ease-out',
@@ -88,6 +98,8 @@ export default {
         'scan-sweep': 'scan-sweep 7s ease-in-out infinite',
         float: 'float 4s ease-in-out infinite',
         'value-flash': 'value-flash 0.6s ease-out',
+        'dust-move': 'dust-move 20s linear infinite',
+        'radar-sweep': 'radar-sweep 8s linear infinite',
       },
     },
   },

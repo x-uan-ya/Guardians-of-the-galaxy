@@ -7,6 +7,7 @@
  */
 
 import type { ReactElement } from 'react';
+import { TacticalHud } from './TacticalHud';
 import { ResourceOverview } from './ResourceOverview';
 import { CrewStatus } from './CrewStatus';
 import { SystemStatus } from './SystemStatus';
@@ -25,6 +26,7 @@ interface DashboardProps {
 export function Dashboard({ state, activity, onDecide }: DashboardProps): ReactElement {
   return (
     <div className="stagger space-y-4">
+      <TacticalHud state={state} />
       <ResourceOverview state={state} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CrewStatus state={state} />
