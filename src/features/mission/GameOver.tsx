@@ -14,6 +14,7 @@ import type { ReactElement } from 'react';
 import { RotateCcw, Rocket, Skull } from 'lucide-react';
 import { getGameOverReason } from '../simulation/simulationEngine';
 import { getOccupation } from './occupations';
+import { OccupationAvatar } from './OccupationAvatar';
 import type { GameState } from '../simulation/simulationTypes';
 
 interface GameOverProps {
@@ -43,8 +44,11 @@ export function GameOver({ state, onRestartSame, onNewRun }: GameOverProps): Rea
       aria-labelledby="gameover-title"
     >
       <div className="panel w-full max-w-lg animate-fade-in-up p-6 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-status-critical/15 ring-1 ring-status-critical/40">
-          <Skull className="h-7 w-7 text-status-critical" aria-hidden />
+        <div className="relative mx-auto mb-4 w-fit">
+          <OccupationAvatar occupation={occupation} size={64} className="opacity-60 grayscale" />
+          <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-status-critical/20 ring-1 ring-status-critical/50">
+            <Skull className="h-4 w-4 text-status-critical" aria-hidden />
+          </div>
         </div>
 
         <h2 id="gameover-title" className="font-mono text-2xl font-bold tracking-tight text-slate-100">

@@ -13,16 +13,15 @@
 
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { Rocket, Sparkles } from 'lucide-react';
+import { Rocket } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import {
   CONSTRAINED_RESOURCES,
   PHILOSOPHY_CONSUMPTION,
   STANDARD_RESOURCES,
 } from './missionDefaults';
 import { OCCUPATION_LIST, getOccupation } from './occupations';
-import { ATTRIBUTE_KEYS, type AttributeKey } from '../simulation/simulationTypes';
+import { OccupationAvatar } from './OccupationAvatar';
 import type {
   MissionConfig,
   MissionObjective,
@@ -37,15 +36,6 @@ interface MissionSetupProps {
   /** The current config, used to preselect the controls. */
   current: MissionConfig;
 }
-
-const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
-  health: 'Health',
-  intelligence: 'Intelligence',
-  strength: 'Strength',
-  stamina: 'Stamina',
-  technical: 'Technical',
-  medical: 'Medical',
-};
 
 const OBJECTIVES: { value: MissionObjective; label: string; blurb: string }[] = [
   { value: 'survival', label: 'Survival', blurb: 'Keep the character alive. Life support is prioritised.' },
@@ -108,10 +98,10 @@ function OptionGroup<T extends string>({
 /**
  * The occupation card grid — the headline choice of a run.
  *
- * To stop players min-maxing by comparing every stat up front, the cards only
- * reveal the role name + summary. The full attribute spread, unique ability and
- * trade-offs are shown in a separate detail panel for the SELECTED occupation
- * (see OccupationDetail below).
+ * Players choose BLIND: the cards reveal only the portrait, role name and a
+ * one-line summary. Attributes, the unique ability and trade-offs are hidden
+ * until the run actually starts (shown on the dashboard Character panel). This
+ * stops min-maxing / comparison-shopping at setup.
  */
 function OccupationPicker({
   value,
@@ -125,7 +115,7 @@ function OccupationPicker({
       <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
         Occupation
         <span className="ml-2 font-normal normal-case text-slate-500">
-          — select a role to reveal its stats
+          — stats are revealed once the run begins
         </span>
       </legend>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -137,95 +127,20 @@ function OccupationPicker({
               type="button"
               onClick={() => onChange(occ.id)}
               aria-pressed={selected}
-              className={`flex h-full flex-col rounded-lg border p-3 text-left transition-colors ${
+              className={`flex h-full flex-col items-center rounded-lg border p-3 text-center transition-colors ${
                 selected
                   ? 'border-mars-orange/60 bg-mars-red/10 ring-1 ring-mars-orange/40'
                   : 'border-space-600 bg-space-700/40 hover:bg-space-700'
               }`}
             >
-              <div className="mb-1 flex items-center justify-between gap-1">
-                <span className="text-sm font-semibold text-slate-100">{occ.label}</span>
-                {selected ? (
-                  <span className="text-[9px] uppercase tracking-wide text-mars-orange">●</span>
-                ) : null}
-              </div>
-              <p className="text-xs text-slate-400">{occ.summary}</p>
+              <OccupationAvatar occupation={occ} size={56} className="mb-2" />
+              <span className="text-sm font-semibold text-slate-100">{occ.label}</span>
+              <p className="mt-0.5 text-xs text-slate-400">{occ.summary}</p>
             </button>
           );
         })}
       </div>
     </fieldset>
-  );
-}
-
-/** Full stats for the currently selected occupation only (revealed on choice). */
-function OccupationDetail({ occupation }: { occupation: Occupation | null }): ReactElement {
-  if (!occupation) {
-    return (
-      <div className="flex items-center justify-center rounded-lg border border-dashed border-space-600 bg-space-800/40 p-6 text-center">
-        <p className="text-sm text-slate-400">
-          Select an occupation above to reveal its attributes, unique ability and trade-offs.
-        </p>
-      </div>
-    );
-  }
-  const occ = getOccupation(occupation);
-  return (
-    <div className="rounded-lg border border-mars-orange/30 bg-space-800/60 p-4 animate-fade-in">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold text-slate-100">{occ.label}</div>
-          <div className="text-xs text-slate-400">{occ.summary}</div>
-        </div>
-        <span className="text-[10px] uppercase tracking-wide text-mars-orange">Selected</span>
-      </div>
-
-      {/* Attribute bars */}
-      <div className="space-y-1.5">
-        {ATTRIBUTE_KEYS.map((key) => (
-          <div key={key} className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[10px] uppercase tracking-wide text-slate-400">
-              {ATTRIBUTE_LABELS[key]}
-            </span>
-            <div className="flex-1">
-              <ProgressBar value={occ.attributes[key]} level="ok" label={ATTRIBUTE_LABELS[key]} />
-            </div>
-            <span className="tnum w-7 text-right text-[10px] text-slate-300">
-              {occ.attributes[key]}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Unique ability */}
-      <div className="mt-3 flex items-start gap-1.5 rounded-md border border-accent-blue/25 bg-accent-blue/10 p-2">
-        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-blue" aria-hidden />
-        <div>
-          <div className="text-[11px] font-semibold text-accent-blue">{occ.passive.name}</div>
-          <div className="text-[11px] text-slate-300">{occ.passive.description}</div>
-        </div>
-      </div>
-
-      {/* Strengths / weaknesses */}
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-        <div>
-          <div className="font-semibold text-status-ok">Strengths</div>
-          <ul className="list-disc pl-4 text-slate-400">
-            {occ.strengths.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <div className="font-semibold text-status-warn">Trade-offs</div>
-          <ul className="list-disc pl-4 text-slate-400">
-            {occ.weaknesses.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -253,7 +168,6 @@ export function MissionSetup({ onLaunch, current }: MissionSetupProps): ReactEle
 
         <div className="space-y-6">
           <OccupationPicker value={occupation} onChange={setOccupation} />
-          <OccupationDetail occupation={occupation} />
           <OptionGroup legend="Objective" options={OBJECTIVES} value={objective} onChange={setObjective} />
           <OptionGroup
             legend="Operating Philosophy"
@@ -282,7 +196,7 @@ export function MissionSetup({ onLaunch, current }: MissionSetupProps): ReactEle
           </div>
           <p className="mt-2 text-xs text-slate-400">
             {chosen
-              ? `${chosen.label} · starting health ${chosen.attributes.health}% · daily consumption ×${consumption.toFixed(2)} (${philosophy}).`
+              ? `Character: ${chosen.label}. Stats are revealed when the run begins. Daily consumption ×${consumption.toFixed(2)} (${philosophy}).`
               : `Choose an occupation to set your character. Daily consumption ×${consumption.toFixed(2)} (${philosophy}).`}
           </p>
         </div>

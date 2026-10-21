@@ -13,6 +13,7 @@ import { SectionHeader } from '../../components/ui/SectionHeader';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { calculateDerivedStatus } from '../simulation/simulationEngine';
 import { getOccupation } from '../mission/occupations';
+import { OccupationAvatar } from '../mission/OccupationAvatar';
 import { ATTRIBUTE_KEYS, type AttributeKey, type GameState } from '../simulation/simulationTypes';
 
 interface CharacterPanelProps {
@@ -42,11 +43,16 @@ export function CharacterPanel({ state }: CharacterPanelProps): ReactElement {
 
   return (
     <section className="panel p-4">
-      <SectionHeader
-        title="Character"
-        icon={UserRound}
-        subtitle={`${occ.label} — ${occ.summary}`}
-      />
+      <SectionHeader title="Character" icon={UserRound} />
+
+      {/* Portrait + identity */}
+      <div className="mb-3 flex items-center gap-3">
+        <OccupationAvatar occupation={occ} size={52} />
+        <div>
+          <div className="text-sm font-semibold text-slate-100">{occ.label}</div>
+          <div className="text-xs text-slate-400">{occ.summary}</div>
+        </div>
+      </div>
 
       {/* Live health — the stat that ends the run. */}
       <div className="mb-3 rounded-md border border-space-600 bg-space-700/40 p-3">

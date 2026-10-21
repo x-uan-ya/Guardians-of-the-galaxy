@@ -67,6 +67,16 @@ export interface OccupationDef {
   /** Human-readable weaknesses / trade-offs (for the setup screen). */
   weaknesses: string[];
   passive: PassiveAbility;
+  /**
+   * Path to the occupation portrait, served from /public. Drop a file here to
+   * use real art (e.g. public/occupations/engineer.webp). If the file is
+   * absent, the UI falls back to a generated SVG portrait (see OccupationAvatar).
+   */
+  image: string;
+  /** Accent colour used for the generated fallback portrait + emoji glyph. */
+  accent: string;
+  /** Emoji used in the generated fallback portrait. */
+  glyph: string;
 }
 
 /**
@@ -93,6 +103,9 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Maintains systems far better each day, slowing their decay.',
       systemUpkeepFactor: 1.6,
     },
+    image: '/occupations/engineer.webp',
+    accent: '#e07a3f',
+    glyph: '🛠️',
   },
 
   scientist: {
@@ -114,6 +127,9 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Converts analysis into mission progress faster.',
       researchFactor: 1.35,
     },
+    image: '/occupations/scientist.webp',
+    accent: '#4a90d9',
+    glyph: '🔬',
   },
 
   medicalOfficer: {
@@ -136,6 +152,9 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       healthRecoveryBonus: 2.5,
       radiationResistanceFactor: 0.8,
     },
+    image: '/occupations/medical-officer.webp',
+    accent: '#5fd0c8',
+    glyph: '🩺',
   },
 
   botanist: {
@@ -157,6 +176,9 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Coaxes extra food from the greenhouse each day.',
       foodProductionBonus: 3,
     },
+    image: '/occupations/botanist.webp',
+    accent: '#4caf72',
+    glyph: '🌱',
   },
 };
 
