@@ -16,7 +16,9 @@ import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { MissionSetup } from '../features/mission/MissionSetup';
+import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
+import { isGameOver } from '../features/simulation/simulationEngine';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
 import type { MissionConfig } from '../features/mission/missionTypes';
 import { DEFAULT_VIEW, type ViewKey } from './routes';
@@ -35,6 +37,7 @@ export function App(): ReactElement {
   >(null);
 
   const currentConfig: MissionConfig = {
+    occupation: game.state.character.occupation,
     objective: game.state.mission.objective,
     operatingPhilosophy: game.state.mission.operatingPhilosophy,
     startingCondition: game.state.mission.startingCondition,
@@ -62,6 +65,19 @@ export function App(): ReactElement {
   };
 
   const handleReset = (): void => setConfirm({ kind: 'reset' });
+
+  // Game-over: restart immediately with the same occupation + mission config.
+  const handleRestartSame = (): void => {
+    game.startNewMission(currentConfig);
+    setView('dashboard');
+  };
+
+  // Game-over: go pick a new occupation for the next run.
+  const handleNewRun = (): void => {
+    setView('mission-setup');
+  };
+
+  const runFailed = isGameOver(game.state);
 
   const resolveConfirm = (): void => {
     if (!confirm) return;
@@ -105,6 +121,15 @@ export function App(): ReactElement {
       ) : null}
 
       {view === 'debrief' ? <Debrief state={game.state} /> : null}
+
+      {/* Game-over overlay: shown on the dashboard when the run has failed. */}
+      {runFailed && view === 'dashboard' ? (
+        <GameOver
+          state={game.state}
+          onRestartSame={handleRestartSame}
+          onNewRun={handleNewRun}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={confirm !== null}

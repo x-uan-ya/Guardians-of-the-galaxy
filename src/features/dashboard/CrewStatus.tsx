@@ -23,7 +23,7 @@ export function CrewStatus({ state }: CrewStatusProps): ReactElement {
 
   return (
     <section className="panel p-4">
-      <SectionHeader title="Crew" icon={Users} subtitle="Condition of the outpost crew" />
+      <SectionHeader title="Vitals" icon={Users} subtitle="Live condition of your character" />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatusCard
           label={CREW_LABELS.health}

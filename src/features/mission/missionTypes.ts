@@ -13,16 +13,20 @@ export type {
   MissionObjective,
   OperatingPhilosophy,
   StartingCondition,
+  Occupation,
 } from '../simulation/simulationTypes';
 
 import type {
   MissionObjective,
   OperatingPhilosophy,
   StartingCondition,
+  Occupation,
 } from '../simulation/simulationTypes';
 
 /** Player-chosen configuration for a new mission. */
 export interface MissionConfig {
+  /** The occupation the player selected for this run (required). */
+  occupation: Occupation;
   objective: MissionObjective;
   operatingPhilosophy: OperatingPhilosophy;
   startingCondition: StartingCondition;

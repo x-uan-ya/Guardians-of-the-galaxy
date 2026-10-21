@@ -36,7 +36,15 @@ import {
   STARTING_SCORE,
   resourcesForCondition,
 } from '../mission/missionDefaults';
+import { getOccupation } from '../mission/occupations';
 import type { MissionConfig } from '../mission/missionTypes';
+import {
+  applyDailySystemUpkeep,
+  applyResearchFactor,
+  dailyHealthRecovery,
+  foodProductionBonus,
+  initialCrewForCharacter,
+} from './occupationEffects';
 import type { DecisionInput, DecisionRecord, PlayerChoice } from '../decisions/decisionTypes';
 import {
   processDueEffects,
@@ -55,20 +63,37 @@ import {
 } from './resourceCalculations';
 import { calculateDerivedStatus } from './simulationSelectors';
 import {
+  ATTRIBUTE_KEYS,
   METRIC_MAX,
   METRIC_MIN,
+  OCCUPATIONS,
   RESOURCE_KEYS,
   SCHEMA_VERSION,
+  type CharacterState,
   type DelayedEffect,
   type GameState,
   type MissionStatus,
+  type Occupation,
   type ResourceChanges,
+  type SystemChanges,
   type SystemState,
 } from './simulationTypes';
 
 // Re-export selectors so callers have one import surface for the engine.
 export { calculateDerivedStatus } from './simulationSelectors';
 export { InvalidDecisionError } from './eventResolver';
+
+/**
+ * Small starting system nudge per occupation, so the choice is felt on day 1
+ * (illustrative gameplay tuning). Engineer runs tighter systems; botanist
+ * starts with a greener greenhouse; medical/scientist lean elsewhere.
+ */
+const OCCUPATION_SYSTEM_BONUS: Record<Occupation, SystemChanges> = {
+  engineer: { powerGeneration: 5, lifeSupportEfficiency: 4 },
+  scientist: { powerGeneration: 3 },
+  medicalOfficer: { lifeSupportEfficiency: 3, shieldingIntegrity: 2 },
+  botanist: { foodProduction: 6 },
+};
 
 // ---------------------------------------------------------------------------
 // createInitialGameState
@@ -84,16 +109,29 @@ export function createInitialGameState(config: MissionConfig): GameState {
 
   const resources = resourcesForCondition(config.startingCondition);
 
-  // Apply the objective's small system bonus on top of the defaults.
+  // Resolve the chosen occupation and seed the character.
+  const occupationDef = getOccupation(config.occupation);
+  const character: CharacterState = {
+    occupation: config.occupation,
+    attributes: { ...occupationDef.attributes },
+  };
+
+  // Apply the objective's small system bonus on top of the defaults, then a
+  // small occupation-based nudge so the choice matters from day 1.
   const bonus = OBJECTIVE_SYSTEM_BONUS[config.objective];
-  const systems: SystemState = applySystemChanges({ ...DEFAULT_SYSTEMS }, bonus);
+  let systems: SystemState = applySystemChanges({ ...DEFAULT_SYSTEMS }, bonus);
+  systems = applySystemChanges(systems, OCCUPATION_SYSTEM_BONUS[config.occupation]);
+
+  // The character's starting live health comes from their health attribute.
+  const crew = initialCrewForCharacter(DEFAULT_CREW, character.attributes);
 
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
     gameId,
     day: 1,
     resources,
-    crew: { ...DEFAULT_CREW },
+    character,
+    crew,
     systems,
     mission: {
       objective: config.objective,
@@ -170,6 +208,21 @@ export function validateGameState(state: unknown): ValidationResult {
     checkMetric(errors, 'crew.radiationExposure', s.crew.radiationExposure);
   }
 
+  if (!s.character) {
+    errors.push('Missing character.');
+  } else {
+    if (!OCCUPATIONS.includes(s.character.occupation)) {
+      errors.push(`Invalid character.occupation: ${String(s.character.occupation)}.`);
+    }
+    if (!s.character.attributes) {
+      errors.push('Missing character.attributes.');
+    } else {
+      for (const key of ATTRIBUTE_KEYS) {
+        checkMetric(errors, `character.attributes.${key}`, s.character.attributes[key]);
+      }
+    }
+  }
+
   if (!s.systems) {
     errors.push('Missing systems.');
   } else {
@@ -219,6 +272,16 @@ function safeImmediateResourceChanges(changes: ResourceChanges | undefined): Res
 /** Count of ids minted so far, used to keep generated ids deterministic. */
 function nextCounter(state: GameState): number {
   return state.history.length + state.pendingEffects.length;
+}
+
+/** Clamp every system metric back into [0,100] after upkeep math. */
+function clampSystems(systems: SystemState): SystemState {
+  return {
+    powerGeneration: clamp(systems.powerGeneration),
+    lifeSupportEfficiency: clamp(systems.lifeSupportEfficiency),
+    foodProduction: clamp(systems.foodProduction),
+    shieldingIntegrity: clamp(systems.shieldingIntegrity),
+  };
 }
 
 /**
@@ -279,8 +342,9 @@ function recomputeScore(state: GameState): number {
   const avgSystems =
     (sys.powerGeneration + sys.lifeSupportEfficiency + sys.foodProduction + sys.shieldingIntegrity) / 4;
 
-  // Base survival bonus grows with days survived.
-  const survivalBonus = state.day * 3;
+  // Base survival bonus grows with days survived. The scientist's research
+  // passive amplifies this progress term (faster score growth).
+  const survivalBonus = applyResearchFactor(state.day * 3, state.character);
 
   const raw = avgResources * 0.5 + crewScore * 0.3 + avgSystems * 0.2 + survivalBonus;
   return clamp(round2(raw), 0, 999);
@@ -431,14 +495,30 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   const nextDay = state.day + 1;
 
+  // 1. Occupation daily system upkeep (engineer slows/reverses system wear).
+  const systems = clampSystems(applyDailySystemUpkeep(state.systems, state.character));
+
+  // 2. Baseline daily resource delta from the (maintained) systems, plus the
+  //    botanist's flat food production bonus.
   const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
-  const dailyDelta = computeDailyResourceDelta(state.systems, state.crew, consumptionFactor);
+  const baseDelta = computeDailyResourceDelta(systems, state.crew, consumptionFactor);
+  const foodBonus = foodProductionBonus(state.character);
+  const dailyDelta: ResourceChanges = {
+    ...baseDelta,
+    food: round2((baseDelta.food ?? 0) + foodBonus),
+  };
   const resources = applyResourceChanges(state.resources, dailyDelta);
+
+  // 3. Medical officer's daily health recovery (only while not in danger).
+  const recovery = dailyHealthRecovery(state.crew, state.character);
+  const crew = recovery > 0 ? applyCrewChanges(state.crew, { health: recovery }) : state.crew;
 
   const advanced: GameState = {
     ...state,
     day: nextDay,
     resources,
+    crew,
+    systems,
     updatedAt: state.updatedAt,
   };
 
@@ -481,6 +561,33 @@ export function getSimulationSummary(state: GameState): SimulationSummary {
 /** Exposed for the UI so it can list the free actions without importing the catalog. */
 export function getFreeActions() {
   return FREE_ACTIONS;
+}
+
+/** Why a run ended, for the game-over screen. */
+export type GameOverReason =
+  | 'character-died'
+  | 'oxygen-depleted'
+  | 'radiation-lethal'
+  | 'unknown';
+
+/**
+ * True when the run has ended in failure (the character's run is over).
+ * `completed` is a success terminal state and is NOT game-over.
+ */
+export function isGameOver(state: GameState): boolean {
+  return state.mission.status === 'failed';
+}
+
+/**
+ * Explain why the run failed, derived from the current metrics. Pure. Returns
+ * 'unknown' if called when the run is not actually failed.
+ */
+export function getGameOverReason(state: GameState): GameOverReason {
+  if (state.mission.status !== 'failed') return 'unknown';
+  if (state.crew.health <= 0) return 'character-died';
+  if (state.resources.oxygen <= 0) return 'oxygen-depleted';
+  if (state.crew.radiationExposure >= 100) return 'radiation-lethal';
+  return 'unknown';
 }
 
 /** Touch updatedAt to a provided timestamp (used by the persistence layer). */

@@ -25,8 +25,11 @@
  * real NASA engineering specifications.
  */
 
-/** Schema version for persisted game state. Bump when the shape changes. */
-export const SCHEMA_VERSION = 1;
+/**
+ * Schema version for persisted game state. Bump when the shape changes.
+ * v2: added the solo `character` model (occupation + attributes).
+ */
+export const SCHEMA_VERSION = 2;
 
 /** Shared numeric bounds for every 0..100 metric in the game. */
 export const METRIC_MIN = 0;
@@ -58,14 +61,83 @@ export const RESOURCE_KEYS: readonly ResourceKey[] = ['power', 'water', 'food', 
 // Crew
 // ---------------------------------------------------------------------------
 
-/** Aggregate crew condition. All values 0..100. */
+/**
+ * Live survival condition of the player's character. (This is a SOLO game: the
+ * `crew` object represents the single playable character's live stats, not a
+ * roster. The name is kept for backwards compatibility with existing modules.)
+ *
+ * NOTE: `crew.health` is the character's LIVE health during the run and is what
+ * ends the run when it reaches 0. The character's starting health capacity and
+ * the other long-lived attributes live in `character.attributes` below.
+ */
 export interface CrewState {
-  /** Average crew physical health, 0..100 %. */
+  /** Character's live physical health, 0..100 %. Reaching 0 ends the run. */
   health: number;
   /** Accumulated radiation exposure index, 0 (none) .. 100 (lethal). */
   radiationExposure: number;
-  /** Crew morale, 0..100 %. */
+  /** Character morale, 0..100 %. */
   morale: number;
+}
+
+// ---------------------------------------------------------------------------
+// Character (solo occupation-based model)
+// ---------------------------------------------------------------------------
+
+/**
+ * The occupations a player can choose. Each has a distinct attribute spread and
+ * a unique passive ability (see features/mission/occupations.ts).
+ */
+export type Occupation = 'engineer' | 'scientist' | 'medicalOfficer' | 'botanist';
+
+/** Canonical ordered list of occupations (stable for UI + tests). */
+export const OCCUPATIONS: readonly Occupation[] = [
+  'engineer',
+  'scientist',
+  'medicalOfficer',
+  'botanist',
+];
+
+/**
+ * The six character attributes. All on the shared 0..100 scale.
+ *  - health:       how much damage/environmental stress the character survives
+ *                  (seeds the run's starting crew.health capacity).
+ *  - intelligence: scientific analysis, research, problem-solving.
+ *  - strength:     physical tasks and construction.
+ *  - stamina:      work capacity, fatigue resistance, recovery.
+ *  - technical:    repairs, equipment maintenance, technical challenges.
+ *  - medical:      treating injuries, managing health emergencies.
+ */
+export interface Attributes {
+  health: number;
+  intelligence: number;
+  strength: number;
+  stamina: number;
+  technical: number;
+  medical: number;
+}
+
+/** An attribute key, for generic iteration. */
+export type AttributeKey = keyof Attributes;
+
+/** Canonical ordered list of attribute keys (stable for UI + tests). */
+export const ATTRIBUTE_KEYS: readonly AttributeKey[] = [
+  'health',
+  'intelligence',
+  'strength',
+  'stamina',
+  'technical',
+  'medical',
+];
+
+/**
+ * The player's character for the current run: the chosen occupation plus the
+ * attribute values it started with. Attributes are stable for the run (the
+ * foundation does not add permanent progression); live survival state lives in
+ * `crew`.
+ */
+export interface CharacterState {
+  occupation: Occupation;
+  attributes: Attributes;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +267,9 @@ export interface GameState {
   /** Current simulation day. Starts at 1. */
   day: number;
   resources: Resources;
+  /** The player's character for this run (occupation + starting attributes). */
+  character: CharacterState;
+  /** Live survival stats of the character (health/morale/radiation). */
   crew: CrewState;
   systems: SystemState;
   mission: MissionState;

@@ -45,8 +45,13 @@ export type PersistenceNotice =
   | { kind: 'save-failed'; reason: string }
   | { kind: 'unavailable' };
 
-/** The default mission used when there is no saved game to restore. */
+/**
+ * The default mission used so the app always boots with a valid state (e.g.
+ * before the player has picked an occupation). The occupation picker lets the
+ * player choose a real one for an actual run.
+ */
 export const DEFAULT_MISSION_CONFIG: MissionConfig = {
+  occupation: 'engineer',
   objective: 'survival',
   operatingPhilosophy: 'balanced',
   startingCondition: 'standard',

@@ -8,6 +8,7 @@
 
 import type { ReactElement } from 'react';
 import { TacticalHud } from './TacticalHud';
+import { CharacterPanel } from './CharacterPanel';
 import { ResourceOverview } from './ResourceOverview';
 import { CrewStatus } from './CrewStatus';
 import { SystemStatus } from './SystemStatus';
@@ -27,11 +28,14 @@ export function Dashboard({ state, activity, onDecide }: DashboardProps): ReactE
   return (
     <div className="stagger space-y-4">
       <TacticalHud state={state} />
-      <ResourceOverview state={state} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CrewStatus state={state} />
-        <OperationsPanel state={state} onDecide={onDecide} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <CharacterPanel state={state} />
+        <div className="lg:col-span-2">
+          <CrewStatus state={state} />
+        </div>
       </div>
+      <ResourceOverview state={state} />
+      <OperationsPanel state={state} onDecide={onDecide} />
       <SystemStatus state={state} />
       <MissionActivity state={state} activity={activity} />
     </div>

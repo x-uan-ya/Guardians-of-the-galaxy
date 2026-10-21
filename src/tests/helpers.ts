@@ -11,6 +11,7 @@ import { EVENT_CATALOG } from '../features/events/eventCatalog';
 import type { MissionConfig } from '../features/mission/missionTypes';
 
 export const FIXED_CONFIG: MissionConfig = {
+  occupation: 'engineer',
   objective: 'survival',
   operatingPhilosophy: 'balanced',
   startingCondition: 'standard',
