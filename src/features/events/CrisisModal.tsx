@@ -8,6 +8,7 @@
 import React, { type ReactElement } from 'react';
 import type { GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
+import { EventDescription } from './EventDescription';
 
 interface CrisisModalProps {
   event: GameEvent;
@@ -71,131 +72,135 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 pb-12 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
-      {/* Crisis Container - Positioned near top with scroll */}
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
+      {/* Crisis Container - Fits within viewport with scroll */}
       <div
         className={`
           relative w-full max-w-5xl
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
+          overflow-visible mb-6
         `}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-inherit border-b border-current/20 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className={`text-xs font-mono tracking-wider ${style.labelColor} mb-2`}>
-                {style.icon} {style.label}
+        {/* Scrollable content wrapper - wider padding for tooltip space */}
+        <div className="overflow-y-auto overflow-x-visible max-h-[70vh]">
+          {/* Header */}
+          <div className={`sticky top-0 z-10 ${style.bg} border-b border-current/20 px-8 py-4 overflow-visible`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 overflow-visible">
+                <div className={`text-xs font-mono tracking-wider ${style.labelColor} mb-1`}>
+                  {style.icon} {style.label}
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2 leading-tight">
+                  {event.title}
+                </h2>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  <EventDescription eventId={event.id} description={event.description} />
+                </p>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-3 leading-tight">
-                {event.title}
-              </h2>
-              <p className="text-gray-300 text-lg leading-relaxed">
-                {event.description}
-              </p>
+              {onDismiss && event.severity !== 'critical' && (
+                <button
+                  onClick={onDismiss}
+                  className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              )}
             </div>
-            {onDismiss && event.severity !== 'critical' && (
-              <button
-                onClick={onDismiss}
-                className="text-gray-400 hover:text-white transition-colors text-2xl leading-none"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            )}
           </div>
-        </div>
 
-        {/* Action Choices */}
-        <div className="p-6 pb-8 space-y-3">
-          <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
-            CHOOSE YOUR RESPONSE:
-          </div>
-          
-          {event.availableActions.map((action) => (
-            <button
-              key={action.id}
-              onClick={() => handleAction(action.id)}
-              className={`
-                w-full text-left p-4 rounded-lg
-                bg-gray-900/50 border-2 border-gray-700
-                hover:border-white hover:bg-gray-800/70
-                transition-all duration-200
-                group
-              `}
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <div className="text-lg font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">
-                    {action.label}
-                  </div>
-                  <div className="text-gray-300 text-sm leading-relaxed mb-2">
-                    {action.description}
+          {/* Action Choices */}
+          <div className="px-8 py-4 pb-6 space-y-3 overflow-visible">
+            <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
+              CHOOSE YOUR RESPONSE:
+            </div>
+            
+            {event.availableActions.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => handleAction(action.id)}
+                className={`
+                  w-full text-left p-3 rounded-lg
+                  bg-gray-900/50 border-2 border-gray-700
+                  hover:border-white hover:bg-gray-800/70
+                  transition-all duration-200
+                  group
+                `}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="text-base font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">
+                      {action.label}
+                    </div>
+                    <div className="text-gray-300 text-xs leading-relaxed mb-1.5">
+                      {action.description}
+                    </div>
+                    
+                    {/* Show effect preview if available */}
+                    <div className="flex flex-wrap gap-2 text-xs font-mono">
+                      {action.effect.immediateResources && (
+                        <div className="flex gap-2">
+                          {Object.entries(action.effect.immediateResources).map(([key, value]) => (
+                            <span
+                              key={key}
+                              className={value >= 0 ? 'text-green-400' : 'text-red-400'}
+                            >
+                              {key}: {value >= 0 ? '+' : ''}{value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {action.effect.immediateCrew && (
+                        <div className="flex gap-2">
+                          {Object.entries(action.effect.immediateCrew).map(([key, value]) => (
+                            <span
+                              key={key}
+                              className={value >= 0 ? 'text-green-400' : 'text-red-400'}
+                            >
+                              {key}: {value >= 0 ? '+' : ''}{value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {action.effect.immediateSystems && (
+                        <div className="flex gap-2">
+                          {Object.entries(action.effect.immediateSystems).map(([key, value]) => (
+                            <span
+                              key={key}
+                              className={value >= 0 ? 'text-green-400' : 'text-red-400'}
+                            >
+                              {key}: {value >= 0 ? '+' : ''}{value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {action.effect.delayed && action.effect.delayed.length > 0 && (
+                        <span className="text-yellow-400">
+                          ⏱ {action.effect.delayed.length} delayed effect(s)
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Show effect preview if available */}
-                  <div className="flex flex-wrap gap-2 text-xs font-mono">
-                    {action.effect.immediateResources && (
-                      <div className="flex gap-2">
-                        {Object.entries(action.effect.immediateResources).map(([key, value]) => (
-                          <span
-                            key={key}
-                            className={value >= 0 ? 'text-green-400' : 'text-red-400'}
-                          >
-                            {key}: {value >= 0 ? '+' : ''}{value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {action.effect.immediateCrew && (
-                      <div className="flex gap-2">
-                        {Object.entries(action.effect.immediateCrew).map(([key, value]) => (
-                          <span
-                            key={key}
-                            className={value >= 0 ? 'text-green-400' : 'text-red-400'}
-                          >
-                            {key}: {value >= 0 ? '+' : ''}{value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {action.effect.immediateSystems && (
-                      <div className="flex gap-2">
-                        {Object.entries(action.effect.immediateSystems).map(([key, value]) => (
-                          <span
-                            key={key}
-                            className={value >= 0 ? 'text-green-400' : 'text-red-400'}
-                          >
-                            {key}: {value >= 0 ? '+' : ''}{value}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {action.effect.delayed && action.effect.delayed.length > 0 && (
-                      <span className="text-yellow-400">
-                        ⏱ {action.effect.delayed.length} delayed effect(s)
-                      </span>
-                    )}
+                  <div className="text-xl opacity-50 group-hover:opacity-100 transition-opacity">
+                    →
                   </div>
                 </div>
-                
-                <div className="text-xl opacity-50 group-hover:opacity-100 transition-opacity">
-                  →
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Footer hint */}
-        {event.severity === 'critical' && (
-          <div className="sticky bottom-0 bg-inherit border-t border-current/20 p-4 text-center">
-            <p className="text-xs text-gray-500 font-mono">
-              CRITICAL: You must choose before advancing
-            </p>
+              </button>
+            ))}
           </div>
-        )}
+
+          {/* Footer hint */}
+          {event.severity === 'critical' && (
+            <div className={`sticky bottom-0 ${style.bg} border-t border-current/20 px-8 py-3 text-center`}>
+              <p className="text-xs text-gray-500 font-mono">
+                CRITICAL: You must choose before advancing
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

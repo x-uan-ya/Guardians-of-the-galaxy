@@ -15,6 +15,7 @@ interface TopBarProps {
   status: MissionStatus;
   score: number;
   storageAvailable: boolean;
+  hasActiveEvents: boolean;
   onAdvanceDay: () => void;
   onSave: () => void;
   onNewMission: () => void;
@@ -40,12 +41,14 @@ export function TopBar({
   status,
   score,
   storageAvailable,
+  hasActiveEvents,
   onAdvanceDay,
   onSave,
   onNewMission,
   onReset,
 }: TopBarProps): ReactElement {
   const terminal = status === 'failed' || status === 'completed';
+  const canAdvance = !terminal && !hasActiveEvents;
 
   return (
     <header className="sticky top-0 z-30 overflow-hidden border-b border-space-600/80 bg-space-850/70 backdrop-blur-md">
@@ -92,8 +95,14 @@ export function TopBar({
             type="button"
             className="btn-primary flex-1 sm:flex-none"
             onClick={onAdvanceDay}
-            disabled={terminal}
-            title={terminal ? 'Mission has ended — start a new mission' : 'Advance the simulation by one day'}
+            disabled={!canAdvance}
+            title={
+              terminal 
+                ? 'Mission has ended — start a new mission' 
+                : hasActiveEvents
+                ? 'Resolve the current event before advancing'
+                : 'Advance the simulation by one day'
+            }
           >
             <FastForward className="h-4 w-4" aria-hidden />
             Advance Day

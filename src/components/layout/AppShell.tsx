@@ -19,6 +19,7 @@ interface AppShellProps {
   score: number;
   storageAvailable: boolean;
   activeView: ViewKey;
+  hasActiveEvents: boolean;
   onNavigate: (view: ViewKey) => void;
   onAdvanceDay: () => void;
   onSave: () => void;
@@ -33,6 +34,7 @@ export function AppShell({
   score,
   storageAvailable,
   activeView,
+  hasActiveEvents,
   onNavigate,
   onAdvanceDay,
   onSave,
@@ -48,6 +50,7 @@ export function AppShell({
         status={status}
         score={score}
         storageAvailable={storageAvailable}
+        hasActiveEvents={hasActiveEvents}
         onAdvanceDay={onAdvanceDay}
         onSave={onSave}
         onNewMission={onNewMission}

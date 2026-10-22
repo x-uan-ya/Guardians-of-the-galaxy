@@ -105,6 +105,7 @@ export function App(): ReactElement {
       score={game.state.mission.score}
       storageAvailable={game.storageAvailable}
       activeView={view}
+      hasActiveEvents={game.state.activeEvents.length > 0}
       onNavigate={setView}
       onAdvanceDay={game.advanceDay}
       onSave={game.save}
