@@ -28,6 +28,7 @@
 
 import { generateGameId, makeId } from '../../lib/ids';
 import { FREE_ACTIONS } from '../events/eventCatalog';
+import { triggerEvent } from '../events/eventTriggers';
 import {
   DEFAULT_CREW,
   DEFAULT_SYSTEMS,
@@ -483,7 +484,8 @@ export interface AdvanceResult {
  *   1. Increment the day.
  *   2. Apply the baseline daily resource delta (production - consumption).
  *   3. Process any delayed effects now due.
- *   4. Recompute mission status + score.
+ *   4. Check for and trigger new events based on game state.
+ *   5. Recompute mission status + score.
  *
  * Returns a NEW state; the input is never mutated. If the mission is already in
  * a terminal state, the call is a no-op that returns the same state.
@@ -525,7 +527,18 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   // Process effects due on the new day.
   const { state: afterEffects, applied } = processDueEffects(advanced);
 
-  const finalState = withDerivedMission(afterEffects);
+  // 4. Trigger new events based on current game state (crisis system)
+  const newEvent = triggerEvent(afterEffects);
+  const activeEvents = newEvent 
+    ? [...afterEffects.activeEvents, newEvent]
+    : afterEffects.activeEvents;
+
+  const withEvents: GameState = {
+    ...afterEffects,
+    activeEvents,
+  };
+
+  const finalState = withDerivedMission(withEvents);
 
   return { state: finalState, firedEffects: applied, dailyDelta };
 }

@@ -18,6 +18,7 @@ import { Dashboard } from '../features/dashboard/Dashboard';
 import { MissionSetup } from '../features/mission/MissionSetup';
 import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
+import { CrisisModal } from '../features/events/CrisisModal';
 import { isGameOver } from '../features/simulation/simulationEngine';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
 import type { MissionConfig } from '../features/mission/missionTypes';
@@ -128,6 +129,19 @@ export function App(): ReactElement {
           state={game.state}
           onRestartSame={handleRestartSame}
           onNewRun={handleNewRun}
+        />
+      ) : null}
+
+      {/* Crisis Modal: shown when there are active events */}
+      {game.state.activeEvents.length > 0 && view === 'dashboard' && !runFailed && game.state.activeEvents[0] ? (
+        <CrisisModal
+          event={game.state.activeEvents[0]}
+          onChoose={(actionId, choice) => {
+            const event = game.state.activeEvents[0];
+            if (event) {
+              game.resolveActiveEvent(event.id, actionId, choice);
+            }
+          }}
         />
       ) : null}
 

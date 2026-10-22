@@ -56,3 +56,12 @@ export function createRng(seed: number | string): Rng {
     },
   };
 }
+
+/**
+ * Convenience function for one-off seeded random values.
+ * Returns a float in [0, 1).
+ */
+export function seededRandom(seed: number | string): number {
+  const rng = createRng(seed);
+  return rng.next();
+}

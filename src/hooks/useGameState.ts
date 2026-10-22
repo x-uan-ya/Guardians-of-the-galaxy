@@ -150,6 +150,14 @@ export function useGameState(): UseGameState {
         pushActivity(next.day, `Delayed effect: ${effect.description}`, 'warn');
       }
 
+      // Announce new events
+      if (next.activeEvents.length > prev.activeEvents.length) {
+        const newEvent = next.activeEvents[next.activeEvents.length - 1];
+        if (newEvent) {
+          pushActivity(next.day, `🚨 EVENT: ${newEvent.title}`, 'bad');
+        }
+      }
+
       if (next.mission.status !== prev.mission.status) {
         const tone = next.mission.status === 'failed' ? 'bad' : next.mission.status === 'completed' ? 'good' : 'warn';
         pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, tone);
