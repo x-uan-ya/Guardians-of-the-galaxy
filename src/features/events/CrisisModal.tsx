@@ -63,11 +63,11 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
       {/* Crisis Container */}
       <div
         className={`
-          relative w-full max-w-4xl max-h-[90vh] overflow-y-auto
+          relative w-full max-w-4xl max-h-[85vh] overflow-y-auto my-4
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
