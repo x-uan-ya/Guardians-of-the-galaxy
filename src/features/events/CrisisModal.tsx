@@ -71,11 +71,11 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60 animate-fadeIn">
-      {/* Crisis Container - Centered and fit to screen */}
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 pb-12 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
+      {/* Crisis Container - Positioned near top with scroll */}
       <div
         className={`
-          relative w-full max-w-5xl max-h-[90vh] overflow-y-auto
+          relative w-full max-w-5xl
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
@@ -108,7 +108,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
         </div>
 
         {/* Action Choices */}
-        <div className="p-6 space-y-3">
+        <div className="p-6 pb-8 space-y-3">
           <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
             CHOOSE YOUR RESPONSE:
           </div>
