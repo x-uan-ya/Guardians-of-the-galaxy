@@ -220,6 +220,7 @@ export function checkForcedEvent(state: GameState): GameEvent | undefined {
  * Call this during day advance to check for new events.
  */
 export function triggerEvent(state: GameState): GameEvent | undefined {
+
   // First check for forced critical events
   const forcedEvent = checkForcedEvent(state);
   if (forcedEvent) {
