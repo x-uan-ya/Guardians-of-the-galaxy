@@ -5,7 +5,7 @@
  * Creates urgency and impact for major decision moments.
  */
 
-import type { ReactElement } from 'react';
+import React, { type ReactElement } from 'react';
 import type { GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
 
@@ -62,12 +62,20 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
     onChoose(actionId, 'self-directed');
   };
 
+  // Lock body scroll when modal is open
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
-      {/* Crisis Container */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60 animate-fadeIn">
+      {/* Crisis Container - Centered and fit to screen */}
       <div
         className={`
-          relative w-full max-w-4xl max-h-[85vh] overflow-y-auto my-4
+          relative w-full max-w-5xl max-h-[90vh] overflow-y-auto
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
@@ -100,8 +108,8 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
         </div>
 
         {/* Action Choices */}
-        <div className="p-6 space-y-4">
-          <div className="text-sm font-semibold text-gray-400 tracking-wide mb-4">
+        <div className="p-6 space-y-3">
+          <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
             CHOOSE YOUR RESPONSE:
           </div>
           
@@ -110,7 +118,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
               key={action.id}
               onClick={() => handleAction(action.id)}
               className={`
-                w-full text-left p-5 rounded-lg
+                w-full text-left p-4 rounded-lg
                 bg-gray-900/50 border-2 border-gray-700
                 hover:border-white hover:bg-gray-800/70
                 transition-all duration-200
@@ -119,17 +127,17 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
             >
               <div className="flex items-start gap-4">
                 <div className="flex-1">
-                  <div className="text-xl font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">
+                  <div className="text-lg font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">
                     {action.label}
                   </div>
-                  <div className="text-gray-300 text-sm leading-relaxed mb-3">
+                  <div className="text-gray-300 text-sm leading-relaxed mb-2">
                     {action.description}
                   </div>
                   
                   {/* Show effect preview if available */}
-                  <div className="flex flex-wrap gap-3 text-xs font-mono">
+                  <div className="flex flex-wrap gap-2 text-xs font-mono">
                     {action.effect.immediateResources && (
-                      <div className="space-x-2">
+                      <div className="flex gap-2">
                         {Object.entries(action.effect.immediateResources).map(([key, value]) => (
                           <span
                             key={key}
@@ -141,7 +149,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
                       </div>
                     )}
                     {action.effect.immediateCrew && (
-                      <div className="space-x-2">
+                      <div className="flex gap-2">
                         {Object.entries(action.effect.immediateCrew).map(([key, value]) => (
                           <span
                             key={key}
@@ -153,7 +161,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
                       </div>
                     )}
                     {action.effect.immediateSystems && (
-                      <div className="space-x-2">
+                      <div className="flex gap-2">
                         {Object.entries(action.effect.immediateSystems).map(([key, value]) => (
                           <span
                             key={key}
@@ -172,7 +180,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
                   </div>
                 </div>
                 
-                <div className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">
+                <div className="text-xl opacity-50 group-hover:opacity-100 transition-opacity">
                   →
                 </div>
               </div>
