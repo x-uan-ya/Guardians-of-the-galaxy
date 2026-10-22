@@ -20,6 +20,7 @@ interface TopBarProps {
   onSave: () => void;
   onNewMission: () => void;
   onReset: () => void;
+  onLogoClick?: () => void;
 }
 
 const STATUS_STYLES: Record<MissionStatus, string> = {
@@ -46,6 +47,7 @@ export function TopBar({
   onSave,
   onNewMission,
   onReset,
+  onLogoClick,
 }: TopBarProps): ReactElement {
   const terminal = status === 'failed' || status === 'completed';
   const canAdvance = !terminal && !hasActiveEvents;
@@ -60,7 +62,11 @@ export function TopBar({
       />
       <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
         {/* Branding */}
-        <div className="flex items-center gap-3">
+        <button 
+          onClick={onLogoClick}
+          className="flex items-center gap-3 transition-opacity hover:opacity-80 cursor-pointer bg-transparent border-none p-0"
+          title="Return to Mission Control"
+        >
           <div className="flex h-9 w-9 animate-float items-center justify-center rounded-md bg-gradient-to-br from-mars-red to-mars-deep shadow-glow">
             <span className="text-lg" aria-hidden>🛰️</span>
           </div>
@@ -70,7 +76,7 @@ export function TopBar({
             </h1>
             <p className="text-[11px] uppercase tracking-widest text-slate-400">Mission Control</p>
           </div>
-        </div>
+        </button>
 
         {/* Day + status */}
         <div className="ml-auto flex items-center gap-3">

@@ -25,6 +25,7 @@ interface AppShellProps {
   onSave: () => void;
   onNewMission: () => void;
   onReset: () => void;
+  onLogoClick?: () => void;
   children: ReactNode;
 }
 
@@ -40,6 +41,7 @@ export function AppShell({
   onSave,
   onNewMission,
   onReset,
+  onLogoClick,
   children,
 }: AppShellProps): ReactElement {
   return (
@@ -55,6 +57,7 @@ export function AppShell({
         onSave={onSave}
         onNewMission={onNewMission}
         onReset={onReset}
+        onLogoClick={onLogoClick}
       />
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         <Sidebar active={activeView} onNavigate={onNavigate} />

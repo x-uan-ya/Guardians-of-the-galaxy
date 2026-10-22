@@ -67,6 +67,11 @@ export function App(): ReactElement {
 
   const handleReset = (): void => setConfirm({ kind: 'reset' });
 
+  // Logo click: navigate to dashboard
+  const handleLogoClick = (): void => {
+    setView('dashboard');
+  };
+
   // Game-over: restart immediately with the same occupation + mission config.
   const handleRestartSame = (): void => {
     game.startNewMission(currentConfig);
@@ -111,6 +116,7 @@ export function App(): ReactElement {
       onSave={game.save}
       onNewMission={handleNewMission}
       onReset={handleReset}
+      onLogoClick={handleLogoClick}
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
