@@ -196,3 +196,115 @@
     @apply btn text-slate-300 hover:bg-space-700;
   }
 }
+
+/* ---- Occupation avatars ---------------------------------------------------
+   Idle motion (bob, blink, lights, stars) always runs. The role's tool (.occ-prop)
+   only animates when the avatar is "live" (dashboard) or sits inside a picker
+   card (.occ-card) that is hovered or selected. Each tool names its animation
+   with --occ-anim; one shared rule below switches it on. */
+
+@keyframes occ-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.8px); }
+}
+@keyframes occ-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes occ-led {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@keyframes occ-twinkle-star {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+@keyframes occ-swing {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-16deg); }
+  75% { transform: rotate(16deg); }
+}
+@keyframes occ-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg); }
+  75% { transform: rotate(7deg); }
+}
+@keyframes occ-wave {
+  0%, 100% { transform: skewY(0deg); }
+  25% { transform: skewY(-7deg); }
+  75% { transform: skewY(7deg); }
+}
+@keyframes occ-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes occ-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-9px); opacity: 0; }
+}
+@keyframes occ-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+@keyframes occ-ecg {
+  from { stroke-dashoffset: 50; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes occ-shine {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.6; }
+}
+
+.occ-figure {
+  animation: occ-bob 3.8s ease-in-out infinite;
+}
+.occ-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: occ-blink 5s infinite;
+}
+.occ-led {
+  animation: occ-led 2.4s ease-in-out infinite;
+}
+.occ-star {
+  animation: occ-twinkle-star 3s ease-in-out infinite;
+}
+
+.occ-prop {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.occ-swing { --occ-anim: occ-swing; --occ-dur: 1s; transform-origin: 50% 100%; }
+.occ-sway { --occ-anim: occ-sway; --occ-dur: 1.6s; transform-origin: 50% 100%; }
+.occ-wave { --occ-anim: occ-wave; --occ-dur: 1s; transform-origin: 0% 50%; }
+.occ-orbit { --occ-anim: occ-orbit; --occ-dur: 6s; --occ-ease: linear; }
+.occ-rise { --occ-anim: occ-rise; --occ-dur: 1.5s; --occ-ease: ease-out; }
+.occ-pulse { --occ-anim: occ-pulse; --occ-dur: 1.2s; }
+.occ-ecg { --occ-anim: occ-ecg; --occ-dur: 1.4s; --occ-ease: linear; }
+.occ-shine { --occ-anim: occ-shine; --occ-dur: 1.8s; }
+.occ-spark { --occ-anim: occ-twinkle-star; --occ-dur: 0.8s; }
+
+/* Switch the tool animation on. */
+.occ-avatar[data-live='true'] .occ-prop,
+.occ-card:hover .occ-prop,
+.occ-card[aria-pressed='true'] .occ-prop {
+  animation: var(--occ-anim) var(--occ-dur, 1.6s) var(--occ-ease, ease-in-out) infinite;
+}
+/* A livelier bob when the avatar is active. */
+.occ-avatar[data-live='true'] .occ-figure,
+.occ-card:hover .occ-figure,
+.occ-card[aria-pressed='true'] .occ-figure {
+  animation-duration: 2.4s;
+}
+
+/* Frozen avatars (e.g. game over) and reduced-motion users get no movement. */
+.occ-avatar[data-still='true'] *,
+.occ-avatar[data-still='true'] {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .occ-avatar * {
+    animation: none !important;
+  }
+}

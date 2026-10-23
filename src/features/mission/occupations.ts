@@ -1,7 +1,7 @@
 /**
  * occupations.ts
  * --------------
- * CONTENT + TUNING for the four playable occupations. This is the single source
+ * CONTENT + TUNING for the eight playable occupations. This is the single source
  * of truth for each occupation's starting attributes, its documented
  * strengths/weaknesses, and its unique passive ability.
  *
@@ -14,7 +14,7 @@
  * data here and the math in occupationEffects keeps content separate from rules.
  */
 
-import type { Attributes, Occupation } from '../simulation/simulationTypes';
+import type { Attributes, Occupation, ResourceChanges } from '../simulation/simulationTypes';
 
 /**
  * A passive ability expressed as tunable, dimensionless modifiers the engine
@@ -52,6 +52,16 @@ export interface PassiveAbility {
    * <1 means better resistance. General survivability lever.
    */
   radiationResistanceFactor?: number;
+  /**
+   * Flat bonus added to the daily change of a resource (percentage points per
+   * day). Only positive values are used. Geologist: water. Chemist: oxygen.
+   * Pilot: power.
+   */
+  dailyResourceBonus?: ResourceChanges;
+  /**
+   * Flat morale recovery per day (percentage points). Commander's speciality.
+   */
+  moraleRecoveryBonus?: number;
 }
 
 /** Full definition of an occupation: identity, stats, trade-offs, passive. */
@@ -68,15 +78,10 @@ export interface OccupationDef {
   weaknesses: string[];
   passive: PassiveAbility;
   /**
-   * Path to the occupation portrait, served from /public. Drop a file here to
-   * use real art (e.g. public/occupations/engineer.webp). If the file is
-   * absent, the UI falls back to a generated SVG portrait (see OccupationAvatar).
+   * Accent colour for the portrait's glow and ring. The animated portrait
+   * itself is drawn in code (see OccupationArt.tsx).
    */
-  image: string;
-  /** Accent colour used for the generated fallback portrait + emoji glyph. */
   accent: string;
-  /** Emoji used in the generated fallback portrait. */
-  glyph: string;
 }
 
 /**
@@ -103,9 +108,7 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Maintains systems far better each day, slowing their decay.',
       systemUpkeepFactor: 1.6,
     },
-    image: '/occupations/engineer.webp',
     accent: '#e07a3f',
-    glyph: '🛠️',
   },
 
   scientist: {
@@ -127,9 +130,7 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Converts analysis into mission progress faster.',
       researchFactor: 1.35,
     },
-    image: '/occupations/scientist.webp',
     accent: '#4a90d9',
-    glyph: '🔬',
   },
 
   medicalOfficer: {
@@ -152,9 +153,7 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       healthRecoveryBonus: 2.5,
       radiationResistanceFactor: 0.8,
     },
-    image: '/occupations/medical-officer.webp',
     accent: '#5fd0c8',
-    glyph: '🩺',
   },
 
   botanist: {
@@ -176,9 +175,95 @@ export const OCCUPATION_CATALOG: Record<Occupation, OccupationDef> = {
       description: 'Coaxes extra food from the greenhouse each day.',
       foodProductionBonus: 3,
     },
-    image: '/occupations/botanist.webp',
     accent: '#4caf72',
-    glyph: '🌱',
+  },
+
+  geologist: {
+    id: 'geologist',
+    label: 'Geologist',
+    summary: 'Specialises in rocks, ice and finding water on Mars.',
+    attributes: {
+      health: 75,
+      intelligence: 70,
+      strength: 85,
+      stamina: 80,
+      technical: 60,
+      medical: 40,
+    },
+    strengths: ['Great strength and stamina', 'Finds extra water every day'],
+    weaknesses: ['Weak medical skill', 'Only average technical skill'],
+    passive: {
+      name: 'Ice Prospector',
+      description: 'Locates water ice near the outpost, adding extra water each day.',
+      dailyResourceBonus: { water: 2.5 },
+    },
+    accent: '#c98a4b',
+  },
+
+  chemist: {
+    id: 'chemist',
+    label: 'Chemist',
+    summary: 'Specialises in air quality and making oxygen.',
+    attributes: {
+      health: 60,
+      intelligence: 90,
+      strength: 45,
+      stamina: 55,
+      technical: 85,
+      medical: 70,
+    },
+    strengths: ['Sharp mind and technical skill', 'Produces extra oxygen every day'],
+    weaknesses: ['Low strength', 'Below-average stamina and health'],
+    passive: {
+      name: 'Air Alchemist',
+      description: 'Tunes the air recycler, adding extra oxygen each day.',
+      dailyResourceBonus: { oxygen: 2 },
+    },
+    accent: '#e0609c',
+  },
+
+  commander: {
+    id: 'commander',
+    label: 'Commander',
+    summary: 'Specialises in leadership and keeping spirits high.',
+    attributes: {
+      health: 80,
+      intelligence: 85,
+      strength: 60,
+      stamina: 80,
+      technical: 50,
+      medical: 50,
+    },
+    strengths: ['Sharp judgement and strong endurance', 'Morale recovers every day'],
+    weaknesses: ['Weak technical and medical skill', 'No repair or research speciality'],
+    passive: {
+      name: 'Steady Leadership',
+      description: 'Keeps morale recovering each day, even in tough times.',
+      moraleRecoveryBonus: 2,
+    },
+    accent: '#d94f63',
+  },
+
+  pilot: {
+    id: 'pilot',
+    label: 'Pilot',
+    summary: 'Specialises in outdoor work and keeping solar panels running.',
+    attributes: {
+      health: 80,
+      intelligence: 65,
+      strength: 70,
+      stamina: 85,
+      technical: 70,
+      medical: 45,
+    },
+    strengths: ['Excellent stamina and health', 'Extra solar power every day'],
+    weaknesses: ['Weak medical skill', 'Lower intelligence than the scientists'],
+    passive: {
+      name: 'Array Runner',
+      description: 'Keeps the solar panels clear and aligned, adding extra power each day.',
+      dailyResourceBonus: { power: 2.5 },
+    },
+    accent: '#f2c14e',
   },
 };
 
@@ -193,4 +278,8 @@ export const OCCUPATION_LIST: readonly OccupationDef[] = [
   OCCUPATION_CATALOG.scientist,
   OCCUPATION_CATALOG.medicalOfficer,
   OCCUPATION_CATALOG.botanist,
+  OCCUPATION_CATALOG.geologist,
+  OCCUPATION_CATALOG.chemist,
+  OCCUPATION_CATALOG.commander,
+  OCCUPATION_CATALOG.pilot,
 ];

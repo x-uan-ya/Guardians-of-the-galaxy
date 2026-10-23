@@ -87,7 +87,15 @@ export interface CrewState {
  * The occupations a player can choose. Each has a distinct attribute spread and
  * a unique passive ability (see features/mission/occupations.ts).
  */
-export type Occupation = 'engineer' | 'scientist' | 'medicalOfficer' | 'botanist';
+export type Occupation =
+  | 'engineer'
+  | 'scientist'
+  | 'medicalOfficer'
+  | 'botanist'
+  | 'geologist'
+  | 'chemist'
+  | 'commander'
+  | 'pilot';
 
 /** Canonical ordered list of occupations (stable for UI + tests). */
 export const OCCUPATIONS: readonly Occupation[] = [
@@ -95,6 +103,10 @@ export const OCCUPATIONS: readonly Occupation[] = [
   'scientist',
   'medicalOfficer',
   'botanist',
+  'geologist',
+  'chemist',
+  'commander',
+  'pilot',
 ];
 
 /**

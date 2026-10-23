@@ -1,68 +1,61 @@
 /**
  * OccupationAvatar.tsx
  * --------------------
- * Renders an occupation's portrait. It attempts to load the image file from
- * /public (occ.image). If that file is missing or fails to load, it falls back
- * to a generated portrait: a tinted radial-gradient disc with the occupation's
- * glyph. This means the UI looks intentional even before real art is added —
- * drop files at public/occupations/<id>.webp to use your own portraits.
+ * Renders an occupation's animated portrait: a small astronaut holding a
+ * role-specific tool, drawn in code (see OccupationArt.tsx).
+ *
+ * Motion:
+ *  - Always: the astronaut bobs, blinks and the suit lights pulse.
+ *  - The role's tool (wrench, atom, sprout...) animates when `live` is set, or
+ *    when the avatar sits inside a picker card (`.occ-card`) that is hovered
+ *    or selected.
+ *  - `still` freezes everything (e.g. on the game-over screen).
+ *  - Motion is also switched off for users who prefer reduced motion.
  *
  * Pure presentational, no game logic.
  */
 
-import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { OccupationDef } from './occupations';
+import { OccupationArt } from './OccupationArt';
 
 interface OccupationAvatarProps {
   occupation: OccupationDef;
   /** Pixel size (square). Defaults to 64. */
   size?: number;
   className?: string;
+  /** Keep the role's tool animating continuously (dashboard use). */
+  live?: boolean;
+  /** Freeze all motion. */
+  still?: boolean;
 }
 
 export function OccupationAvatar({
   occupation,
   size = 64,
   className = '',
+  live = false,
+  still = false,
 }: OccupationAvatarProps): ReactElement {
-  const [failed, setFailed] = useState(false);
-
-  // Reset the error state if the occupation (and thus image) changes.
-  useEffect(() => {
-    setFailed(false);
-  }, [occupation.image]);
-
-  const dimension = { width: size, height: size };
-
-  if (failed) {
-    // Generated fallback portrait: tinted disc + glyph.
-    return (
-      <div
-        className={`flex shrink-0 items-center justify-center rounded-full ${className}`}
-        style={{
-          ...dimension,
-          background: `radial-gradient(circle at 35% 30%, ${occupation.accent}55, #0a0a0f 85%)`,
-          boxShadow: `inset 0 0 0 1px ${occupation.accent}66`,
-          fontSize: size * 0.45,
-        }}
-        role="img"
-        aria-label={`${occupation.label} portrait`}
-      >
-        <span aria-hidden>{occupation.glyph}</span>
-      </div>
-    );
-  }
-
   return (
-    <img
-      src={occupation.image}
-      alt={`${occupation.label} portrait`}
-      width={size}
-      height={size}
-      onError={() => setFailed(true)}
-      className={`shrink-0 rounded-full object-cover ${className}`}
-      style={{ ...dimension, boxShadow: `inset 0 0 0 1px ${occupation.accent}66` }}
-    />
+    <div
+      className={`occ-avatar relative shrink-0 overflow-hidden rounded-full ${className}`}
+      data-live={live ? 'true' : 'false'}
+      data-still={still ? 'true' : 'false'}
+      style={{
+        width: size,
+        height: size,
+        background: `radial-gradient(circle at 35% 30%, ${occupation.accent}55, #0a0a0f 85%)`,
+      }}
+      role="img"
+      aria-label={`${occupation.label} portrait`}
+    >
+      <OccupationArt occupation={occupation.id} />
+      {/* Ring drawn above the art so the edge stays crisp. */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{ boxShadow: `inset 0 0 0 1px ${occupation.accent}88` }}
+      />
+    </div>
   );
 }

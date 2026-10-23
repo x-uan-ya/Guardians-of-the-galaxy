@@ -158,6 +158,10 @@ export function HowToPlay(): ReactElement {
           <Term name="Scientist:">research and problem-solving. You make mission progress faster.</Term>
           <Term name="Medical Officer:">health and survival. You recover health and resist radiation.</Term>
           <Term name="Botanist:">food and biology. The greenhouse gives extra food every day.</Term>
+          <Term name="Geologist:">rocks and ice. You find extra water every day.</Term>
+          <Term name="Chemist:">air and chemistry. You make extra oxygen every day.</Term>
+          <Term name="Commander:">leadership. Your morale recovers a little every day.</Term>
+          <Term name="Pilot:">outdoor work and solar panels. You get extra power every day.</Term>
         </ul>
       </Section>
 

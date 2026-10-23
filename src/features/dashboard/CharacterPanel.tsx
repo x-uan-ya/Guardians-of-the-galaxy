@@ -47,7 +47,7 @@ export function CharacterPanel({ state }: CharacterPanelProps): ReactElement {
 
       {/* Portrait + identity */}
       <div className="mb-3 flex items-center gap-3">
-        <OccupationAvatar occupation={occ} size={52} />
+        <OccupationAvatar occupation={occ} size={64} live />
         <div>
           <div className="text-sm font-semibold text-slate-100">{occ.label}</div>
           <div className="text-xs text-slate-400">{occ.summary}</div>

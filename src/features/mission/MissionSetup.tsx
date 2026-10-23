@@ -127,13 +127,13 @@ function OccupationPicker({
               type="button"
               onClick={() => onChange(occ.id)}
               aria-pressed={selected}
-              className={`flex h-full flex-col items-center rounded-lg border p-3 text-center transition-colors ${
+              className={`occ-card flex h-full flex-col items-center rounded-lg border p-3 text-center transition-colors ${
                 selected
                   ? 'border-mars-orange/60 bg-mars-red/10 ring-1 ring-mars-orange/40'
                   : 'border-space-600 bg-space-700/40 hover:bg-space-700'
               }`}
             >
-              <OccupationAvatar occupation={occ} size={56} className="mb-2" />
+              <OccupationAvatar occupation={occ} size={76} className="mb-2" />
               <span className="text-sm font-semibold text-slate-100">{occ.label}</span>
               <p className="mt-0.5 text-xs text-slate-400">{occ.summary}</p>
             </button>

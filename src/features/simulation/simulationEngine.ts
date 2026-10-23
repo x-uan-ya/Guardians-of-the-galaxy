@@ -43,6 +43,8 @@ import {
   applyDailySystemUpkeep,
   applyResearchFactor,
   dailyHealthRecovery,
+  dailyMoraleRecovery,
+  dailyResourceBonus,
   foodProductionBonus,
   initialCrewForCharacter,
 } from './occupationEffects';
@@ -71,6 +73,7 @@ import {
   RESOURCE_KEYS,
   SCHEMA_VERSION,
   type CharacterState,
+  type CrewChanges,
   type DelayedEffect,
   type GameState,
   type MissionStatus,
@@ -94,6 +97,10 @@ const OCCUPATION_SYSTEM_BONUS: Record<Occupation, SystemChanges> = {
   scientist: { powerGeneration: 3 },
   medicalOfficer: { lifeSupportEfficiency: 3, shieldingIntegrity: 2 },
   botanist: { foodProduction: 6 },
+  geologist: { shieldingIntegrity: 3 },
+  chemist: { lifeSupportEfficiency: 5 },
+  commander: { powerGeneration: 2, lifeSupportEfficiency: 2 },
+  pilot: { powerGeneration: 5 },
 };
 
 // ---------------------------------------------------------------------------
@@ -501,19 +508,30 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   const systems = clampSystems(applyDailySystemUpkeep(state.systems, state.character));
 
   // 2. Baseline daily resource delta from the (maintained) systems, plus the
-  //    botanist's flat food production bonus.
+  //    botanist's flat food bonus and the other occupations' flat bonuses
+  //    (geologist water, chemist oxygen, pilot power).
   const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
   const baseDelta = computeDailyResourceDelta(systems, state.crew, consumptionFactor);
   const foodBonus = foodProductionBonus(state.character);
+  const roleBonus = dailyResourceBonus(state.character);
   const dailyDelta: ResourceChanges = {
     ...baseDelta,
-    food: round2((baseDelta.food ?? 0) + foodBonus),
+    power: round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0)),
+    water: round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0)),
+    food: round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
+    oxygen: round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)),
   };
   const resources = applyResourceChanges(state.resources, dailyDelta);
 
-  // 3. Medical officer's daily health recovery (only while not in danger).
+  // 3. Daily crew recovery: the medical officer's health (only while not in
+  //    danger) and the commander's morale.
   const recovery = dailyHealthRecovery(state.crew, state.character);
-  const crew = recovery > 0 ? applyCrewChanges(state.crew, { health: recovery }) : state.crew;
+  const moraleRecovery = dailyMoraleRecovery(state.character);
+  const crewChanges: CrewChanges = {};
+  if (recovery > 0) crewChanges.health = recovery;
+  if (moraleRecovery > 0) crewChanges.morale = moraleRecovery;
+  const crew =
+    Object.keys(crewChanges).length > 0 ? applyCrewChanges(state.crew, crewChanges) : state.crew;
 
   const advanced: GameState = {
     ...state,

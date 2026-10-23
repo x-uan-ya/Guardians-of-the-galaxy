@@ -19,6 +19,7 @@ import type {
   Attributes,
   CharacterState,
   CrewState,
+  ResourceChanges,
   SystemState,
 } from './simulationTypes';
 
@@ -61,6 +62,31 @@ export function applyDailySystemUpkeep(
 /** Extra food produced per day from the botanist passive (0 otherwise). */
 export function foodProductionBonus(character: CharacterState): number {
   return passiveFor(character).foodProductionBonus ?? 0;
+}
+
+/**
+ * Extra resources produced per day by an occupation's passive (water for the
+ * geologist, oxygen for the chemist, power for the pilot). Only positive
+ * bonuses are honoured. Returns a NEW object; empty when there is no bonus.
+ */
+export function dailyResourceBonus(character: CharacterState): ResourceChanges {
+  const bonus = passiveFor(character).dailyResourceBonus;
+  const result: ResourceChanges = {};
+  if (!bonus) return result;
+  for (const key of ['power', 'water', 'food', 'oxygen'] as const) {
+    const value = bonus[key];
+    if (value !== undefined && value > 0) result[key] = round2(value);
+  }
+  return result;
+}
+
+/**
+ * Daily morale recovery (percentage points) from the commander's passive.
+ * 0 when the occupation has no such bonus.
+ */
+export function dailyMoraleRecovery(character: CharacterState): number {
+  const bonus = passiveFor(character).moraleRecoveryBonus ?? 0;
+  return bonus > 0 ? round2(bonus) : 0;
 }
 
 /**
