@@ -34,6 +34,7 @@ export function App(): ReactElement {
   const [view, setView] = useState<ViewKey>(DEFAULT_VIEW);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -129,6 +130,10 @@ export function App(): ReactElement {
     setView('dashboard');
   };
 
+  const handleToggleSidebar = (): void => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   // Show auth screens if not logged in
   if (!isLoggedIn) {
     if (authView === 'login') {
@@ -157,11 +162,13 @@ export function App(): ReactElement {
       storageAvailable={game.storageAvailable}
       activeView={view}
       hasActiveEvents={game.state.activeEvents.length > 0}
+      sidebarOpen={sidebarOpen}
       onNavigate={setView}
       onAdvanceDay={game.advanceDay}
       onSave={game.save}
       onNewMission={handleNewMission}
       onReset={handleReset}
+      onToggleSidebar={handleToggleSidebar}
       onLogoClick={handleLogoClick}
       onLogout={handleLogout}
     >

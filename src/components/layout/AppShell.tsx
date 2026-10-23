@@ -9,6 +9,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import type { MissionStatus } from '../../features/simulation/simulationTypes';
 import type { ViewKey } from '../../app/routes';
+import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { MissionBackdrop } from './MissionBackdrop';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -20,11 +21,13 @@ interface AppShellProps {
   storageAvailable: boolean;
   activeView: ViewKey;
   hasActiveEvents: boolean;
+  sidebarOpen: boolean;
   onNavigate: (view: ViewKey) => void;
   onAdvanceDay: () => void;
   onSave: () => void;
   onNewMission: () => void;
   onReset: () => void;
+  onToggleSidebar: () => void;
   onLogoClick?: () => void;
   onLogout?: () => void;
   children: ReactNode;
@@ -37,11 +40,13 @@ export function AppShell({
   storageAvailable,
   activeView,
   hasActiveEvents,
+  sidebarOpen,
   onNavigate,
   onAdvanceDay,
   onSave,
   onNewMission,
   onReset,
+  onToggleSidebar,
   onLogoClick,
   onLogout,
   children,
@@ -62,9 +67,44 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
-        <Sidebar active={activeView} onNavigate={onNavigate} />
-        <main key={activeView} className="flex-1 animate-fade-in-up p-4 sm:p-6">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
+        {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
+        {sidebarOpen && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="fixed left-4 bottom-6 z-50 hidden rounded-md bg-space-800 p-2 text-slate-400 shadow-lg ring-1 ring-space-600 transition-colors hover:bg-space-700 hover:text-slate-200 md:flex md:items-center md:justify-center"
+            aria-label="Close sidebar"
+            title="Close sidebar"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        )}
+
+        {/* Open Sidebar Button - only shown when sidebar is closed, fixed and always visible */}
+        {!sidebarOpen && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="fixed left-2 bottom-6 z-50 hidden rounded-md bg-space-800 p-2 text-slate-400 shadow-lg ring-1 ring-space-600 transition-colors hover:bg-space-700 hover:text-slate-200 md:flex md:items-center md:justify-center"
+            aria-label="Open sidebar"
+            title="Open sidebar"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
+        )}
+
+        {/* Sidebar - fixed position, conditionally rendered on desktop, always visible on mobile */}
+        <div className={`${sidebarOpen ? 'md:block' : 'md:hidden'} md:sticky md:top-0 md:self-start`}>
+          <Sidebar active={activeView} onNavigate={onNavigate} />
+        </div>
+
+        <main 
+          key={activeView} 
+          className={`flex-1 animate-fade-in-up p-4 sm:p-6 transition-all ${
+            sidebarOpen ? 'md:ml-0' : 'md:ml-0'
+          }`}
+        >
           {children}
         </main>
       </div>

@@ -6,20 +6,37 @@
  */
 
 import type { ReactElement } from 'react';
+import { PanelLeftClose } from 'lucide-react';
 import { ROUTES, type ViewKey } from '../../app/routes';
 
 interface SidebarProps {
   active: ViewKey;
   onNavigate: (view: ViewKey) => void;
+  onToggleSidebar?: () => void;
 }
 
-export function Sidebar({ active, onNavigate }: SidebarProps): ReactElement {
+export function Sidebar({ active, onNavigate, onToggleSidebar }: SidebarProps): ReactElement {
   return (
     <nav
       aria-label="Primary"
       className="flex gap-1 overflow-x-auto border-b border-space-600 bg-space-850/60 p-2
-                 md:h-full md:w-56 md:flex-col md:overflow-visible md:border-b-0 md:border-r"
+                 md:h-screen md:max-h-screen md:w-56 md:flex-col md:overflow-y-auto md:border-b-0 md:border-r"
     >
+      {/* Close sidebar button - fixed position within viewport */}
+      {onToggleSidebar && (
+        <div className="mb-2 hidden md:flex md:justify-start">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="rounded-md p-2 text-slate-400 transition-colors hover:bg-space-700 hover:text-slate-200"
+            aria-label="Close sidebar"
+            title="Close sidebar"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       {ROUTES.map((route) => {
         const Icon = route.icon;
         const isActive = route.key === active;
