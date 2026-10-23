@@ -16,6 +16,8 @@ import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { MissionSetup } from '../features/mission/MissionSetup';
+import { Briefing } from '../features/mission/Briefing';
+import { ResupplyModal } from '../features/mission/ResupplyModal';
 import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
 import { HowToPlay } from '../features/how-to-play/HowToPlay';
@@ -39,11 +41,34 @@ export function App(): ReactElement {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Whether the player has an active run this session. A run exists either
+  // because a saved game was restored, or because they launched one from
+  // Mission Setup. Until then, Mission Control (and other in-run screens) stay
+  // locked and the player is sent to Mission Setup first.
+  const [runStarted, setRunStarted] = useState(false);
+  // Whether the cinematic briefing has been dismissed this session. It plays
+  // once before occupation selection on a fresh start.
+  const [briefingDone, setBriefingDone] = useState(false);
 
   // Check authentication status on mount
   useEffect(() => {
     setIsLoggedIn(isAuthenticated());
   }, []);
+
+  // If a saved mission was restored, the player already has an active run —
+  // skip the briefing and let them straight into Mission Control.
+  useEffect(() => {
+    if (game.notice.kind === 'restored') {
+      setRunStarted(true);
+      setBriefingDone(true);
+    }
+  }, [game.notice.kind]);
+
+  // Views that require an active run. Visiting them before a run has started
+  // redirects to Mission Setup.
+  const RUN_REQUIRED_VIEWS: ViewKey[] = ['dashboard', 'debrief'];
+  const effectiveView: ViewKey =
+    !runStarted && RUN_REQUIRED_VIEWS.includes(view) ? 'mission-setup' : view;
 
   // Confirmation state for destructive actions.
   const [confirm, setConfirm] = useState<
@@ -73,24 +98,26 @@ export function App(): ReactElement {
 
   // Launch from the setup screen: confirm if the current game has progress.
   const handleLaunch = (config: MissionConfig): void => {
-    if (hasProgress) {
+    if (hasProgress && runStarted) {
       setConfirm({ kind: 'launch', config });
     } else {
       game.startNewMission(config);
+      setRunStarted(true);
       setView('dashboard');
     }
   };
 
   const handleReset = (): void => setConfirm({ kind: 'reset' });
 
-  // Logo click: navigate to dashboard
+  // Logo click: go to Mission Control if a run is active, otherwise Mission Setup.
   const handleLogoClick = (): void => {
-    setView('dashboard');
+    setView(runStarted ? 'dashboard' : 'mission-setup');
   };
 
   // Game-over: restart immediately with the same occupation + mission config.
   const handleRestartSame = (): void => {
     game.startNewMission(currentConfig);
+    setRunStarted(true);
     setView('dashboard');
   };
 
@@ -113,6 +140,7 @@ export function App(): ReactElement {
         break;
       case 'launch':
         game.startNewMission(confirm.config);
+        setRunStarted(true);
         setView('dashboard');
         break;
     }
@@ -131,7 +159,9 @@ export function App(): ReactElement {
   const handleLogout = (): void => {
     logout(); // Clear session
     setIsLoggedIn(false);
-    setView('dashboard');
+    setRunStarted(false);
+    setBriefingDone(false);
+    setView('mission-setup');
   };
 
   const handleToggleSidebar = (): void => {
@@ -164,7 +194,7 @@ export function App(): ReactElement {
       status={game.state.mission.status}
       score={game.state.mission.score}
       storageAvailable={game.storageAvailable}
-      activeView={view}
+      activeView={effectiveView}
       hasActiveEvents={game.state.activeEvents.length > 0}
       sidebarOpen={sidebarOpen}
       onNavigate={setView}
@@ -178,7 +208,17 @@ export function App(): ReactElement {
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
-      {view === 'dashboard' ? (
+      {/* Cinematic briefing: plays once before occupation selection. */}
+      {!briefingDone && !runStarted ? (
+        <Briefing onContinue={() => setBriefingDone(true)} />
+      ) : null}
+
+      {/* Resupply pop-up: appears when the Sol 15 drop is delivered. */}
+      {game.resupplyDeliveredOnDay !== null ? (
+        <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
+      ) : null}
+
+      {effectiveView === 'dashboard' ? (
         <Dashboard
           state={game.state}
           activity={game.activity}
@@ -188,20 +228,20 @@ export function App(): ReactElement {
         />
       ) : null}
 
-      {view === 'mission-setup' ? (
+      {effectiveView === 'mission-setup' ? (
         <MissionSetup onLaunch={handleLaunch} current={currentConfig} />
       ) : null}
 
-      {view === 'debrief' ? <Debrief state={game.state} /> : null}
+      {effectiveView === 'debrief' ? <Debrief state={game.state} /> : null}
 
-      {view === 'achievements' ? <AchievementsPage progression={progression} /> : null}
+      {effectiveView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
 
-      {view === 'how-to-play' ? <HowToPlay /> : null}
+      {effectiveView === 'how-to-play' ? <HowToPlay /> : null}
 
       <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
 
       {/* Game-over overlay: shown on the dashboard when the run has failed. */}
-      {runFailed && view === 'dashboard' ? (
+      {runFailed && effectiveView === 'dashboard' ? (
         <GameOver
           state={game.state}
           onRestartSame={handleRestartSame}
@@ -210,7 +250,7 @@ export function App(): ReactElement {
       ) : null}
 
       {/* Crisis Modal: shown when there are active events */}
-      {game.state.activeEvents.length > 0 && view === 'dashboard' && !runFailed && game.state.activeEvents[0] ? (
+      {game.state.activeEvents.length > 0 && effectiveView === 'dashboard' && !runFailed && game.state.activeEvents[0] ? (
         <CrisisModal
           event={game.state.activeEvents[0]}
           onChoose={(actionId, choice) => {

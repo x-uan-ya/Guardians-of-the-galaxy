@@ -28,8 +28,9 @@
 /**
  * Schema version for persisted game state. Bump when the shape changes.
  * v2: added the solo `character` model (occupation + attributes).
+ * v3: added the one-time resupply (mission.supplyWindow + resupplyDelivered).
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 /** Shared numeric bounds for every 0..100 metric in the game. */
 export const METRIC_MIN = 0;
@@ -192,6 +193,15 @@ export interface MissionState {
   status: MissionStatus;
   /** Running mission score (higher is better). */
   score: number;
+  /**
+   * Supply window in days (2–8), rolled per run from the seeded RNG. A one-time
+   * resupply arrives the day AFTER the window closes (on day supplyWindow + 1),
+   * boosting every resource by a fixed amount. A longer window means more drain
+   * before relief, so it is harder. Completion is still day 30.
+   */
+  supplyWindow: number;
+  /** True once the one-time resupply has been delivered (fires exactly once). */
+  resupplyDelivered: boolean;
 }
 
 // ---------------------------------------------------------------------------

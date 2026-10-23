@@ -88,6 +88,24 @@ export { calculateDerivedStatus } from './simulationSelectors';
 export { InvalidDecisionError } from './eventResolver';
 
 /**
+ * One-time resupply tuning (illustrative gameplay values).
+ *  - The resupply arrives on a FIXED day for every run: the midpoint of the
+ *    30-day mission (day 15). Survive to day 15 and you get the drop.
+ *  - On arrival it adds RESUPPLY_AMOUNT to every resource, exactly once.
+ *  - RESUPPLY_AMOUNT is fixed for all players.
+ */
+export const RESUPPLY_DAY = 15;
+export const RESUPPLY_AMOUNT = 25;
+
+/**
+ * The day the one-time resupply arrives. Fixed at the mission midpoint (Sol 15)
+ * for all runs.
+ */
+export function resupplyDay(): number {
+  return RESUPPLY_DAY;
+}
+
+/**
  * Small starting system nudge per occupation, so the choice is felt on day 1
  * (illustrative gameplay tuning). Engineer runs tighter systems; botanist
  * starts with a greener greenhouse; medical/scientist lean elsewhere.
@@ -147,6 +165,8 @@ export function createInitialGameState(config: MissionConfig): GameState {
       startingCondition: config.startingCondition,
       status: 'active',
       score: STARTING_SCORE,
+      supplyWindow: RESUPPLY_DAY,
+      resupplyDelivered: false,
     },
     activeEvents: [],
     history: [],
@@ -249,6 +269,12 @@ export function validateGameState(state: unknown): ValidationResult {
     }
     if (!isValidNumber(s.mission.score)) {
       errors.push(`Invalid mission.score: ${String(s.mission.score)}.`);
+    }
+    if (!Number.isInteger(s.mission.supplyWindow) || (s.mission.supplyWindow ?? 0) < 1) {
+      errors.push(`Invalid mission.supplyWindow: ${String(s.mission.supplyWindow)}.`);
+    }
+    if (typeof s.mission.resupplyDelivered !== 'boolean') {
+      errors.push(`Invalid mission.resupplyDelivered: ${String(s.mission.resupplyDelivered)}.`);
     }
   }
 
@@ -484,6 +510,8 @@ export interface AdvanceResult {
   firedEffects: DelayedEffect[];
   /** The per-resource daily delta that was applied this day. */
   dailyDelta: ResourceChanges;
+  /** True if the one-time resupply was delivered on this advance. */
+  resupplyFired: boolean;
 }
 
 /**
@@ -499,7 +527,7 @@ export interface AdvanceResult {
  */
 export function advanceSimulationDay(state: GameState): AdvanceResult {
   if (state.mission.status === 'failed' || state.mission.status === 'completed') {
-    return { state, firedEffects: [], dailyDelta: {} };
+    return { state, firedEffects: [], dailyDelta: {}, resupplyFired: false };
   }
 
   const nextDay = state.day + 1;
@@ -521,7 +549,20 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
     food: round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
     oxygen: round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)),
   };
-  const resources = applyResourceChanges(state.resources, dailyDelta);
+  let resources = applyResourceChanges(state.resources, dailyDelta);
+
+  // 2b. One-time resupply. On the day AFTER the supply window closes
+  //     (day === supplyWindow + 1), a single resupply adds RESUPPLY_AMOUNT to
+  //     every resource. Fires exactly once, guarded by resupplyDelivered.
+  const resupplyFired = !state.mission.resupplyDelivered && nextDay === resupplyDay();
+  if (resupplyFired) {
+    resources = applyResourceChanges(resources, {
+      power: RESUPPLY_AMOUNT,
+      water: RESUPPLY_AMOUNT,
+      food: RESUPPLY_AMOUNT,
+      oxygen: RESUPPLY_AMOUNT,
+    });
+  }
 
   // 3. Daily crew recovery: the medical officer's health (only while not in
   //    danger) and the commander's morale.
@@ -539,6 +580,9 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
     resources,
     crew,
     systems,
+    mission: resupplyFired
+      ? { ...state.mission, resupplyDelivered: true }
+      : state.mission,
     updatedAt: state.updatedAt,
   };
 
@@ -558,7 +602,7 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   const finalState = withDerivedMission(withEvents);
 
-  return { state: finalState, firedEffects: applied, dailyDelta };
+  return { state: finalState, firedEffects: applied, dailyDelta, resupplyFired };
 }
 
 // ---------------------------------------------------------------------------

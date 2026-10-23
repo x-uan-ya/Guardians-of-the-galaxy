@@ -20,6 +20,7 @@ import {
   createInitialGameState,
   getSimulationSummary,
   InvalidDecisionError,
+  RESUPPLY_AMOUNT,
   withTimestamp,
 } from '../features/simulation/simulationEngine';
 import type { GameState } from '../features/simulation/simulationTypes';
@@ -62,6 +63,10 @@ export interface UseGameState {
   activity: ActivityEntry[];
   storageAvailable: boolean;
   notice: PersistenceNotice;
+  /** The Sol the one-time resupply was just delivered on (null when dismissed). */
+  resupplyDeliveredOnDay: number | null;
+  /** Dismiss the resupply pop-up. */
+  dismissResupply: () => void;
   /** Advance the simulation one day through the engine. */
   advanceDay: () => void;
   /** Apply a validated player decision; surfaces errors via the activity feed. */
@@ -96,6 +101,8 @@ export function useGameState(): UseGameState {
   const [state, setState] = useState<GameState>(() => createInitialGameState(DEFAULT_MISSION_CONFIG));
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [notice, setNotice] = useState<PersistenceNotice>({ kind: 'idle' });
+  // Set to the Sol the resupply was delivered, so the UI can pop a modal.
+  const [resupplyDeliveredOnDay, setResupplyDeliveredOnDay] = useState<number | null>(null);
 
   const pushActivity = useCallback(
     (day: number, message: string, tone: ActivityEntry['tone']) => {
@@ -139,12 +146,17 @@ export function useGameState(): UseGameState {
         return prev;
       }
       const stamped = withTimestamp(prev, Date.now());
-      const { state: next, firedEffects, dailyDelta } = advanceSimulationDay(stamped);
+      const { state: next, firedEffects, dailyDelta, resupplyFired } = advanceSimulationDay(stamped);
 
       const deltaSummary = Object.entries(dailyDelta)
         .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v}`)
         .join(', ');
       pushActivity(next.day, `Advanced to day ${next.day}. Net daily change: ${deltaSummary || 'none'}.`, 'info');
+
+      if (resupplyFired) {
+        pushActivity(next.day, `📦 Resupply delivered! All resources +${RESUPPLY_AMOUNT}.`, 'good');
+        setResupplyDeliveredOnDay(next.day);
+      }
 
       for (const effect of firedEffects) {
         pushActivity(next.day, `Delayed effect: ${effect.description}`, 'warn');
@@ -240,6 +252,7 @@ export function useGameState(): UseGameState {
   }, [pushActivity]);
 
   const dismissNotice = useCallback(() => setNotice({ kind: 'idle' }), []);
+  const dismissResupply = useCallback(() => setResupplyDeliveredOnDay(null), []);
 
   // Expose a compact summary for debugging in dev tools.
   useEffect(() => {
@@ -253,6 +266,8 @@ export function useGameState(): UseGameState {
     activity,
     storageAvailable,
     notice,
+    resupplyDeliveredOnDay,
+    dismissResupply,
     advanceDay,
     decide,
     resolveActiveEvent,

@@ -11,9 +11,9 @@
  */
 
 import type { ReactElement } from 'react';
-import { Radar } from 'lucide-react';
+import { Package, Radar } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { calculateDerivedStatus } from '../simulation/simulationEngine';
+import { calculateDerivedStatus, resupplyDay } from '../simulation/simulationEngine';
 import type { GameState, StatusLevel } from '../simulation/simulationTypes';
 
 interface TacticalHudProps {
@@ -37,6 +37,24 @@ export function TacticalHud({ state }: TacticalHudProps): ReactElement {
   const derived = calculateDerivedStatus(state);
   const scanning = state.mission.status === 'active' || state.mission.status === 'critical';
 
+  // One-time resupply status.
+  const arriveDay = resupplyDay();
+  const delivered = state.mission.resupplyDelivered;
+  const daysUntil = arriveDay - state.day;
+
+  let supplyText: string;
+  let supplyTone: string;
+  if (delivered) {
+    supplyText = 'Resupply delivered';
+    supplyTone = 'border-status-ok/40 bg-status-ok/10 text-status-ok';
+  } else if (daysUntil <= 0) {
+    supplyText = `Resupply arriving (Sol ${arriveDay})`;
+    supplyTone = 'border-mars-orange/40 bg-mars-orange/10 text-mars-orange';
+  } else {
+    supplyText = `Resupply in ${daysUntil} sol${daysUntil === 1 ? '' : 's'} (Sol ${arriveDay})`;
+    supplyTone = 'border-accent-blue/40 bg-accent-blue/10 text-accent-blue';
+  }
+
   return (
     <section className="panel relative overflow-hidden p-4">
       <SectionHeader
@@ -56,6 +74,17 @@ export function TacticalHud({ state }: TacticalHudProps): ReactElement {
           </span>
         }
       />
+
+      {/* One-time resupply status banner. */}
+      <div
+        className={`mb-3 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium ${supplyTone}`}
+      >
+        <Package className="h-4 w-4 shrink-0" aria-hidden />
+        <span>{supplyText}</span>
+        <span className="ml-auto font-mono text-[10px] opacity-70">
+          Drop: Sol {arriveDay}
+        </span>
+      </div>
 
       <div className="relative flex h-44 w-full items-center justify-center overflow-hidden rounded-md border border-mars-orange/25 bg-space-900/80">
         {/* Concentric radar rings. */}
