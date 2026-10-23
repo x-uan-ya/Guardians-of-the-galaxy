@@ -1,16 +1,20 @@
 /**
  * OccupationAvatar.tsx
  * --------------------
- * Renders an occupation's animated portrait: a small astronaut holding a
- * role-specific tool, drawn in code (see OccupationArt.tsx).
+ * Renders an occupation as a small blocky, Roblox-style character that really
+ * moves (see OccupationArt.tsx for the drawings).
  *
- * Motion:
- *  - Always: the astronaut bobs, blinks and the suit lights pulse.
- *  - The role's tool (wrench, atom, sprout...) animates when `live` is set, or
- *    when the avatar sits inside a picker card (`.occ-card`) that is hovered
- *    or selected.
- *  - `still` freezes everything (e.g. on the game-over screen).
- *  - Motion is also switched off for users who prefer reduced motion.
+ * Poses:
+ *  - 'idle' (default): breathes, blinks and sways a little.
+ *  - 'walk': walks on the spot, swinging arms and legs, tool in hand.
+ *  - 'wave': hops and waves.
+ * Pointing at the character (or at its picker card, `.occ-card`) makes it walk,
+ * and selecting its card makes it wave, whatever its own pose is.
+ * `still` freezes everything (e.g. on the game-over screen).
+ *
+ * Reduced motion: the always-on movement (breathing, blinking, the dashboard
+ * walk) is switched off, but movement the user asks for by hovering or selecting
+ * still plays, because it is a direct response to their action.
  *
  * Pure presentational, no game logic.
  */
@@ -19,43 +23,42 @@ import type { ReactElement } from 'react';
 import type { OccupationDef } from './occupations';
 import { OccupationArt } from './OccupationArt';
 
+export type AvatarPose = 'idle' | 'walk' | 'wave';
+
+/** The drawing is 88 units wide and 100 tall. */
+const ASPECT = 0.88;
+
 interface OccupationAvatarProps {
   occupation: OccupationDef;
-  /** Pixel size (square). Defaults to 64. */
+  /** Height in pixels (width follows the artwork's proportions). Defaults to 96. */
   size?: number;
   className?: string;
-  /** Keep the role's tool animating continuously (dashboard use). */
-  live?: boolean;
+  pose?: AvatarPose;
   /** Freeze all motion. */
   still?: boolean;
 }
 
 export function OccupationAvatar({
   occupation,
-  size = 64,
+  size = 96,
   className = '',
-  live = false,
+  pose = 'idle',
   still = false,
 }: OccupationAvatarProps): ReactElement {
   return (
     <div
-      className={`occ-avatar relative shrink-0 overflow-hidden rounded-full ${className}`}
-      data-live={live ? 'true' : 'false'}
+      className={`rbx relative shrink-0 ${className}`}
+      data-pose={pose}
       data-still={still ? 'true' : 'false'}
       style={{
-        width: size,
+        width: Math.round(size * ASPECT),
         height: size,
-        background: `radial-gradient(circle at 35% 30%, ${occupation.accent}55, #0a0a0f 85%)`,
+        background: `radial-gradient(ellipse 62% 46% at 45% 90%, ${occupation.accent}55, transparent 72%)`,
       }}
       role="img"
-      aria-label={`${occupation.label} portrait`}
+      aria-label={`${occupation.label} character`}
     >
-      <OccupationArt occupation={occupation.id} />
-      {/* Ring drawn above the art so the edge stays crisp. */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-full"
-        style={{ boxShadow: `inset 0 0 0 1px ${occupation.accent}88` }}
-      />
+      <OccupationArt occupation={occupation.id} accent={occupation.accent} />
     </div>
   );
 }

@@ -78,8 +78,8 @@ export interface OccupationDef {
   weaknesses: string[];
   passive: PassiveAbility;
   /**
-   * Accent colour for the portrait's glow and ring. The animated portrait
-   * itself is drawn in code (see OccupationArt.tsx).
+   * Accent colour for the character's glow and ground disc. The animated
+   * character itself is drawn in code (see OccupationArt.tsx).
    */
   accent: string;
 }

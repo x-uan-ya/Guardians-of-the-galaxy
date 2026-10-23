@@ -157,11 +157,13 @@
   animation: pulse-slow 2s ease-in-out infinite;
 }
 
-/* Respect users who prefer reduced motion: disable the decorative animations. */
+/* Respect users who prefer reduced motion: disable the decorative animations.
+   Occupation characters are handled separately (see the .rbx rules below): they
+   only move in direct response to hover or selection. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *:not(.rbx, .rbx *),
+  *:not(.rbx, .rbx *)::before,
+  *:not(.rbx, .rbx *)::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
@@ -197,114 +199,224 @@
   }
 }
 
-/* ---- Occupation avatars ---------------------------------------------------
-   Idle motion (bob, blink, lights, stars) always runs. The role's tool (.occ-prop)
-   only animates when the avatar is "live" (dashboard) or sits inside a picker
-   card (.occ-card) that is hovered or selected. Each tool names its animation
-   with --occ-anim; one shared rule below switches it on. */
+/* ---- Occupation characters (Roblox-style blocky figures) --------------------
+   data-pose on .rbx is idle | walk | wave. Inside a picker card (.occ-card),
+   hovering makes the character walk and selecting makes it wave.
+   Limbs pivot around joints given in the artwork's own units (viewBox 88 x 100):
+   shoulders (21,40) and (59,40), hips (33.5,64) and (46.5,64), neck (40,35).
+   Keep these in sync with OccupationArt.tsx. */
 
-@keyframes occ-bob {
+@keyframes rbx-breathe {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-1.8px); }
+  50% { transform: translateY(-0.9px); }
 }
-@keyframes occ-blink {
+@keyframes rbx-bounce {
+  0%, 50%, 100% { transform: translateY(0); }
+  25%, 75% { transform: translateY(-2.4px); }
+}
+@keyframes rbx-hop {
+  0%, 36%, 100% { transform: translateY(0); }
+  18% { transform: translateY(-8px); }
+}
+@keyframes rbx-shadow-hop {
+  0%, 36%, 100% { transform: scale(1); }
+  18% { transform: scale(0.75); }
+}
+@keyframes rbx-swing {
+  from { transform: rotate(-28deg); }
+  to { transform: rotate(28deg); }
+}
+@keyframes rbx-swing-arm {
+  from { transform: rotate(-34deg); }
+  to { transform: rotate(34deg); }
+}
+@keyframes rbx-swing-hold {
+  from { transform: rotate(-18deg); }
+  to { transform: rotate(-4deg); }
+}
+@keyframes rbx-sway {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(3deg); }
+}
+@keyframes rbx-sway-hold {
+  from { transform: rotate(-12deg); }
+  to { transform: rotate(-8deg); }
+}
+@keyframes rbx-nod {
+  0%, 100% { transform: rotate(-1.6deg); }
+  50% { transform: rotate(1.6deg); }
+}
+@keyframes rbx-blink {
   0%, 92%, 100% { transform: scaleY(1); }
   95% { transform: scaleY(0.1); }
 }
-@keyframes occ-led {
-  0%, 100% { opacity: 0.35; }
+@keyframes rbx-wave-arm {
+  from { transform: rotate(138deg); }
+  to { transform: rotate(170deg); }
+}
+@keyframes rbx-twinkle {
+  0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
 }
-@keyframes occ-twinkle-star {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 1; }
+/* Tools */
+@keyframes rbx-chop {
+  from { transform: rotate(-20deg); }
+  to { transform: rotate(20deg); }
 }
-@keyframes occ-swing {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-16deg); }
-  75% { transform: rotate(16deg); }
-}
-@keyframes occ-sway {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-7deg); }
-  75% { transform: rotate(7deg); }
-}
-@keyframes occ-wave {
-  0%, 100% { transform: skewY(0deg); }
-  25% { transform: skewY(-7deg); }
-  75% { transform: skewY(7deg); }
-}
-@keyframes occ-orbit {
+@keyframes rbx-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-@keyframes occ-rise {
+@keyframes rbx-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.14); }
+}
+@keyframes rbx-grow {
+  from { transform: rotate(-9deg); }
+  to { transform: rotate(9deg); }
+}
+@keyframes rbx-rise {
   0% { transform: translateY(0); opacity: 0; }
   20% { opacity: 1; }
   100% { transform: translateY(-9px); opacity: 0; }
 }
-@keyframes occ-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.18); }
+@keyframes rbx-flag {
+  from { transform: skewY(-8deg); }
+  to { transform: skewY(8deg); }
 }
-@keyframes occ-ecg {
-  from { stroke-dashoffset: 50; }
-  to { stroke-dashoffset: 0; }
-}
-@keyframes occ-shine {
-  0%, 100% { opacity: 0.08; }
-  50% { opacity: 0.6; }
+@keyframes rbx-shine {
+  from { opacity: 0.08; }
+  to { opacity: 0.6; }
 }
 
-.occ-figure {
-  animation: occ-bob 3.8s ease-in-out infinite;
-}
-.occ-eye {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: occ-blink 5s infinite;
-}
-.occ-led {
-  animation: occ-led 2.4s ease-in-out infinite;
-}
-.occ-star {
-  animation: occ-twinkle-star 3s ease-in-out infinite;
-}
+/* Static setup: joints, pivots and the right arm's resting angle. */
+.rbx svg { overflow: visible; }
+.rbx-limb { transform-box: view-box; }
+.rbx-arm-l { transform-origin: 21px 40px; }
+.rbx-arm-r { transform-origin: 59px 40px; transform: rotate(-10deg); }
+.rbx-leg-l { transform-origin: 33.5px 64px; }
+.rbx-leg-r { transform-origin: 46.5px 64px; }
+.rbx-head { transform-origin: 40px 35px; }
+.rbx-eye { transform-box: fill-box; transform-origin: center; }
+.rbx-shadow { transform-box: fill-box; transform-origin: center; }
 
-.occ-prop {
+/* Tools name their own motion; the rules further down switch it on. */
+.rbx-tool {
   transform-box: fill-box;
   transform-origin: 50% 50%;
 }
-.occ-swing { --occ-anim: occ-swing; --occ-dur: 1s; transform-origin: 50% 100%; }
-.occ-sway { --occ-anim: occ-sway; --occ-dur: 1.6s; transform-origin: 50% 100%; }
-.occ-wave { --occ-anim: occ-wave; --occ-dur: 1s; transform-origin: 0% 50%; }
-.occ-orbit { --occ-anim: occ-orbit; --occ-dur: 6s; --occ-ease: linear; }
-.occ-rise { --occ-anim: occ-rise; --occ-dur: 1.5s; --occ-ease: ease-out; }
-.occ-pulse { --occ-anim: occ-pulse; --occ-dur: 1.2s; }
-.occ-ecg { --occ-anim: occ-ecg; --occ-dur: 1.4s; --occ-ease: linear; }
-.occ-shine { --occ-anim: occ-shine; --occ-dur: 1.8s; }
-.occ-spark { --occ-anim: occ-twinkle-star; --occ-dur: 0.8s; }
+.rbx-chop { --tool-anim: rbx-chop; --tool-dur: 0.45s; transform-origin: 50% 100%; }
+.rbx-spin { --tool-anim: rbx-spin; --tool-dur: 4s; --tool-ease: linear; --tool-dir: normal; }
+.rbx-pulse { --tool-anim: rbx-pulse; --tool-dur: 0.6s; }
+.rbx-grow { --tool-anim: rbx-grow; --tool-dur: 0.8s; transform-origin: 50% 100%; }
+.rbx-rise { --tool-anim: rbx-rise; --tool-dur: 1.4s; --tool-ease: ease-out; --tool-dir: normal; }
+.rbx-flag { --tool-anim: rbx-flag; --tool-dur: 0.4s; transform-origin: 0% 50%; }
+.rbx-shine { --tool-anim: rbx-shine; --tool-dur: 1.2s; }
 
-/* Switch the tool animation on. */
-.occ-avatar[data-live='true'] .occ-prop,
-.occ-card:hover .occ-prop,
-.occ-card[aria-pressed='true'] .occ-prop {
-  animation: var(--occ-anim) var(--occ-dur, 1.6s) var(--occ-ease, ease-in-out) infinite;
-}
-/* A livelier bob when the avatar is active. */
-.occ-avatar[data-live='true'] .occ-figure,
-.occ-card:hover .occ-figure,
-.occ-card[aria-pressed='true'] .occ-figure {
-  animation-duration: 2.4s;
-}
-
-/* Frozen avatars (e.g. game over) and reduced-motion users get no movement. */
-.occ-avatar[data-still='true'] *,
-.occ-avatar[data-still='true'] {
-  animation: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .occ-avatar * {
-    animation: none !important;
+/* ---- Ambient and pose-driven motion --------------------------------------
+   Runs on its own (not because the user pointed at anything), so it is only
+   enabled when the user has NOT asked for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .rbx-figure { animation: rbx-breathe 3.4s ease-in-out infinite; }
+  .rbx-arm-l { animation: rbx-sway 3.2s ease-in-out infinite alternate; }
+  .rbx-arm-r {
+    animation: rbx-sway-hold 3.2s ease-in-out infinite alternate;
+    animation-delay: -1.6s;
   }
+  .rbx-head { animation: rbx-nod 4.2s ease-in-out infinite; }
+  .rbx-eye { animation: rbx-blink 5s infinite; }
+  .rbx-twinkle { animation: rbx-twinkle 1.8s ease-in-out infinite; }
+
+  /* pose="walk" */
+  .rbx[data-pose='walk'] .rbx-figure { animation: rbx-bounce 0.9s ease-in-out infinite; }
+  .rbx[data-pose='walk'] .rbx-leg-l { animation: rbx-swing 0.45s ease-in-out infinite alternate; }
+  .rbx[data-pose='walk'] .rbx-leg-r {
+    animation: rbx-swing 0.45s ease-in-out infinite alternate-reverse;
+  }
+  .rbx[data-pose='walk'] .rbx-arm-l {
+    animation: rbx-swing-arm 0.45s ease-in-out infinite alternate-reverse;
+  }
+  .rbx[data-pose='walk'] .rbx-arm-r {
+    animation: rbx-swing-hold 0.45s ease-in-out infinite alternate;
+    animation-delay: 0s;
+  }
+  .rbx[data-pose='walk'] .rbx-head { animation: none; }
+
+  /* pose="wave" */
+  .rbx[data-pose='wave'] .rbx-figure { animation: rbx-hop 1.3s ease-out infinite; }
+  .rbx[data-pose='wave'] .rbx-shadow { animation: rbx-shadow-hop 1.3s ease-out infinite; }
+  .rbx[data-pose='wave'] .rbx-arm-l {
+    animation: rbx-wave-arm 0.35s ease-in-out infinite alternate;
+  }
+
+  .rbx[data-pose='walk'] .rbx-tool,
+  .rbx[data-pose='wave'] .rbx-tool {
+    animation: var(--tool-anim, none) var(--tool-dur, 1s) var(--tool-ease, ease-in-out) infinite
+      var(--tool-dir, alternate);
+  }
+}
+
+/* ---- Motion the user triggers --------------------------------------------
+   Pointing at a character makes it walk; selecting its picker card makes it
+   wave. This is a direct response to the user's own action, so it keeps
+   working even with reduced motion (see the finite limits further down). */
+
+/* Hover: walk on the spot. Opposite arms and legs swing together. */
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-figure {
+  animation: rbx-bounce 0.9s ease-in-out infinite;
+}
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-leg-l {
+  animation: rbx-swing 0.45s ease-in-out infinite alternate;
+}
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-leg-r {
+  animation: rbx-swing 0.45s ease-in-out infinite alternate-reverse;
+}
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-arm-l {
+  animation: rbx-swing-arm 0.45s ease-in-out infinite alternate-reverse;
+}
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-arm-r {
+  animation: rbx-swing-hold 0.45s ease-in-out infinite alternate;
+  animation-delay: 0s;
+}
+:is(.rbx:hover, .occ-card:hover .rbx) .rbx-head {
+  animation: none;
+}
+
+/* Selected card: hop and wave. Declared after hover so a selected card that is
+   also hovered keeps waving with its left arm. */
+.occ-card[aria-pressed='true'] .rbx .rbx-figure {
+  animation: rbx-hop 1.3s ease-out infinite;
+}
+.occ-card[aria-pressed='true'] .rbx .rbx-shadow {
+  animation: rbx-shadow-hop 1.3s ease-out infinite;
+}
+.occ-card[aria-pressed='true'] .rbx .rbx-arm-l {
+  animation: rbx-wave-arm 0.35s ease-in-out infinite alternate;
+}
+
+/* The held tool moves whenever the character is hovered or selected. */
+:is(.rbx:hover, .occ-card:hover .rbx, .occ-card[aria-pressed='true'] .rbx) .rbx-tool {
+  animation: var(--tool-anim, none) var(--tool-dur, 1s) var(--tool-ease, ease-in-out) infinite
+    var(--tool-dir, alternate);
+}
+
+/* Reduced motion: hovering still animates (it lasts only while the pointer is
+   there), but a selected card only waves for a few seconds instead of forever. */
+@media (prefers-reduced-motion: reduce) {
+  .occ-card[aria-pressed='true'] .rbx .rbx-figure,
+  .occ-card[aria-pressed='true'] .rbx .rbx-shadow {
+    animation-iteration-count: 2;
+  }
+  .occ-card[aria-pressed='true'] .rbx .rbx-arm-l {
+    animation-iteration-count: 8;
+  }
+  .occ-card[aria-pressed='true']:not(:hover) .rbx .rbx-tool {
+    animation-iteration-count: 6;
+  }
+}
+
+/* Frozen characters (e.g. game over) never move. */
+.rbx[data-still='true'],
+.rbx[data-still='true'] * {
+  animation: none !important;
 }

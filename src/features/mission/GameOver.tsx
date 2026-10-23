@@ -45,7 +45,7 @@ export function GameOver({ state, onRestartSame, onNewRun }: GameOverProps): Rea
     >
       <div className="panel w-full max-w-lg animate-fade-in-up p-6 text-center">
         <div className="relative mx-auto mb-4 w-fit">
-          <OccupationAvatar occupation={occupation} size={64} still className="opacity-60 grayscale" />
+          <OccupationAvatar occupation={occupation} size={84} still className="opacity-60 grayscale" />
           <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-status-critical/20 ring-1 ring-status-critical/50">
             <Skull className="h-4 w-4 text-status-critical" aria-hidden />
           </div>

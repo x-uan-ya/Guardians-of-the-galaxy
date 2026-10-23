@@ -133,7 +133,7 @@ function OccupationPicker({
                   : 'border-space-600 bg-space-700/40 hover:bg-space-700'
               }`}
             >
-              <OccupationAvatar occupation={occ} size={76} className="mb-2" />
+              <OccupationAvatar occupation={occ} size={108} className="mb-2" />
               <span className="text-sm font-semibold text-slate-100">{occ.label}</span>
               <p className="mt-0.5 text-xs text-slate-400">{occ.summary}</p>
             </button>
