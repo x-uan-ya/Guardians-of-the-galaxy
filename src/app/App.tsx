@@ -26,6 +26,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Dashboard } from '../features/dashboard/Dashboard';
 import { MissionSetup } from '../features/mission/MissionSetup';
+import { MissionSelect } from '../features/mission/MissionSelect';
 import { Briefing } from '../features/mission/Briefing';
 import { ResupplyModal } from '../features/mission/ResupplyModal';
 import { GameOver } from '../features/mission/GameOver';
@@ -41,7 +42,7 @@ import { Signup } from '../features/auth/Signup';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
 import { useGameFlow } from '../hooks/useGameFlow';
 import { useProgression } from '../hooks/useProgression';
-import type { MissionConfig } from '../features/mission/missionTypes';
+import type { MissionConfig, MissionType } from '../features/mission/missionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
 import { isAuthenticated, logout } from '../features/auth/authService';
@@ -62,6 +63,8 @@ export function App(): ReactElement {
   // Secondary navigation WITHIN the PLAYING phase (dashboard is the default).
   const [subView, setSubView] = useState<SubView>('dashboard');
   const [confirm, setConfirm] = useState<{ kind: 'new-run' } | null>(null);
+  // The mission site chosen on the MISSION_SELECT screen, carried into SETUP.
+  const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
 
   // --- Auth -----------------------------------------------------------------
   useEffect(() => {
@@ -109,6 +112,7 @@ export function App(): ReactElement {
   // --- Config + handlers ----------------------------------------------------
 
   const currentConfig: MissionConfig = {
+    missionType: selectedMission,
     occupation: game.state.character.occupation,
     objective: game.state.mission.objective,
     operatingPhilosophy: game.state.mission.operatingPhilosophy,
@@ -132,7 +136,8 @@ export function App(): ReactElement {
   const handleNewMission = (): void => setConfirm({ kind: 'new-run' });
 
   const handleRestartSame = (): void => {
-    game.startNewMission(currentConfig);
+    // Repeat the exact same run: same mission site + occupation + settings.
+    game.startNewMission({ ...currentConfig, missionType: game.state.mission.missionType });
     setSubView('dashboard');
     flow.launch();
   };
@@ -168,6 +173,19 @@ export function App(): ReactElement {
   // --- BRIEFING -------------------------------------------------------------
   if (flow.phase === 'BRIEFING') {
     return <Briefing onContinue={flow.continueBriefing} />;
+  }
+
+  // --- MISSION_SELECT (choose the deployment site) --------------------------
+  if (flow.phase === 'MISSION_SELECT') {
+    return (
+      <MissionSelect
+        current={selectedMission}
+        onSelect={(missionType) => {
+          setSelectedMission(missionType);
+          flow.selectMission();
+        }}
+      />
+    );
   }
 
   // --- SETUP (occupation selection) -----------------------------------------

@@ -212,6 +212,7 @@ export function MissionSetup({ onLaunch, current }: MissionSetupProps): ReactEle
             onClick={() => {
               if (!occupation) return;
               onLaunch({
+                missionType: current.missionType,
                 occupation,
                 objective,
                 operatingPhilosophy: philosophy,

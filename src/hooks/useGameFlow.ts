@@ -30,7 +30,8 @@ export interface UseGameFlow {
 
   // Intent-level transitions (dispatch a FlowEvent through the machine).
   start: () => void; //            TITLE -> BRIEFING
-  continueBriefing: () => void; //  BRIEFING -> SETUP
+  continueBriefing: () => void; //  BRIEFING -> MISSION_SELECT
+  selectMission: () => void; //     MISSION_SELECT -> SETUP
   launch: () => void; //            SETUP -> PLAYING
   raiseCrisis: () => void; //       PLAYING -> CRISIS
   resolveCrisis: () => void; //     CRISIS -> PLAYING
@@ -66,6 +67,7 @@ export function useGameFlow(initial: GamePhase = INITIAL_PHASE): UseGameFlow {
 
     start: make({ type: 'START' }),
     continueBriefing: make({ type: 'CONTINUE_BRIEFING' }),
+    selectMission: make({ type: 'SELECT_MISSION' }),
     launch: make({ type: 'LAUNCH' }),
     raiseCrisis: make({ type: 'CRISIS_RAISED' }),
     resolveCrisis: make({ type: 'CRISIS_RESOLVED' }),

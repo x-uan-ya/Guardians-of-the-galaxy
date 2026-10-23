@@ -29,8 +29,9 @@
  * Schema version for persisted game state. Bump when the shape changes.
  * v2: added the solo `character` model (occupation + attributes).
  * v3: added the one-time resupply (mission.supplyWindow + resupplyDelivered).
+ * v4: added mission selection (mission.missionType + modifiers).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Shared numeric bounds for every 0..100 metric in the game. */
 export const METRIC_MIN = 0;
@@ -182,10 +183,54 @@ export type OperatingPhilosophy = 'conservative' | 'balanced' | 'ambitious';
 /** Starting-condition preset. */
 export type StartingCondition = 'standard' | 'resource-constrained';
 
+/** The deployment site the player picks before choosing an occupation. */
+export type MissionType = 'lunar' | 'mars' | 'deep-space';
+
+/** Canonical ordered list of mission types (stable for UI + tests). */
+export const MISSION_TYPES: readonly MissionType[] = ['lunar', 'mars', 'deep-space'];
+
+/**
+ * Mission-wide difficulty modifiers applied by the simulation. This is the
+ * CONTRACT that teammates (notably the simulation owner) consume — the mission
+ * preset supplies these values and the engine reads them.
+ *
+ * Conventions:
+ *  - `*Factor` values multiply a production/output term. 1 = no change,
+ *    0.8 = −20%, 1.1 = +10%. They must be > 0.
+ *  - `radiationPerDay` is a flat radiation-exposure increase (0..100 points)
+ *    added each simulation day. 0 = none.
+ *  - `startingResourceDelta` shifts the starting resources (signed 0..100
+ *    points) applied once at mission creation.
+ *  - `noResupply` disables the one-time Sol-15 resupply drop entirely.
+ *
+ * All fields are REQUIRED on a preset so the contract is explicit; use the
+ * neutral defaults (factor 1, delta 0, false) for "no effect".
+ */
+export interface MissionModifiers {
+  /** Multiplies daily power generation. e.g. 0.8 = −20%. */
+  powerGenerationFactor: number;
+  /** Multiplies daily food production. e.g. 0.9 = −10%. */
+  foodProductionFactor: number;
+  /** Multiplies the life-support contribution (water + oxygen). 1 = none. */
+  lifeSupportFactor: number;
+  /** Multiplies solar-derived power specifically (deep-space penalty). */
+  solarFactor: number;
+  /** Flat radiation exposure added per day (0..100 points). */
+  radiationPerDay: number;
+  /** Signed starting-resource shift applied once at creation (0..100 points). */
+  startingResourceDelta: number;
+  /** When true, the one-time Sol-15 resupply never arrives. */
+  noResupply: boolean;
+}
+
 /** Lifecycle status of the mission. */
 export type MissionStatus = 'active' | 'critical' | 'completed' | 'failed';
 
 export interface MissionState {
+  /** The chosen deployment site. */
+  missionType: MissionType;
+  /** The difficulty modifiers for the chosen site (snapshotted onto the run). */
+  modifiers: MissionModifiers;
   objective: MissionObjective;
   operatingPhilosophy: OperatingPhilosophy;
   /** Preset that generated the starting values (kept for the debrief). */

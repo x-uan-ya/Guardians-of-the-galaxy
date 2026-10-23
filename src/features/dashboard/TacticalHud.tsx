@@ -14,6 +14,7 @@ import type { ReactElement } from 'react';
 import { Package, Radar } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { calculateDerivedStatus, resupplyDay } from '../simulation/simulationEngine';
+import { getMission } from '../mission/missions';
 import type { GameState, StatusLevel } from '../simulation/simulationTypes';
 
 interface TacticalHudProps {
@@ -36,6 +37,7 @@ const NODES = [
 export function TacticalHud({ state }: TacticalHudProps): ReactElement {
   const derived = calculateDerivedStatus(state);
   const scanning = state.mission.status === 'active' || state.mission.status === 'critical';
+  const mission = getMission(state.mission.missionType);
 
   // One-time resupply status.
   const arriveDay = resupplyDay();
@@ -58,9 +60,9 @@ export function TacticalHud({ state }: TacticalHudProps): ReactElement {
   return (
     <section className="panel relative overflow-hidden p-4">
       <SectionHeader
-        title="Outpost Zero — Tactical HUD"
+        title={`${mission.label} — Tactical HUD`}
         icon={Radar}
-        subtitle="Perimeter scan & telemetry nodes"
+        subtitle={mission.conditions.join(' · ')}
         action={
           <span
             className="font-mono text-[11px] rounded border px-2 py-0.5"

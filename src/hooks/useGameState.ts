@@ -52,6 +52,7 @@ export type PersistenceNotice =
  * player choose a real one for an actual run.
  */
 export const DEFAULT_MISSION_CONFIG: MissionConfig = {
+  missionType: 'mars',
   occupation: 'engineer',
   objective: 'survival',
   operatingPhilosophy: 'balanced',

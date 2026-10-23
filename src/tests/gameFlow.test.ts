@@ -32,12 +32,13 @@ describe('initial phase', () => {
 });
 
 describe('happy path', () => {
-  it('walks TITLE -> BRIEFING -> SETUP -> PLAYING -> MISSION_COMPLETE -> DEBRIEF -> SETUP', () => {
+  it('walks TITLE -> BRIEFING -> MISSION_SELECT -> SETUP -> PLAYING -> MISSION_COMPLETE -> DEBRIEF -> SETUP', () => {
     const phases: GamePhase[] = [];
     let p: GamePhase = INITIAL_PHASE;
     for (const ev of [
       'START',
       'CONTINUE_BRIEFING',
+      'SELECT_MISSION',
       'LAUNCH',
       'COMPLETED',
       'VIEW_DEBRIEF',
@@ -48,6 +49,7 @@ describe('happy path', () => {
     }
     expect(phases).toEqual([
       'BRIEFING',
+      'MISSION_SELECT',
       'SETUP',
       'PLAYING',
       'MISSION_COMPLETE',

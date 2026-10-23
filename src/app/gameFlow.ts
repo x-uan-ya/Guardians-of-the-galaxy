@@ -33,6 +33,7 @@
 export type GamePhase =
   | 'TITLE'
   | 'BRIEFING'
+  | 'MISSION_SELECT'
   | 'SETUP'
   | 'PLAYING'
   | 'CRISIS'
@@ -44,7 +45,8 @@ export type GamePhase =
 /** The intents that drive phase changes. UI dispatches these, never raw phases. */
 export type FlowEvent =
   | { type: 'START' } //            TITLE -> BRIEFING
-  | { type: 'CONTINUE_BRIEFING' } // BRIEFING -> SETUP
+  | { type: 'CONTINUE_BRIEFING' } // BRIEFING -> MISSION_SELECT
+  | { type: 'SELECT_MISSION' } //    MISSION_SELECT -> SETUP
   | { type: 'LAUNCH' } //            SETUP -> PLAYING
   | { type: 'CRISIS_RAISED' } //     PLAYING -> CRISIS
   | { type: 'CRISIS_RESOLVED' } //   CRISIS -> PLAYING
@@ -72,8 +74,12 @@ const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase
     NEW_RUN: 'SETUP',
   },
   BRIEFING: {
-    CONTINUE_BRIEFING: 'SETUP',
+    CONTINUE_BRIEFING: 'MISSION_SELECT',
     RESTORE_RUN: 'PLAYING',
+    QUIT_TITLE: 'TITLE',
+  },
+  MISSION_SELECT: {
+    SELECT_MISSION: 'SETUP',
     QUIT_TITLE: 'TITLE',
   },
   SETUP: {
@@ -146,6 +152,7 @@ export interface PhaseMeta {
 export const PHASE_META: Record<GamePhase, PhaseMeta> = {
   TITLE: { label: 'Title', inRun: false, terminal: false },
   BRIEFING: { label: 'Mission Briefing', inRun: false, terminal: false },
+  MISSION_SELECT: { label: 'Mission Selection', inRun: false, terminal: false },
   SETUP: { label: 'Occupation Selection', inRun: false, terminal: false },
   PLAYING: { label: 'Mission Control', inRun: true, terminal: false },
   CRISIS: { label: 'Crisis', inRun: true, terminal: false },

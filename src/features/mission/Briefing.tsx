@@ -161,7 +161,7 @@ export function Briefing({ onContinue }: BriefingProps): ReactElement {
                 Skip
               </button>
             ) : (
-              <span className="text-[11px] text-slate-500">Next: choose your occupation.</span>
+              <span className="text-[11px] text-slate-500">Next: choose your mission.</span>
             )}
             <button
               type="button"
@@ -170,7 +170,7 @@ export function Briefing({ onContinue }: BriefingProps): ReactElement {
               disabled={!fullyRevealed}
             >
               <Rocket className="h-4 w-4" aria-hidden />
-              Choose your occupation
+              Choose your mission
               <ChevronRight className="h-4 w-4" aria-hidden />
             </button>
           </div>

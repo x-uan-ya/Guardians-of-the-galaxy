@@ -38,6 +38,7 @@ import {
   resourcesForCondition,
 } from '../mission/missionDefaults';
 import { getOccupation } from '../mission/occupations';
+import { getMission } from '../mission/missions';
 import type { MissionConfig } from '../mission/missionTypes';
 import {
   applyDailySystemUpkeep,
@@ -69,6 +70,7 @@ import {
   ATTRIBUTE_KEYS,
   METRIC_MAX,
   METRIC_MIN,
+  MISSION_TYPES,
   OCCUPATIONS,
   RESOURCE_KEYS,
   SCHEMA_VERSION,
@@ -133,7 +135,21 @@ export function createInitialGameState(config: MissionConfig): GameState {
   const gameId = config.gameId ?? generateGameId();
   const now = config.now ?? Date.now();
 
-  const resources = resourcesForCondition(config.startingCondition);
+  // Resolve the chosen mission site and its difficulty modifiers.
+  const missionDef = getMission(config.missionType);
+  const modifiers = missionDef.modifiers;
+
+  // Starting resources, shifted once by the mission's startingResourceDelta.
+  const baseResources = resourcesForCondition(config.startingCondition);
+  const resources =
+    modifiers.startingResourceDelta === 0
+      ? baseResources
+      : applyResourceChanges(baseResources, {
+          power: modifiers.startingResourceDelta,
+          water: modifiers.startingResourceDelta,
+          food: modifiers.startingResourceDelta,
+          oxygen: modifiers.startingResourceDelta,
+        });
 
   // Resolve the chosen occupation and seed the character.
   const occupationDef = getOccupation(config.occupation);
@@ -160,6 +176,8 @@ export function createInitialGameState(config: MissionConfig): GameState {
     crew,
     systems,
     mission: {
+      missionType: config.missionType,
+      modifiers: { ...modifiers },
       objective: config.objective,
       operatingPhilosophy: config.operatingPhilosophy,
       startingCondition: config.startingCondition,
@@ -275,6 +293,29 @@ export function validateGameState(state: unknown): ValidationResult {
     }
     if (typeof s.mission.resupplyDelivered !== 'boolean') {
       errors.push(`Invalid mission.resupplyDelivered: ${String(s.mission.resupplyDelivered)}.`);
+    }
+    if (!MISSION_TYPES.includes(s.mission.missionType)) {
+      errors.push(`Invalid mission.missionType: ${String(s.mission.missionType)}.`);
+    }
+    const m = s.mission.modifiers;
+    if (!m || typeof m !== 'object') {
+      errors.push('Missing mission.modifiers.');
+    } else {
+      for (const key of [
+        'powerGenerationFactor',
+        'foodProductionFactor',
+        'lifeSupportFactor',
+        'solarFactor',
+        'radiationPerDay',
+        'startingResourceDelta',
+      ] as const) {
+        if (!isValidNumber(m[key])) {
+          errors.push(`Invalid mission.modifiers.${key}: ${String(m[key])}.`);
+        }
+      }
+      if (typeof m.noResupply !== 'boolean') {
+        errors.push(`Invalid mission.modifiers.noResupply: ${String(m.noResupply)}.`);
+      }
     }
   }
 
@@ -542,19 +583,32 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   const baseDelta = computeDailyResourceDelta(systems, state.crew, consumptionFactor);
   const foodBonus = foodProductionBonus(state.character);
   const roleBonus = dailyResourceBonus(state.character);
+
+  // Mission modifiers scale the POSITIVE (production) part of each daily delta
+  // only, so a penalty like "power −20%" reduces generation without perversely
+  // easing consumption. scaleGain(value, factor) = value * factor when value>0.
+  const mod = state.mission.modifiers;
+  const scaleGain = (value: number, factor: number): number =>
+    value > 0 ? round2(value * factor) : value;
+  const powerFactor = mod.powerGenerationFactor * mod.solarFactor;
+
   const dailyDelta: ResourceChanges = {
-    ...baseDelta,
-    power: round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0)),
-    water: round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0)),
-    food: round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
-    oxygen: round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)),
+    power: scaleGain(round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0)), powerFactor),
+    water: scaleGain(round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0)), mod.lifeSupportFactor),
+    food: scaleGain(
+      round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
+      mod.foodProductionFactor
+    ),
+    oxygen: scaleGain(round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)), mod.lifeSupportFactor),
   };
   let resources = applyResourceChanges(state.resources, dailyDelta);
 
   // 2b. One-time resupply. On the day AFTER the supply window closes
   //     (day === supplyWindow + 1), a single resupply adds RESUPPLY_AMOUNT to
-  //     every resource. Fires exactly once, guarded by resupplyDelivered.
-  const resupplyFired = !state.mission.resupplyDelivered && nextDay === resupplyDay();
+  //     every resource. Fires exactly once, guarded by resupplyDelivered — and
+  //     never at all if the mission has `noResupply` (deep-space).
+  const resupplyFired =
+    !mod.noResupply && !state.mission.resupplyDelivered && nextDay === resupplyDay();
   if (resupplyFired) {
     resources = applyResourceChanges(resources, {
       power: RESUPPLY_AMOUNT,
@@ -571,6 +625,8 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   const crewChanges: CrewChanges = {};
   if (recovery > 0) crewChanges.health = recovery;
   if (moraleRecovery > 0) crewChanges.morale = moraleRecovery;
+  // Mission radiation hazard (Mars / deep-space) accrues each day.
+  if (mod.radiationPerDay > 0) crewChanges.radiationExposure = mod.radiationPerDay;
   const crew =
     Object.keys(crewChanges).length > 0 ? applyCrewChanges(state.crew, crewChanges) : state.crew;
 
