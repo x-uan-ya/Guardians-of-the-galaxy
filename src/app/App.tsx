@@ -62,7 +62,7 @@ export function App(): ReactElement {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Secondary navigation WITHIN the PLAYING phase (dashboard is the default).
   const [subView, setSubView] = useState<SubView>('dashboard');
-  const [confirm, setConfirm] = useState<{ kind: 'new-run' } | null>(null);
+  const [confirm, setConfirm] = useState<{ kind: 'new-run' | 'restart' } | null>(null);
   // The mission site chosen on the MISSION_SELECT screen, carried into SETUP.
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
 
@@ -134,6 +134,10 @@ export function App(): ReactElement {
 
   // TopBar "New Mission" during play: confirm (discards progress), then SETUP.
   const handleNewMission = (): void => setConfirm({ kind: 'new-run' });
+
+  // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
+  // (same mission + occupation) — straight back into play, not occupation select.
+  const handleReset = (): void => setConfirm({ kind: 'restart' });
 
   const handleRestartSame = (): void => {
     // Repeat the exact same run: same mission site + occupation + settings.
@@ -208,7 +212,7 @@ export function App(): ReactElement {
       onAdvanceDay={game.advanceDay}
       onSave={game.save}
       onNewMission={handleNewMission}
-      onReset={handleNewMission}
+      onReset={handleReset}
       onToggleSidebar={handleToggleSidebar}
       onLogoClick={handleLogoClick}
       onLogout={handleLogout}
@@ -279,12 +283,18 @@ export function App(): ReactElement {
 
       <ConfirmDialog
         open={confirm !== null}
-        title="Start a new run?"
-        message={`This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and returns to occupation selection.`}
-        confirmLabel="Discard & continue"
+        title={confirm?.kind === 'restart' ? 'Reset mission?' : 'Start a new run?'}
+        message={
+          confirm?.kind === 'restart'
+            ? `This restarts the current mission from Sol 1 with the same site and occupation. Progress (Sol ${game.state.day}, ${game.state.history.length} decisions) will be lost.`
+            : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and returns to occupation selection.`
+        }
+        confirmLabel={confirm?.kind === 'restart' ? 'Reset & restart' : 'Discard & continue'}
         onConfirm={() => {
+          const kind = confirm?.kind;
           setConfirm(null);
-          goToNewRun();
+          if (kind === 'restart') handleRestartSame();
+          else goToNewRun();
         }}
         onCancel={() => setConfirm(null)}
       />
