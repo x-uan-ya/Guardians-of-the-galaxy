@@ -18,6 +18,7 @@ import { Dashboard } from '../features/dashboard/Dashboard';
 import { MissionSetup } from '../features/mission/MissionSetup';
 import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
+import { HowToPlay } from '../features/how-to-play/HowToPlay';
 import { CrisisModal } from '../features/events/CrisisModal';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
@@ -175,6 +176,8 @@ export function App(): ReactElement {
       ) : null}
 
       {view === 'debrief' ? <Debrief state={game.state} /> : null}
+
+      {view === 'how-to-play' ? <HowToPlay /> : null}
 
       {/* Game-over overlay: shown on the dashboard when the run has failed. */}
       {runFailed && view === 'dashboard' ? (
