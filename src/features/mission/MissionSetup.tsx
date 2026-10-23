@@ -22,9 +22,12 @@ import {
 } from './missionDefaults';
 import { OCCUPATION_LIST, getOccupation } from './occupations';
 import { OccupationAvatar } from './OccupationAvatar';
+import { COMPAT_META, getCompatibility } from './compatibility';
+import { getMission } from './missions';
 import type {
   MissionConfig,
   MissionObjective,
+  MissionType,
   Occupation,
   OperatingPhilosophy,
   StartingCondition,
@@ -105,9 +108,11 @@ function OptionGroup<T extends string>({
  */
 function OccupationPicker({
   value,
+  missionType,
   onChange,
 }: {
   value: Occupation | null;
+  missionType: MissionType;
   onChange: (v: Occupation) => void;
 }): ReactElement {
   return (
@@ -115,7 +120,7 @@ function OccupationPicker({
       <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
         Occupation
         <span className="ml-2 font-normal normal-case text-slate-500">
-          — stats are revealed once the run begins
+          — select a role to see how it fits the mission
         </span>
       </legend>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -140,7 +145,38 @@ function OccupationPicker({
           );
         })}
       </div>
+
+      {/* Mission-fit shown ONLY for the selected occupation (not up front, so
+          players don't comparison-shop every role's buff before choosing). */}
+      {value ? <CompatibilityNote missionType={missionType} occupation={value} /> : null}
     </fieldset>
+  );
+}
+
+/** The advisory compatibility badge + reason for the chosen occupation. */
+function CompatibilityNote({
+  missionType,
+  occupation,
+}: {
+  missionType: MissionType;
+  occupation: Occupation;
+}): ReactElement {
+  const compat = getCompatibility(missionType, occupation);
+  const meta = COMPAT_META[compat.rating];
+  const mission = getMission(missionType);
+  return (
+    <div className="mt-2 flex items-start gap-2 rounded-md border border-space-600 bg-space-800/60 p-3 animate-fade-in">
+      <span
+        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${meta.className}`}
+      >
+        <span aria-hidden>{meta.emoji}</span>
+        {meta.label}
+      </span>
+      <p className="text-xs leading-snug text-slate-300">
+        <span className="text-slate-400">Fit for {mission.label}: </span>
+        {compat.reason}
+      </p>
+    </div>
   );
 }
 
@@ -167,7 +203,11 @@ export function MissionSetup({ onLaunch, current }: MissionSetupProps): ReactEle
         />
 
         <div className="space-y-6">
-          <OccupationPicker value={occupation} onChange={setOccupation} />
+          <OccupationPicker
+            value={occupation}
+            missionType={current.missionType}
+            onChange={setOccupation}
+          />
           <OptionGroup legend="Objective" options={OBJECTIVES} value={objective} onChange={setObjective} />
           <OptionGroup
             legend="Operating Philosophy"

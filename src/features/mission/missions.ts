@@ -1,12 +1,18 @@
 /**
  * missions.ts
  * -----------
- * CONTENT + TUNING for the three mission sites the player picks before choosing
- * an occupation. Each preset supplies a typed `MissionModifiers` object — the
- * contract the simulation engine consumes (see occupationEffects / engine).
+ * CONTENT + TUNING for the mission sites the player picks before choosing an
+ * occupation. Each preset declares a `modifiers` bag — WHAT a site changes.
+ *
+ * OWNERSHIP SPLIT (see docs/MISSION_MODIFIERS.md for the full guide):
+ *   - THIS FILE owns "what conditions exist" + their modifier values.
+ *   - The simulation engine (advanceSimulationDay) owns "how those modifier
+ *     values mathematically affect the game".
+ * You can add/change a mission's `modifiers` here without touching the engine;
+ * the engine reads the existing keys and ignores anything it has no rule for.
  *
  * ⚠️ All numbers are GAMEPLAY ASSUMPTIONS for an educational game. Tune freely.
- * The three sites reuse the same map; only the modifiers (and flavour) differ.
+ * The sites reuse the same map; only the modifiers (and flavour) differ.
  *
  * The `conditions` array is flavour shown on the selection screen; the
  * `modifiers` are what actually change the simulation.
