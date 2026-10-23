@@ -6,8 +6,8 @@
  * handlers passed down from App; this component holds no game logic.
  */
 
-import type { ReactElement } from 'react';
-import { FastForward, RotateCcw, Rocket, Save } from 'lucide-react';
+import { useState, type ReactElement } from 'react';
+import { FastForward, RotateCcw, Rocket, Save, LogOut } from 'lucide-react';
 import type { MissionStatus } from '../../features/simulation/simulationTypes';
 
 interface TopBarProps {
@@ -21,6 +21,7 @@ interface TopBarProps {
   onNewMission: () => void;
   onReset: () => void;
   onLogoClick?: () => void;
+  onLogout?: () => void;
 }
 
 const STATUS_STYLES: Record<MissionStatus, string> = {
@@ -48,12 +49,27 @@ export function TopBar({
   onNewMission,
   onReset,
   onLogoClick,
+  onLogout,
 }: TopBarProps): ReactElement {
   const terminal = status === 'failed' || status === 'completed';
   const canAdvance = !terminal && !hasActiveEvents;
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutConfirm(false);
+    onLogout?.();
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutConfirm(false);
+  };
 
   return (
-    <header className="sticky top-0 z-30 overflow-hidden border-b border-space-600/80 bg-space-850/70 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-space-600/80 bg-space-850/70 backdrop-blur-md overflow-visible">
       {/* Decorative scanline sweep across the header. */}
       <div
         className="pointer-events-none absolute inset-y-0 left-0 w-1/4 animate-scan-sweep
@@ -125,6 +141,61 @@ export function TopBar({
             <RotateCcw className="h-4 w-4" aria-hidden />
             Reset
           </button>
+          {onLogout && (
+            <div className="relative">
+              <button 
+                type="button" 
+                className="btn-ghost" 
+                onClick={handleLogoutClick} 
+                title="Log out"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+                Logout
+              </button>
+              
+              {/* Logout Confirmation Popover */}
+              {showLogoutConfirm && (
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={handleLogoutCancel}
+                  />
+                  
+                  {/* Popover */}
+                  <div className="absolute right-0 top-full mt-2 z-50 w-72 animate-fadeIn">
+                    <div className="rounded-lg border-2 border-yellow-600/50 bg-space-900 p-4 shadow-2xl">
+                      <div className="mb-3 flex items-start gap-2">
+                        <span className="text-yellow-500 text-lg">⚠️</span>
+                        <div>
+                          <h3 className="font-semibold text-white mb-1">Log out?</h3>
+                          <p className="text-sm text-gray-300">
+                            Are you sure you want to log out? Your game progress will be saved.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleLogoutCancel}
+                          className="flex-1 rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleLogoutConfirm}
+                          className="flex-1 rounded-md bg-gradient-to-r from-mars-red to-mars-orange px-3 py-2 text-sm font-semibold text-white shadow-lg hover:brightness-110 transition-all"
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>

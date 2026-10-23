@@ -26,6 +26,7 @@ interface AppShellProps {
   onNewMission: () => void;
   onReset: () => void;
   onLogoClick?: () => void;
+  onLogout?: () => void;
   children: ReactNode;
 }
 
@@ -42,6 +43,7 @@ export function AppShell({
   onNewMission,
   onReset,
   onLogoClick,
+  onLogout,
   children,
 }: AppShellProps): ReactElement {
   return (
@@ -58,6 +60,7 @@ export function AppShell({
         onNewMission={onNewMission}
         onReset={onReset}
         onLogoClick={onLogoClick}
+        onLogout={onLogout}
       />
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         <Sidebar active={activeView} onNavigate={onNavigate} />

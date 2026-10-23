@@ -10,7 +10,7 @@
  * App holds NO simulation logic. Every state change routes through useGameState.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -19,15 +19,25 @@ import { MissionSetup } from '../features/mission/MissionSetup';
 import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
 import { CrisisModal } from '../features/events/CrisisModal';
+import { Login } from '../features/auth/Login';
+import { Signup } from '../features/auth/Signup';
 import { isGameOver } from '../features/simulation/simulationEngine';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
 import type { MissionConfig } from '../features/mission/missionTypes';
 import { DEFAULT_VIEW, type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
+import { isAuthenticated, logout } from '../features/auth/authService';
 
 export function App(): ReactElement {
   const game = useGameState();
   const [view, setView] = useState<ViewKey>(DEFAULT_VIEW);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+
+  // Check authentication status on mount
+  useEffect(() => {
+    setIsLoggedIn(isAuthenticated());
+  }, []);
 
   // Confirmation state for destructive actions.
   const [confirm, setConfirm] = useState<
@@ -103,6 +113,41 @@ export function App(): ReactElement {
     setConfirm(null);
   };
 
+  // Auth handlers
+  const handleLoginSuccess = (): void => {
+    setIsLoggedIn(true);
+  };
+
+  const handleSignupSuccess = (): void => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = (): void => {
+    logout(); // Clear session
+    setIsLoggedIn(false);
+    setView('dashboard');
+  };
+
+  // Show auth screens if not logged in
+  if (!isLoggedIn) {
+    if (authView === 'login') {
+      return (
+        <Login
+          onLoginSuccess={handleLoginSuccess}
+          onSwitchToSignup={() => setAuthView('signup')}
+        />
+      );
+    } else {
+      return (
+        <Signup
+          onSignupSuccess={handleSignupSuccess}
+          onSwitchToLogin={() => setAuthView('login')}
+        />
+      );
+    }
+  }
+
+  // Main app (when logged in)
   return (
     <AppShell
       day={game.state.day}
@@ -117,6 +162,7 @@ export function App(): ReactElement {
       onNewMission={handleNewMission}
       onReset={handleReset}
       onLogoClick={handleLogoClick}
+      onLogout={handleLogout}
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
