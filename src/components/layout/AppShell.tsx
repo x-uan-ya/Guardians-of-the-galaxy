@@ -67,7 +67,7 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:pl-56">
         {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
         {sidebarOpen && (
           <button
@@ -94,16 +94,14 @@ export function AppShell({
           </button>
         )}
 
-        {/* Sidebar - fixed position, conditionally rendered on desktop, always visible on mobile */}
-        <div className={`${sidebarOpen ? 'md:block' : 'md:hidden'} md:sticky md:top-0 md:self-start`}>
+        {/* Sidebar - fixed to viewport on desktop, always visible on mobile */}
+        <aside className={`${sidebarOpen ? 'md:block' : 'md:hidden'}`}>
           <Sidebar active={activeView} onNavigate={onNavigate} />
-        </div>
+        </aside>
 
         <main 
           key={activeView} 
-          className={`flex-1 animate-fade-in-up p-4 sm:p-6 transition-all ${
-            sidebarOpen ? 'md:ml-0' : 'md:ml-0'
-          }`}
+          className={`flex-1 animate-fade-in-up p-4 sm:p-6 transition-all`}
         >
           {children}
         </main>

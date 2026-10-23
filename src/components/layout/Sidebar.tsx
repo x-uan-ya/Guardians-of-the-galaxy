@@ -20,7 +20,7 @@ export function Sidebar({ active, onNavigate, onToggleSidebar }: SidebarProps): 
     <nav
       aria-label="Primary"
       className="flex gap-1 overflow-x-auto border-b border-space-600 bg-space-850/60 p-2
-                 md:h-screen md:max-h-screen md:w-56 md:flex-col md:overflow-y-auto md:border-b-0 md:border-r"
+                 md:fixed md:left-0 md:top-0 md:h-screen md:w-56 md:flex-col md:overflow-y-auto md:border-b-0 md:border-r md:pt-20"
     >
       {/* Close sidebar button - fixed position within viewport */}
       {onToggleSidebar && (
@@ -58,11 +58,6 @@ export function Sidebar({ active, onNavigate, onToggleSidebar }: SidebarProps): 
           </button>
         );
       })}
-      <div className="mt-auto hidden px-3 pb-2 pt-4 md:block">
-        <p className="text-[10px] leading-relaxed text-slate-500">
-          Foundation build. Gameplay values are illustrative, not real mission data.
-        </p>
-      </div>
     </nav>
   );
 }
