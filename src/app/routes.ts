@@ -10,10 +10,10 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { ClipboardList, LayoutDashboard, Rocket, HelpCircle } from 'lucide-react';
+import { ClipboardList, HelpCircle, LayoutDashboard, Rocket, Trophy } from 'lucide-react';
 
 /** All top-level views in the application. */
-export type ViewKey = 'dashboard' | 'mission-setup' | 'debrief' | 'how-to-play';
+export type ViewKey = 'dashboard' | 'mission-setup' | 'debrief' | 'achievements' | 'how-to-play';
 
 export interface RouteDef {
   key: ViewKey;
@@ -40,6 +40,12 @@ export const ROUTES: readonly RouteDef[] = [
     label: 'Debrief',
     icon: ClipboardList,
     description: 'Decision timeline and leadership profile.',
+  },
+  {
+    key: 'achievements',
+    label: 'Badges',
+    icon: Trophy,
+    description: 'Badges you have earned across your missions.',
   },
   {
     key: 'how-to-play',

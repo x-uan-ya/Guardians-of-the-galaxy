@@ -19,11 +19,14 @@ import { MissionSetup } from '../features/mission/MissionSetup';
 import { GameOver } from '../features/mission/GameOver';
 import { Debrief } from '../features/debrief/Debrief';
 import { HowToPlay } from '../features/how-to-play/HowToPlay';
+import { AchievementsPage } from '../features/progression/AchievementsPage';
+import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { CrisisModal } from '../features/events/CrisisModal';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
 import { isGameOver } from '../features/simulation/simulationEngine';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
+import { useProgression } from '../hooks/useProgression';
 import type { MissionConfig } from '../features/mission/missionTypes';
 import { DEFAULT_VIEW, type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
@@ -31,6 +34,7 @@ import { isAuthenticated, logout } from '../features/auth/authService';
 
 export function App(): ReactElement {
   const game = useGameState();
+  const { progression, dismissNotifications } = useProgression(game.state);
   const [view, setView] = useState<ViewKey>(DEFAULT_VIEW);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
@@ -175,7 +179,13 @@ export function App(): ReactElement {
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
       {view === 'dashboard' ? (
-        <Dashboard state={game.state} activity={game.activity} onDecide={game.decide} />
+        <Dashboard
+          state={game.state}
+          activity={game.activity}
+          onDecide={game.decide}
+          progression={progression}
+          onNavigate={setView}
+        />
       ) : null}
 
       {view === 'mission-setup' ? (
@@ -184,7 +194,11 @@ export function App(): ReactElement {
 
       {view === 'debrief' ? <Debrief state={game.state} /> : null}
 
+      {view === 'achievements' ? <AchievementsPage progression={progression} /> : null}
+
       {view === 'how-to-play' ? <HowToPlay /> : null}
+
+      <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
 
       {/* Game-over overlay: shown on the dashboard when the run has failed. */}
       {runFailed && view === 'dashboard' ? (

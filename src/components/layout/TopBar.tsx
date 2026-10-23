@@ -69,7 +69,7 @@ export function TopBar({
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-space-600/80 bg-space-850/70 backdrop-blur-md overflow-visible">
+    <header className="sticky top-0 z-30 border-b border-space-600/50 bg-space-850/60 backdrop-blur-xl overflow-visible">
       {/* Decorative scanline sweep across the header. */}
       <div
         className="pointer-events-none absolute inset-y-0 left-0 w-1/4 animate-scan-sweep

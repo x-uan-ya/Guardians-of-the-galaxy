@@ -135,17 +135,17 @@ export function resetPassword(email: string, newPassword: string): AuthResult {
 
   // Find user
   const users = getUsers();
-  const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+  const target = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-  if (userIndex === -1) {
+  if (!target) {
     return { success: false, error: 'user-not-found' };
   }
 
   // Update password
-  users[userIndex].passwordHash = hashPassword(newPassword);
+  target.passwordHash = hashPassword(newPassword);
   saveUsers(users);
 
-  return { success: true, user: users[userIndex] };
+  return { success: true, user: target };
 }
 
 /**

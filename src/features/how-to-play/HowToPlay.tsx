@@ -17,7 +17,8 @@ import {
   CheckCircle,
   Target,
   Calendar,
-  HelpCircle
+  HelpCircle,
+  Award
 } from 'lucide-react';
 
 export function HowToPlay(): ReactElement {
@@ -40,9 +41,9 @@ export function HowToPlay(): ReactElement {
           Quick Start
         </h2>
         <div className="space-y-3 text-gray-200">
-          <p><strong className="text-white">Goal:</strong> Keep your Mars outpost alive for as many days (Sols) as possible.</p>
+          <p><strong className="text-white">Goal:</strong> Keep your Mars outpost alive for 30 Sols (a Sol is one Martian day).</p>
           <p><strong className="text-white">How to Win:</strong> Balance your resources, make smart decisions, and survive crises.</p>
-          <p><strong className="text-white">How to Lose:</strong> If any critical resource drops too low, your mission fails.</p>
+          <p><strong className="text-white">How to Lose:</strong> If oxygen or your health hits 0, or radiation hits 100, your mission fails.</p>
         </div>
       </section>
 
@@ -206,8 +207,8 @@ export function HowToPlay(): ReactElement {
           </div>
 
           {/* Understanding Colors */}
-          <div className="rounded-md border border-purple-600/30 bg-purple-950/20 p-4">
-            <h3 className="mb-3 font-semibold text-purple-300">Understanding Resource Changes:</h3>
+          <div className="rounded-md border border-space-600 bg-space-900/60 p-4">
+            <h3 className="mb-3 font-semibold text-slate-100">Understanding Resource Changes:</h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-400" />
@@ -358,6 +359,34 @@ export function HowToPlay(): ReactElement {
         </div>
       </section>
 
+      {/* Progress: XP, rank, mood, badges */}
+      <section className="rounded-lg border border-space-600 bg-space-800 p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold text-white">
+          <Award className="h-6 w-6" />
+          Your Progress
+        </h2>
+        <p className="mb-4 text-gray-300">
+          Alongside survival, the game rewards you for playing well. You don't need to manage any of this.
+          It builds up on its own.
+        </p>
+        <ul className="space-y-3 text-sm text-gray-300">
+          <li>
+            <strong className="text-white">XP and rank:</strong> you earn XP for every decision, extra for
+            answering an emergency, and a little for each Sol you survive. More XP means a higher rank, from
+            Trainee up to Mars Legend.
+          </li>
+          <li>
+            <strong className="text-white">Mood:</strong> a quick read on how your character is holding up,
+            based on morale, health and radiation. If it says Worried or Struggling, look after those first.
+          </li>
+          <li>
+            <strong className="text-white">Badges:</strong> small goals like reaching Sol 10 or keeping all
+            systems high. Open <strong className="text-white">Badges</strong> in the sidebar to see how to earn
+            each one.
+          </li>
+        </ul>
+      </section>
+
       {/* Winning & Losing */}
       <section className="rounded-lg border border-space-600 bg-space-800 p-6">
         <h2 className="mb-4 text-2xl font-bold text-white">Winning & Losing</h2>
@@ -369,7 +398,7 @@ export function HowToPlay(): ReactElement {
               Success
             </h3>
             <p className="text-sm text-gray-200">
-              Survive as many Sols (days) as possible! Your <strong>score</strong> increases based on how long you survive and how well you manage resources.
+              Survive all <strong>30 Sols</strong> to complete the mission. Your <strong>score</strong> grows with how long you survive and how well you manage resources.
             </p>
           </div>
 
@@ -380,11 +409,13 @@ export function HowToPlay(): ReactElement {
             </h3>
             <p className="text-sm text-gray-200 mb-2">Your mission fails if any of these happen:</p>
             <ul className="space-y-1 text-sm text-gray-300 list-disc list-inside">
-              <li>Oxygen drops below 10 (crew suffocates)</li>
-              <li>Food drops below 5 (crew starves)</li>
-              <li>Water drops below 5 (crew dehydrates)</li>
-              <li>Systems drop below 10 (critical failure)</li>
+              <li>Oxygen reaches 0 (crew suffocates)</li>
+              <li>Your health reaches 0</li>
+              <li>Radiation exposure reaches 100</li>
             </ul>
+            <p className="mt-2 text-xs text-gray-400">
+              The mission turns <strong>Critical</strong> before that: when any resource or your health is at 15 or below, or radiation is at 80 or above. You can still recover from Critical.
+            </p>
           </div>
         </div>
       </section>

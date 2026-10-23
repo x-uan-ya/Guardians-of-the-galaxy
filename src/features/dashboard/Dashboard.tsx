@@ -17,14 +17,25 @@ import { MissionActivity } from './MissionActivity';
 import type { GameState } from '../simulation/simulationTypes';
 import type { DecisionInput } from '../decisions/decisionTypes';
 import type { ActivityEntry } from '../../hooks/useGameState';
+import type { ViewKey } from '../../app/routes';
+import { ProgressionPanel } from '../progression/ProgressionPanel';
+import type { ProgressionState } from '../progression/progressionEngine';
 
 interface DashboardProps {
   state: GameState;
   activity: ActivityEntry[];
   onDecide: (input: DecisionInput) => void;
+  progression: ProgressionState;
+  onNavigate: (view: ViewKey) => void;
 }
 
-export function Dashboard({ state, activity, onDecide }: DashboardProps): ReactElement {
+export function Dashboard({
+  state,
+  activity,
+  onDecide,
+  progression,
+  onNavigate,
+}: DashboardProps): ReactElement {
   return (
     <div className="stagger space-y-4">
       <TacticalHud state={state} />
@@ -34,6 +45,7 @@ export function Dashboard({ state, activity, onDecide }: DashboardProps): ReactE
           <CrewStatus state={state} />
         </div>
       </div>
+      <ProgressionPanel progression={progression} onNavigate={onNavigate} />
       <ResourceOverview state={state} />
       <OperationsPanel state={state} onDecide={onDecide} />
       <SystemStatus state={state} />

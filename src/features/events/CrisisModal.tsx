@@ -5,7 +5,7 @@
  * Creates urgency and impact for major decision moments.
  */
 
-import React, { type ReactElement } from 'react';
+import React, { useEffect, type ReactElement } from 'react';
 import type { GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
 import { EventDescription } from './EventDescription';
@@ -58,6 +58,14 @@ const SEVERITY_STYLES = {
 
 export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): ReactElement {
   const style = SEVERITY_STYLES[event.severity];
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
   
   const handleAction = (actionId: string) => {
     onChoose(actionId, 'self-directed');

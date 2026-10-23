@@ -22,6 +22,8 @@ const ERROR_MESSAGES: Record<AuthError, string> = {
   'email-already-exists': 'This email is already registered',
   'user-not-found': 'No account found with this email',
   'invalid-password': 'Incorrect password',
+  'security-questions-required': 'Security questions are required',
+  'security-answers-incorrect': 'Security answers are incorrect',
   'unknown-error': 'An unexpected error occurred',
 };
 

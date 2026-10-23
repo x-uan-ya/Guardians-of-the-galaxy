@@ -80,8 +80,8 @@ export function ForgotPassword({ onClose, onSuccess, initialEmail = '' }: Forgot
 
     // Verify security answers
     const answers: SecurityQuestion[] = [
-      { question: securityQuestions[0], answer: answer1 },
-      { question: securityQuestions[1], answer: answer2 },
+      { question: securityQuestions[0] ?? '', answer: answer1 },
+      { question: securityQuestions[1] ?? '', answer: answer2 },
     ];
 
     const result = verifySecurityAnswers(email, answers);

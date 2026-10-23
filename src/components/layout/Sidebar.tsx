@@ -19,7 +19,7 @@ export function Sidebar({ active, onNavigate, onToggleSidebar }: SidebarProps): 
   return (
     <nav
       aria-label="Primary"
-      className="flex gap-1 overflow-x-auto border-b border-space-600 bg-space-850/60 p-2
+      className="flex gap-1 overflow-x-auto border-b border-space-600/50 bg-space-850/60 backdrop-blur-xl p-2
                  md:fixed md:left-0 md:top-0 md:h-screen md:w-56 md:flex-col md:overflow-y-auto md:border-b-0 md:border-r md:pt-20"
     >
       {/* Close sidebar button - fixed position within viewport */}
