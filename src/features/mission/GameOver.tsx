@@ -23,6 +23,8 @@ interface GameOverProps {
   onRestartSame: () => void;
   /** Go to occupation selection for a new run. */
   onNewRun: () => void;
+  /** View the debrief for this run. */
+  onViewDebrief: () => void;
 }
 
 const REASON_TEXT: Record<ReturnType<typeof getGameOverReason>, string> = {
@@ -32,7 +34,12 @@ const REASON_TEXT: Record<ReturnType<typeof getGameOverReason>, string> = {
   unknown: 'The mission failed.',
 };
 
-export function GameOver({ state, onRestartSame, onNewRun }: GameOverProps): ReactElement {
+export function GameOver({
+  state,
+  onRestartSame,
+  onNewRun,
+  onViewDebrief,
+}: GameOverProps): ReactElement {
   const reason = getGameOverReason(state);
   const occupation = getOccupation(state.character.occupation);
 
@@ -73,6 +80,14 @@ export function GameOver({ state, onRestartSame, onNewRun }: GameOverProps): Rea
             New Run (choose occupation)
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={onViewDebrief}
+          className="mt-3 text-xs text-slate-400 underline-offset-2 transition-colors hover:text-slate-200 hover:underline"
+        >
+          View mission debrief
+        </button>
       </div>
     </div>
   );

@@ -1,16 +1,26 @@
 /**
  * App.tsx
  * -------
- * The composition root. It:
- *  - owns the useGameState hook (the single engine-facing surface),
- *  - owns the active view + confirmation-dialog state,
- *  - wires TopBar/Sidebar controls to the hook's handlers,
- *  - renders the active view inside the AppShell.
+ * The composition root. Top-level game FLOW is driven by the phase state
+ * machine (useGameFlow / app/gameFlow.ts) — this is the single source of truth
+ * every teammate plugs screens into:
  *
- * App holds NO simulation logic. Every state change routes through useGameState.
+ *   TITLE → BRIEFING → SETUP → PLAYING ⇄ CRISIS / PAUSED
+ *                                  ↓
+ *                        GAME_OVER | MISSION_COMPLETE → DEBRIEF → SETUP
+ *
+ * Responsibilities:
+ *  - auth gate (login/signup) before the game shell,
+ *  - render the screen for the current phase,
+ *  - sync engine outcomes (death/complete/crisis) into flow events,
+ *  - keep secondary sidebar navigation (Badges / How-to-Play / Debrief page)
+ *    available during PLAYING.
+ *
+ * App holds NO simulation logic. Game state changes route through useGameState;
+ * flow changes route through useGameFlow.
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -19,6 +29,8 @@ import { MissionSetup } from '../features/mission/MissionSetup';
 import { Briefing } from '../features/mission/Briefing';
 import { ResupplyModal } from '../features/mission/ResupplyModal';
 import { GameOver } from '../features/mission/GameOver';
+import { MissionComplete } from '../features/mission/MissionComplete';
+import { PauseScreen } from '../features/mission/PauseScreen';
 import { Debrief } from '../features/debrief/Debrief';
 import { HowToPlay } from '../features/how-to-play/HowToPlay';
 import { AchievementsPage } from '../features/progression/AchievementsPage';
@@ -26,57 +38,75 @@ import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { CrisisModal } from '../features/events/CrisisModal';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
-import { isGameOver } from '../features/simulation/simulationEngine';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
+import { useGameFlow } from '../hooks/useGameFlow';
 import { useProgression } from '../hooks/useProgression';
 import type { MissionConfig } from '../features/mission/missionTypes';
-import { DEFAULT_VIEW, type ViewKey } from './routes';
+import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
 import { isAuthenticated, logout } from '../features/auth/authService';
 
+/** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
+type SubView = Extract<ViewKey, 'dashboard' | 'debrief' | 'achievements' | 'how-to-play'>;
+
 export function App(): ReactElement {
   const game = useGameState();
+  // Flow starts at BRIEFING: after login the player goes straight into the
+  // briefing, then occupation selection, then the dashboard. (No title screen.)
+  const flow = useGameFlow('BRIEFING');
   const { progression, dismissNotifications } = useProgression(game.state);
-  const [view, setView] = useState<ViewKey>(DEFAULT_VIEW);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  // Whether the player has an active run this session. A run exists either
-  // because a saved game was restored, or because they launched one from
-  // Mission Setup. Until then, Mission Control (and other in-run screens) stay
-  // locked and the player is sent to Mission Setup first.
-  const [runStarted, setRunStarted] = useState(false);
-  // Whether the cinematic briefing has been dismissed this session. It plays
-  // once before occupation selection on a fresh start.
-  const [briefingDone, setBriefingDone] = useState(false);
+  // Secondary navigation WITHIN the PLAYING phase (dashboard is the default).
+  const [subView, setSubView] = useState<SubView>('dashboard');
+  const [confirm, setConfirm] = useState<{ kind: 'new-run' } | null>(null);
 
-  // Check authentication status on mount
+  // --- Auth -----------------------------------------------------------------
   useEffect(() => {
     setIsLoggedIn(isAuthenticated());
   }, []);
 
-  // If a saved mission was restored, the player already has an active run —
-  // skip the briefing and let them straight into Mission Control.
+  // --- Engine <-> flow synchronisation --------------------------------------
+
+  // A restored saved run jumps straight into PLAYING (skipping the briefing).
   useEffect(() => {
-    if (game.notice.kind === 'restored') {
-      setRunStarted(true);
-      setBriefingDone(true);
+    if (game.notice.kind === 'restored' && flow.phase === 'BRIEFING') {
+      flow.restoreRun();
     }
-  }, [game.notice.kind]);
+  }, [game.notice.kind, flow]);
 
-  // Views that require an active run. Visiting them before a run has started
-  // redirects to Mission Setup.
-  const RUN_REQUIRED_VIEWS: ViewKey[] = ['dashboard', 'debrief'];
-  const effectiveView: ViewKey =
-    !runStarted && RUN_REQUIRED_VIEWS.includes(view) ? 'mission-setup' : view;
+  const status = game.state.mission.status;
+  const hasActiveEvent = game.state.activeEvents.length > 0;
 
-  // Confirmation state for destructive actions.
-  const [confirm, setConfirm] = useState<
-    | { kind: 'reset' }
-    | { kind: 'new-from-topbar' }
-    | { kind: 'launch'; config: MissionConfig }
-    | null
-  >(null);
+  // Death / completion: move the flow into the matching terminal phase.
+  useEffect(() => {
+    if (flow.phase === 'PLAYING' || flow.phase === 'CRISIS') {
+      if (status === 'failed') flow.die();
+      else if (status === 'completed') flow.complete();
+    }
+  }, [status, flow]);
+
+  // Crisis: a new active event interrupts PLAYING; clearing it returns to play.
+  useEffect(() => {
+    if (flow.phase === 'PLAYING' && hasActiveEvent) flow.raiseCrisis();
+    else if (flow.phase === 'CRISIS' && !hasActiveEvent) flow.resolveCrisis();
+  }, [hasActiveEvent, flow]);
+
+  // Keyboard: "P" pauses during active play (teammates can add a button later).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const typing = (e.target as HTMLElement | null)?.closest('input, textarea');
+      if (!typing && (e.key === 'p' || e.key === 'P') && flow.phase === 'PLAYING') {
+        flow.pause();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [flow]);
+
+  // --- Config + handlers ----------------------------------------------------
 
   const currentConfig: MissionConfig = {
     occupation: game.state.character.occupation,
@@ -85,193 +115,159 @@ export function App(): ReactElement {
     startingCondition: game.state.mission.startingCondition,
   };
 
-  const hasProgress = game.state.history.length > 0 || game.state.day > 1;
-
-  // TopBar "New": if there's progress, confirm; otherwise jump straight to setup.
-  const handleNewMission = (): void => {
-    if (hasProgress) {
-      setConfirm({ kind: 'new-from-topbar' });
-    } else {
-      setView('mission-setup');
-    }
-  };
-
-  // Launch from the setup screen: confirm if the current game has progress.
+  // SETUP -> PLAYING: build the run from the player's chosen config.
   const handleLaunch = (config: MissionConfig): void => {
-    if (hasProgress && runStarted) {
-      setConfirm({ kind: 'launch', config });
-    } else {
-      game.startNewMission(config);
-      setRunStarted(true);
-      setView('dashboard');
-    }
+    game.startNewMission(config);
+    setSubView('dashboard');
+    flow.launch();
   };
 
-  const handleReset = (): void => setConfirm({ kind: 'reset' });
-
-  // Logo click: go to Mission Control if a run is active, otherwise Mission Setup.
-  const handleLogoClick = (): void => {
-    setView(runStarted ? 'dashboard' : 'mission-setup');
+  // Start a fresh run from a terminal/paused screen (-> SETUP).
+  const goToNewRun = (): void => {
+    setSubView('dashboard');
+    flow.newRun();
   };
 
-  // Game-over: restart immediately with the same occupation + mission config.
+  // TopBar "New Mission" during play: confirm (discards progress), then SETUP.
+  const handleNewMission = (): void => setConfirm({ kind: 'new-run' });
+
   const handleRestartSame = (): void => {
     game.startNewMission(currentConfig);
-    setRunStarted(true);
-    setView('dashboard');
-  };
-
-  // Game-over: go pick a new occupation for the next run.
-  const handleNewRun = (): void => {
-    setView('mission-setup');
-  };
-
-  const runFailed = isGameOver(game.state);
-
-  const resolveConfirm = (): void => {
-    if (!confirm) return;
-    switch (confirm.kind) {
-      case 'reset':
-        game.reset();
-        setView('dashboard');
-        break;
-      case 'new-from-topbar':
-        setView('mission-setup');
-        break;
-      case 'launch':
-        game.startNewMission(confirm.config);
-        setRunStarted(true);
-        setView('dashboard');
-        break;
-    }
-    setConfirm(null);
-  };
-
-  // Auth handlers
-  const handleLoginSuccess = (): void => {
-    setIsLoggedIn(true);
-  };
-
-  const handleSignupSuccess = (): void => {
-    setIsLoggedIn(true);
+    setSubView('dashboard');
+    flow.launch();
   };
 
   const handleLogout = (): void => {
-    logout(); // Clear session
+    logout();
     setIsLoggedIn(false);
-    setRunStarted(false);
-    setBriefingDone(false);
-    setView('mission-setup');
+    flow.quitToTitle();
   };
 
-  const handleToggleSidebar = (): void => {
-    setSidebarOpen(!sidebarOpen);
+  const handleToggleSidebar = (): void => setSidebarOpen((v) => !v);
+
+  // Logo returns to Mission Control (the dashboard) during a run.
+  const handleLogoClick = (): void => {
+    if (flow.inRun) setSubView('dashboard');
   };
 
-  // Show auth screens if not logged in
+  // --- Auth screens ---------------------------------------------------------
   if (!isLoggedIn) {
-    if (authView === 'login') {
-      return (
-        <Login
-          onLoginSuccess={handleLoginSuccess}
-          onSwitchToSignup={() => setAuthView('signup')}
-        />
-      );
-    } else {
-      return (
-        <Signup
-          onSignupSuccess={handleSignupSuccess}
-          onSwitchToLogin={() => setAuthView('login')}
-        />
-      );
-    }
+    return authView === 'login' ? (
+      <Login
+        onLoginSuccess={() => setIsLoggedIn(true)}
+        onSwitchToSignup={() => setAuthView('signup')}
+      />
+    ) : (
+      <Signup
+        onSignupSuccess={() => setIsLoggedIn(true)}
+        onSwitchToLogin={() => setAuthView('login')}
+      />
+    );
   }
 
-  // Main app (when logged in)
+  // --- BRIEFING -------------------------------------------------------------
+  if (flow.phase === 'BRIEFING') {
+    return <Briefing onContinue={flow.continueBriefing} />;
+  }
+
+  // --- SETUP (occupation selection) -----------------------------------------
+  if (flow.phase === 'SETUP') {
+    return <MissionSetup onLaunch={handleLaunch} current={currentConfig} />;
+  }
+
+  // --- In-run phases: PLAYING / CRISIS / PAUSED / GAME_OVER /
+  //     MISSION_COMPLETE / DEBRIEF — all rendered inside the AppShell. --------
   return (
     <AppShell
       day={game.state.day}
       status={game.state.mission.status}
       score={game.state.mission.score}
       storageAvailable={game.storageAvailable}
-      activeView={effectiveView}
-      hasActiveEvents={game.state.activeEvents.length > 0}
+      activeView={subView}
+      hasActiveEvents={hasActiveEvent}
       sidebarOpen={sidebarOpen}
-      onNavigate={setView}
+      onNavigate={(v) => setSubView(v as SubView)}
       onAdvanceDay={game.advanceDay}
       onSave={game.save}
       onNewMission={handleNewMission}
-      onReset={handleReset}
+      onReset={handleNewMission}
       onToggleSidebar={handleToggleSidebar}
       onLogoClick={handleLogoClick}
       onLogout={handleLogout}
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
-      {/* Cinematic briefing: plays once before occupation selection. */}
-      {!briefingDone && !runStarted ? (
-        <Briefing onContinue={() => setBriefingDone(true)} />
-      ) : null}
+      {/* DEBRIEF takes over the main panel; otherwise show the sub-view. */}
+      {flow.phase === 'DEBRIEF' ? (
+        <Debrief state={game.state} />
+      ) : (
+        <>
+          {subView === 'dashboard' ? (
+            <Dashboard
+              state={game.state}
+              activity={game.activity}
+              onDecide={game.decide}
+              progression={progression}
+              onNavigate={(v) => setSubView(v as SubView)}
+            />
+          ) : null}
+          {subView === 'debrief' ? <Debrief state={game.state} /> : null}
+          {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
+          {subView === 'how-to-play' ? <HowToPlay /> : null}
+        </>
+      )}
 
-      {/* Resupply pop-up: appears when the Sol 15 drop is delivered. */}
+      <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
+
+      {/* Resupply pop-up (Sol 15 drop). */}
       {game.resupplyDeliveredOnDay !== null ? (
         <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
       ) : null}
 
-      {effectiveView === 'dashboard' ? (
-        <Dashboard
-          state={game.state}
-          activity={game.activity}
-          onDecide={game.decide}
-          progression={progression}
-          onNavigate={setView}
-        />
-      ) : null}
-
-      {effectiveView === 'mission-setup' ? (
-        <MissionSetup onLaunch={handleLaunch} current={currentConfig} />
-      ) : null}
-
-      {effectiveView === 'debrief' ? <Debrief state={game.state} /> : null}
-
-      {effectiveView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
-
-      {effectiveView === 'how-to-play' ? <HowToPlay /> : null}
-
-      <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
-
-      {/* Game-over overlay: shown on the dashboard when the run has failed. */}
-      {runFailed && effectiveView === 'dashboard' ? (
-        <GameOver
-          state={game.state}
-          onRestartSame={handleRestartSame}
-          onNewRun={handleNewRun}
-        />
-      ) : null}
-
-      {/* Crisis Modal: shown when there are active events */}
-      {game.state.activeEvents.length > 0 && effectiveView === 'dashboard' && !runFailed && game.state.activeEvents[0] ? (
+      {/* CRISIS overlay. */}
+      {flow.phase === 'CRISIS' && game.state.activeEvents[0] ? (
         <CrisisModal
           event={game.state.activeEvents[0]}
           onChoose={(actionId, choice) => {
             const event = game.state.activeEvents[0];
-            if (event) {
-              game.resolveActiveEvent(event.id, actionId, choice);
-            }
+            if (event) game.resolveActiveEvent(event.id, actionId, choice);
           }}
+        />
+      ) : null}
+
+      {/* PAUSED overlay. */}
+      {flow.phase === 'PAUSED' ? (
+        <PauseScreen onResume={flow.resume} onNewRun={goToNewRun} />
+      ) : null}
+
+      {/* GAME_OVER overlay. */}
+      {flow.phase === 'GAME_OVER' ? (
+        <GameOver
+          state={game.state}
+          onRestartSame={handleRestartSame}
+          onNewRun={goToNewRun}
+          onViewDebrief={flow.viewDebrief}
+        />
+      ) : null}
+
+      {/* MISSION_COMPLETE overlay. */}
+      {flow.phase === 'MISSION_COMPLETE' ? (
+        <MissionComplete
+          state={game.state}
+          onViewDebrief={flow.viewDebrief}
+          onNewRun={goToNewRun}
         />
       ) : null}
 
       <ConfirmDialog
         open={confirm !== null}
-        title={confirm?.kind === 'reset' ? 'Reset mission?' : 'Start a new mission?'}
-        message={
-          confirm?.kind === 'reset'
-            ? 'This clears the saved game and starts a fresh default mission. This cannot be undone.'
-            : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions). Continue?`
-        }
-        confirmLabel={confirm?.kind === 'reset' ? 'Reset' : 'Discard & continue'}
-        onConfirm={resolveConfirm}
+        title="Start a new run?"
+        message={`This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and returns to occupation selection.`}
+        confirmLabel="Discard & continue"
+        onConfirm={() => {
+          setConfirm(null);
+          goToNewRun();
+        }}
         onCancel={() => setConfirm(null)}
       />
     </AppShell>
