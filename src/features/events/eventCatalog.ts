@@ -11,6 +11,10 @@
  */
 
 import type { EventAction, GameEvent } from './eventTypes';
+// Storyline chapters share the existing event catalogue and resolver.
+import { CHAPTER_1_EVENTS } from './chapter1Events';
+import { CHAPTER_2_EVENTS } from './chapter2Events';
+import { CHAPTER_3_EVENTS } from './chapter3Events';
 
 /**
  * Free actions are always valid as a player decision, independent of any
@@ -52,6 +56,9 @@ export const FREE_ACTIONS: EventAction[] = [
  * Events create unpredictability and force difficult decisions.
  */
 export const EVENT_CATALOG: GameEvent[] = [
+  ...CHAPTER_1_EVENTS,
+  ...CHAPTER_2_EVENTS,
+  ...CHAPTER_3_EVENTS,
   // ═══════════════════════════════════════════════════════════════════════════
   // CRITICAL EVENTS - The flagship crises that define high-stakes gameplay
   // ═══════════════════════════════════════════════════════════════════════════

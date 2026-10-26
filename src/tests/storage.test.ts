@@ -8,7 +8,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { STORAGE_KEY, clearGame, loadGame, saveGame } from '../lib/storage';
 import { parseGameState } from '../lib/validation';
-import { freshGame } from './helpers';
+import { freshGame, withActiveEvent } from './helpers';
+import { chapter2EventForDay, chapter3EventForDay } from '../features/events/eventTriggers';
+import {
+  advanceSimulationDay,
+  createInitialGameState,
+  resolveEvent,
+} from '../features/simulation/simulationEngine';
+import type { MissionType } from '../features/simulation/simulationTypes';
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -26,6 +33,130 @@ describe('loadGame / saveGame round trip', () => {
       expect(loaded.state.gameId).toBe(state.gameId);
       expect(loaded.state.day).toBe(state.day);
     }
+  });
+
+  it('restores location-specific active event content and resolves its saved choice', () => {
+    const locations: MissionType[] = ['lunar', 'mars', 'deep-space'];
+
+    for (const missionType of locations) {
+      const state = createInitialGameState({
+        missionType,
+        occupation: 'engineer',
+        objective: 'survival',
+        operatingPhilosophy: 'balanced',
+        startingCondition: 'standard',
+        gameId: `save-${missionType}`,
+        now: 1_700_000_000_000,
+      });
+      expect(saveGame(state).status).toBe('saved');
+
+      const loaded = loadGame();
+      expect(loaded.status).toBe('loaded');
+      if (loaded.status !== 'loaded') return;
+      expect(loaded.state.activeEvents[0]?.description).toBe(
+        state.activeEvents[0]?.description
+      );
+      expect(loaded.state.activeEvents[0]?.availableActions.map((action) => action.id)).toEqual(
+        state.activeEvents[0]?.availableActions.map((action) => action.id)
+      );
+
+      const resolved = resolveEvent(
+        loaded.state,
+        'story-sol-01-supply-inspection',
+        'story-sol-01-begin'
+      );
+      expect(resolved.history).toHaveLength(1);
+      expect(resolved.pendingEffects).toHaveLength(1);
+      expect(resolved.pendingEffects[0]?.sourceDecisionId).toBe(resolved.history[0]?.id);
+    }
+  });
+
+  it('restores and resolves a saved active Chapter 2 event', () => {
+    const base = freshGame({ missionType: 'deep-space' });
+    const withoutEvent = { ...base, day: 6, activeEvents: [] };
+    const event = chapter2EventForDay(6, withoutEvent);
+    expect(event).toBeDefined();
+    const state = { ...withoutEvent, activeEvents: [event!] };
+    expect(saveGame(state).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.activeEvents[0]?.description).toBe(event?.description);
+    expect(loaded.state.activeEvents[0]?.availableActions.map((action) => action.id)).toEqual(
+      event?.availableActions.map((action) => action.id)
+    );
+
+    const resolved = resolveEvent(
+      loaded.state,
+      'story-sol-06-aftermath-assessment',
+      'story-sol-06-prioritise-maintenance'
+    );
+    expect(resolved.history[0]).toMatchObject({
+      eventId: 'story-sol-06-aftermath-assessment',
+      actionId: 'story-sol-06-prioritise-maintenance',
+    });
+    expect(resolved.systems.powerGeneration).toBe(base.systems.powerGeneration + 2);
+    expect(resolved.systems.lifeSupportEfficiency).toBe(base.systems.lifeSupportEfficiency + 3);
+  });
+
+  it('restores and resolves the saved Deep Space Sol 15 event with its stored effects', () => {
+    const base = freshGame({ missionType: 'deep-space' });
+    const atMidpoint = { ...base, day: 15, activeEvents: [] };
+    const event = chapter3EventForDay(15, atMidpoint);
+    expect(event?.id).toBe('story-sol-15-no-resupply-isolation-test');
+    const state = { ...atMidpoint, activeEvents: [event!] };
+    expect(saveGame(state).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.activeEvents[0]?.description).toBe(event?.description);
+
+    const resolved = resolveEvent(
+      loaded.state,
+      event!.id,
+      'story-sol-15-recover-emergency-equipment'
+    );
+    expect(resolved.history[0]).toMatchObject({
+      eventId: 'story-sol-15-no-resupply-isolation-test',
+      actionId: 'story-sol-15-recover-emergency-equipment',
+    });
+    expect(resolved.resources).toMatchObject({
+      water: base.resources.water + 5,
+      oxygen: base.resources.oxygen + 5,
+    });
+    expect(resolved.pendingEffects[0]?.parameters).toEqual({
+      kind: 'system',
+      changes: { lifeSupportEfficiency: -3 },
+    });
+  });
+
+  it('continues decision IDs uniquely after restoring a saved history', () => {
+    let state = withActiveEvent(freshGame(), 'story-sol-01-supply-inspection');
+    state = resolveEvent(state, 'story-sol-01-supply-inspection', 'story-sol-01-begin');
+    const processedEffectId = state.pendingEffects[0]!.id;
+    state = advanceSimulationDay(state).state;
+    state = resolveEvent(state, 'story-sol-02-water-recycling', 'story-sol-02-repair');
+    const sol3Advance = advanceSimulationDay(state);
+    expect(sol3Advance.firedEffects.map((effect) => effect.id)).toEqual([processedEffectId]);
+    state = sol3Advance.state;
+    expect(state.pendingEffects).toHaveLength(0);
+    expect(saveGame(state).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.history).toEqual(state.history);
+    expect(loaded.state.pendingEffects).toHaveLength(0);
+
+    const next = resolveEvent(loaded.state, 'story-sol-03-power-instability', 'story-sol-03-bypass');
+    const decisionIds = next.history.map((record) => record.id);
+    expect(next.history).toHaveLength(3);
+    expect(new Set(decisionIds).size).toBe(3);
+    expect(next.pendingEffects).toHaveLength(1);
+    expect(next.pendingEffects[0]!.id).not.toBe(processedEffectId);
+    expect(decisionIds[2]).not.toBe(decisionIds[1]);
   });
 
   it('reports empty when nothing is stored', () => {

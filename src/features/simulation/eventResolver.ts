@@ -8,7 +8,7 @@
  * This module does NOT mutate state. It only looks up and validates content.
  */
 
-import { findEventAction, findFreeAction } from '../events/eventCatalog';
+import { findFreeAction } from '../events/eventCatalog';
 import type { EventAction } from '../events/eventTypes';
 import type { DecisionInput } from '../decisions/decisionTypes';
 import type { GameState } from './simulationTypes';
@@ -33,6 +33,10 @@ export function resolveDecisionAction(state: GameState, input: DecisionInput): E
   }
 
   if (input.eventId === undefined) {
+    // Routine actions must not bypass an event that is waiting for a response.
+    if (state.activeEvents.length > 0) {
+      throw new InvalidDecisionError('Resolve the active event before taking a free action.');
+    }
     const free = findFreeAction(input.actionId);
     if (!free) {
       throw new InvalidDecisionError(`Unknown free action: "${input.actionId}".`);
@@ -40,14 +44,16 @@ export function resolveDecisionAction(state: GameState, input: DecisionInput): E
     return free;
   }
 
-  const isActive = state.activeEvents.some((e) => e.id === input.eventId);
-  if (!isActive) {
+  const activeEvent = state.activeEvents.find((event) => event.id === input.eventId);
+  if (!activeEvent) {
     throw new InvalidDecisionError(
       `Event "${input.eventId}" is not currently active and cannot be resolved.`
     );
   }
 
-  const action = findEventAction(input.eventId, input.actionId);
+  // Resolve from the active event so saved or location-specific variants use
+  // exactly the choices and effects that were presented to the player.
+  const action = activeEvent.availableActions.find((candidate) => candidate.id === input.actionId);
   if (!action) {
     throw new InvalidDecisionError(
       `Action "${input.actionId}" is not available for event "${input.eventId}".`

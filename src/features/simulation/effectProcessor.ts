@@ -29,7 +29,7 @@ export function scheduleDelayedEffects(
   currentDay: number,
   sourceDecisionId: string,
   declared: DelayedActionEffect[] | undefined,
-  startCounter: number
+  decisionCounter: number
 ): DelayedEffect[] {
   if (!declared || declared.length === 0) return [];
   return declared.map((d, index) => {
@@ -37,7 +37,9 @@ export function scheduleDelayedEffects(
       throw new RangeError(`delayInDays must be an integer >= 1, got ${String(d.delayInDays)}`);
     }
     return {
-      id: makeId('eff', gameId, startCounter + index),
+      // The decision counter is unique, and the index distinguishes effects
+      // declared by the same decision, even after earlier effects are removed.
+      id: `${makeId('eff', gameId, decisionCounter)}_${index}`,
       sourceDecisionId,
       scheduledDay: currentDay + d.delayInDays,
       type: d.parameters.kind,

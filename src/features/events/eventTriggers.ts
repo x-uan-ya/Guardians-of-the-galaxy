@@ -6,10 +6,89 @@
  * randomness for reproducible gameplay.
  */
 
-import type { GameState } from '../simulation/simulationTypes';
+import type { GameState, MissionType } from '../simulation/simulationTypes';
 import type { GameEvent } from './eventTypes';
-import { EVENT_CATALOG } from './eventCatalog';
+import { EVENT_CATALOG, findEvent } from './eventCatalog';
+import { chapter1EventForMission } from './chapter1Events';
+import { chapter2EventForState } from './chapter2Events';
+import { chapter3EventForState } from './chapter3Events';
 import { seededRandom } from '../../lib/random';
+
+/** Fixed event IDs for Chapter 1, indexed by the Sol on which they appear. */
+const CHAPTER_1_EVENT_IDS: Record<number, string> = {
+  1: 'story-sol-01-supply-inspection',
+  2: 'story-sol-02-water-recycling',
+  3: 'story-sol-03-power-instability',
+  4: 'story-sol-04-greenhouse-contamination',
+  5: 'story-sol-05-environmental-crisis',
+};
+
+/** Fixed Chapter 2 event IDs, indexed by the Sol on which they appear. */
+const CHAPTER_2_EVENT_IDS: Record<number, string> = {
+  6: 'story-sol-06-aftermath-assessment',
+  7: 'story-sol-07-communication-array-failure',
+  8: 'story-sol-08-narrow-window',
+  9: 'story-sol-09-repairs-under-pressure',
+  10: 'story-sol-10-unexpected-transmission',
+};
+
+/** Main Chapter 3 story events, indexed by Sol; Sol 15 is selected by site. */
+const CHAPTER_3_EVENT_IDS: Record<number, string> = {
+  11: 'story-sol-11-life-support-warning',
+  12: 'story-sol-12-medical-radiation-concerns',
+  13: 'story-sol-13-emergency-resource-allocation',
+  14: 'story-sol-14-midpoint-preparation',
+};
+
+/**
+ * Find the fixed Chapter 1 event for a Sol. Throw if a scheduled event is
+ * missing from the catalogue, rather than silently skipping part of the story.
+ */
+export function chapter1EventForDay(day: number, missionType: MissionType): GameEvent | undefined {
+  const eventId = CHAPTER_1_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 1 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter1EventForMission(event, missionType);
+}
+
+/**
+ * Build the scheduled Chapter 2 variant from the current mission and state.
+ * Missing scheduled catalogue entries are errors, never silently skipped.
+ */
+export function chapter2EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId = CHAPTER_2_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 2 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter2EventForState(event, state);
+}
+
+/**
+ * Return the scheduled Chapter 3 event. Sol 15 uses the standard acknowledgement
+ * for resupplied sites and the isolation decision for Deep Space.
+ */
+export function chapter3EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId =
+    day === 15
+      ? state.mission.missionType === 'deep-space'
+        ? 'story-sol-15-no-resupply-isolation-test'
+        : 'story-sol-15-midpoint-turning-point'
+      : CHAPTER_3_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 3 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter3EventForState(event, state);
+}
 
 /** Probability weight for an event. Higher = more likely. */
 interface EventWeight {
@@ -220,6 +299,22 @@ export function checkForcedEvent(state: GameState): GameEvent | undefined {
  * Call this during day advance to check for new events.
  */
 export function triggerEvent(state: GameState): GameEvent | undefined {
+  // Never add a second event or trigger anything after the mission ends.
+  if (
+    state.activeEvents.length > 0 ||
+    state.mission.status === 'failed' ||
+    state.mission.status === 'completed'
+  ) {
+    return undefined;
+  }
+
+  // Scheduled story events take priority over forced and random events.
+  const scheduledEvent = chapter1EventForDay(state.day, state.mission.missionType);
+  if (scheduledEvent) return scheduledEvent;
+  const chapter2Event = chapter2EventForDay(state.day, state);
+  if (chapter2Event) return chapter2Event;
+  const chapter3Event = chapter3EventForDay(state.day, state);
+  if (chapter3Event) return chapter3Event;
 
   // First check for forced critical events
   const forcedEvent = checkForcedEvent(state);

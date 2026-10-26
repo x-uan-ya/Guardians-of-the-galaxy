@@ -28,7 +28,7 @@
 
 import { generateGameId, makeId } from '../../lib/ids';
 import { FREE_ACTIONS } from '../events/eventCatalog';
-import { triggerEvent } from '../events/eventTriggers';
+import { chapter1EventForDay, triggerEvent } from '../events/eventTriggers';
 import {
   DEFAULT_CREW,
   DEFAULT_SYSTEMS,
@@ -166,6 +166,10 @@ export function createInitialGameState(config: MissionConfig): GameState {
 
   // The character's starting live health comes from their health attribute.
   const crew = initialCrewForCharacter(DEFAULT_CREW, character.attributes);
+  const openingEvent = chapter1EventForDay(1, config.missionType);
+  if (!openingEvent) {
+    throw new Error('The Sol 1 Chapter 1 event is not configured.');
+  }
 
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
@@ -186,7 +190,7 @@ export function createInitialGameState(config: MissionConfig): GameState {
       supplyWindow: RESUPPLY_DAY,
       resupplyDelivered: false,
     },
-    activeEvents: [],
+    activeEvents: [openingEvent],
     history: [],
     pendingEffects: [],
     createdAt: now,
@@ -344,9 +348,17 @@ function safeImmediateResourceChanges(changes: ResourceChanges | undefined): Res
   return sanitizeResourceChanges(changes);
 }
 
-/** Count of ids minted so far, used to keep generated ids deterministic. */
+/**
+ * Find the next decision ID counter, using permanent history rather than the
+ * pending-effect count so processing effects cannot make the counter go back.
+ */
 function nextCounter(state: GameState): number {
-  return state.history.length + state.pendingEffects.length;
+  const decisionPrefix = `dec_${state.gameId}_`;
+  return state.history.reduce((next, record) => {
+    if (!record.id.startsWith(decisionPrefix)) return next;
+    const counter = Number(record.id.slice(decisionPrefix.length));
+    return Number.isSafeInteger(counter) && counter >= 0 ? Math.max(next, counter + 1) : next;
+  }, state.history.length);
 }
 
 /** Clamp every system metric back into [0,100] after upkeep math. */
@@ -469,13 +481,13 @@ export function applyPlayerDecision(state: GameState, input: DecisionInput): Gam
     ? applySystemChanges(state.systems, action.effect.immediateSystems)
     : state.systems;
 
-  // Schedule delayed effects (ids continue after the decision id).
+  // Effect IDs use this unique decision counter plus an effect index.
   const scheduled: DelayedEffect[] = scheduleDelayedEffects(
     state.gameId,
     state.day,
     decisionId,
     action.effect.delayed,
-    counterBase + 1
+    counterBase
   );
 
   const record: DecisionRecord = {
@@ -570,6 +582,9 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   if (state.mission.status === 'failed' || state.mission.status === 'completed') {
     return { state, firedEffects: [], dailyDelta: {}, resupplyFired: false };
   }
+  if (state.activeEvents.length > 0) {
+    throw new InvalidDecisionError('Resolve the active event before advancing the day.');
+  }
 
   const nextDay = state.day + 1;
 
@@ -645,14 +660,18 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   // Process effects due on the new day.
   const { state: afterEffects, applied } = processDueEffects(advanced);
 
-  // 4. Trigger new events based on current game state (crisis system)
-  const newEvent = triggerEvent(afterEffects);
+  // Check terminal status before selecting an event; daily changes or a due
+  // delayed effect may have ended the mission on this Sol.
+  const readyForEventCheck = withDerivedMission(afterEffects);
+
+  // 4. Trigger a scheduled storyline event, or use the existing crisis system.
+  const newEvent = triggerEvent(readyForEventCheck);
   const activeEvents = newEvent 
-    ? [...afterEffects.activeEvents, newEvent]
-    : afterEffects.activeEvents;
+    ? [...readyForEventCheck.activeEvents, newEvent]
+    : readyForEventCheck.activeEvents;
 
   const withEvents: GameState = {
-    ...afterEffects,
+    ...readyForEventCheck,
     activeEvents,
   };
 

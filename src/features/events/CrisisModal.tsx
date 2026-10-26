@@ -6,6 +6,7 @@
  */
 
 import React, { useEffect, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 import type { GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
 import { EventDescription } from './EventDescription';
@@ -79,7 +80,8 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
     };
   }, []);
 
-  return (
+  // Render outside the animated app layout so its transform cannot trap the fixed overlay.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
       {/* Crisis Container - Fits within viewport with scroll */}
       <div
@@ -210,6 +212,7 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
