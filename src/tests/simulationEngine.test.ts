@@ -1010,6 +1010,21 @@ describe('applyPlayerDecision validation', () => {
     ).toThrow(InvalidDecisionError);
   });
 
+  it('applies an active event decision once and rejects a repeated resolution', () => {
+    const initial = createInitialGameState(FIXED_CONFIG);
+    const eventId = initial.activeEvents[0]!.id;
+    const resolved = resolveEvent(initial, eventId, 'story-sol-01-begin');
+
+    expect(resolved.activeEvents).toHaveLength(0);
+    expect(resolved.history).toHaveLength(1);
+    expect(resolved.pendingEffects).toHaveLength(1);
+    expect(() => resolveEvent(resolved, eventId, 'story-sol-01-begin')).toThrow(
+      InvalidDecisionError,
+    );
+    expect(resolved.history).toHaveLength(1);
+    expect(resolved.pendingEffects).toHaveLength(1);
+  });
+
   it('records the decision in history on success (spec 8 prelude)', () => {
     const state = freshGame();
     const next = applyPlayerDecision(state, {

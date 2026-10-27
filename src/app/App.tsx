@@ -38,7 +38,8 @@ import { AchievementsPage } from '../features/progression/AchievementsPage';
 import { Leaderboard } from '../features/leaderboard/Leaderboard';
 import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
-import { CrisisModal } from '../features/events/CrisisModal';
+import { ChapterIntroModal } from '../features/storyline/ChapterIntroModal';
+import { getChapterIntroductionByOpeningSol } from '../features/storyline/chapterIntroductions';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
@@ -48,6 +49,10 @@ import type { MissionConfig, MissionType } from '../features/mission/missionType
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
 import { getCurrentSession, isAuthenticated, logout } from '../features/auth/authService';
+import {
+  completeChapterIntroduction,
+  loadCompletedChapterIntroductions,
+} from '../lib/storage';
 
 /** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
 type SubView = Extract<
@@ -72,6 +77,10 @@ export function App(): ReactElement {
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
   // The leaderboard entry id for the run just submitted (for highlighting).
   const [lastLeaderboardId, setLastLeaderboardId] = useState<string | undefined>(undefined);
+  const [chapterIntroProgress, setChapterIntroProgress] = useState(() => ({
+    gameId: game.state.gameId,
+    completed: loadCompletedChapterIntroductions(game.state.gameId),
+  }));
 
   // --- Auth -----------------------------------------------------------------
   useEffect(() => {
@@ -89,6 +98,52 @@ export function App(): ReactElement {
 
   const status = game.state.mission.status;
   const hasActiveEvent = game.state.activeEvents.length > 0;
+  const introCanShowInPhase =
+    flow.phase === 'PLAYING' || flow.phase === 'CRISIS' || flow.phase === 'PAUSED';
+  const chapterIntroduction =
+    introCanShowInPhase && (status === 'active' || status === 'critical')
+      ? getChapterIntroductionByOpeningSol(game.state.day, game.state.mission.missionType)
+      : undefined;
+  const completedIntroductions =
+    chapterIntroProgress.gameId === game.state.gameId
+      ? chapterIntroProgress.completed
+      : loadCompletedChapterIntroductions(game.state.gameId);
+  const chapterIntroOpen =
+    chapterIntroduction !== undefined &&
+    !completedIntroductions.includes(chapterIntroduction.chapterNumber);
+
+  // Load progress for a newly launched or restored playthrough.
+  useEffect(() => {
+    setChapterIntroProgress({
+      gameId: game.state.gameId,
+      completed: loadCompletedChapterIntroductions(game.state.gameId),
+    });
+  }, [game.state.gameId]);
+
+  const completeCurrentIntroduction = (): void => {
+    if (!chapterIntroOpen || !chapterIntroduction) return;
+
+    // Record only after an explicit Continue or Skip Intro action.
+    completeChapterIntroduction(game.state.gameId, chapterIntroduction.chapterNumber);
+    setChapterIntroProgress((current) => {
+      const completed =
+        current.gameId === game.state.gameId
+          ? current.completed
+          : loadCompletedChapterIntroductions(game.state.gameId);
+      return {
+        gameId: game.state.gameId,
+        completed: [...new Set([...completed, chapterIntroduction.chapterNumber])],
+      };
+    });
+  };
+
+  // Keep the game callbacks inert while the presentation-only introduction is open.
+  const handleAdvanceDay = (): void => {
+    if (!chapterIntroOpen) game.advanceDay();
+  };
+  const handleDecide = (input: Parameters<typeof game.decide>[0]): void => {
+    if (!chapterIntroOpen) game.decide(input);
+  };
 
   // Death / completion: move the flow into the matching terminal phase.
   useEffect(() => {
@@ -131,13 +186,18 @@ export function App(): ReactElement {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const typing = (e.target as HTMLElement | null)?.closest('input, textarea');
-      if (!typing && (e.key === 'p' || e.key === 'P') && flow.phase === 'PLAYING') {
+      if (
+        !chapterIntroOpen &&
+        !typing &&
+        (e.key === 'p' || e.key === 'P') &&
+        flow.phase === 'PLAYING'
+      ) {
         flow.pause();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [flow]);
+  }, [flow, chapterIntroOpen]);
 
   // --- Config + handlers ----------------------------------------------------
 
@@ -158,6 +218,9 @@ export function App(): ReactElement {
 
   // Start a fresh run by choosing a site before entering character setup.
   const goToNewRun = (): void => {
+    // Prevent the initial-restore effect from treating this intentional
+    // mission-selection phase as a request to restore the saved run again.
+    game.dismissNotice();
     setSubView('dashboard');
     flow.newRun();
   };
@@ -166,10 +229,13 @@ export function App(): ReactElement {
   // mission selection, then character setup. Confirm first only when there is
   // an unfinished run with progress that would be thrown away.
   const handleNewMission = (): void => {
+    if (chapterIntroOpen) return;
     const runInProgress =
       status !== 'failed' &&
       status !== 'completed' &&
-      (game.state.day > 1 || game.state.history.length > 0);
+      (game.state.day > 1 ||
+        game.state.history.length > 0 ||
+        game.state.activeEvents.length > 0);
     if (runInProgress) setConfirm({ kind: 'new-run' });
     else goToNewRun();
   };
@@ -180,13 +246,16 @@ export function App(): ReactElement {
   // it just goes to mission selection (the destructive "New Mission" top-bar
   // button keeps its confirm).
   const handleNavigate = (view: ViewKey): void => {
+    if (chapterIntroOpen) return;
     if (view === 'mission-setup') goToNewRun();
     else setSubView(view as SubView);
   };
 
   // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
   // (same mission + occupation) — straight back into play, not occupation select.
-  const handleReset = (): void => setConfirm({ kind: 'restart' });
+  const handleReset = (): void => {
+    if (!chapterIntroOpen) setConfirm({ kind: 'restart' });
+  };
 
   const handleRestartSame = (): void => {
     // Repeat the exact same run: same mission site + occupation + settings.
@@ -205,6 +274,7 @@ export function App(): ReactElement {
 
   // Logo returns to Mission Control (the dashboard) during a run.
   const handleLogoClick = (): void => {
+    if (chapterIntroOpen) return;
     if (flow.inRun) setSubView('dashboard');
   };
 
@@ -258,7 +328,7 @@ export function App(): ReactElement {
       hasActiveEvents={hasActiveEvent}
       sidebarOpen={sidebarOpen}
       onNavigate={handleNavigate}
-      onAdvanceDay={game.advanceDay}
+      onAdvanceDay={handleAdvanceDay}
       onSave={game.save}
       onNewMission={handleNewMission}
       onReset={handleReset}
@@ -277,8 +347,8 @@ export function App(): ReactElement {
             <Dashboard
               state={game.state}
               activity={game.activity}
-              onDecide={game.decide}
-              onAdvanceDay={game.advanceDay}
+              onDecide={handleDecide}
+              onAdvanceDay={handleAdvanceDay}
               progression={progression}
               onNavigate={handleNavigate}
             />
@@ -292,63 +362,59 @@ export function App(): ReactElement {
 
       <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
 
-      {/* Resupply pop-up (Sol 15 drop). */}
-      {game.resupplyDeliveredOnDay !== null && !game.state.mission.modifiers.noResupply ? (
-        <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
-      ) : null}
-
-      {/* The dashboard handles emergencies inline; other views keep the overlay. */}
-      {flow.phase === 'CRISIS' && subView !== 'dashboard' && game.state.activeEvents[0] ? (
-        <CrisisModal
-          event={game.state.activeEvents[0]}
-          onChoose={(actionId, choice) => {
-            const event = game.state.activeEvents[0];
-            if (event) game.resolveActiveEvent(event.id, actionId, choice);
-          }}
+      {chapterIntroOpen && chapterIntroduction ? (
+        <ChapterIntroModal
+          chapter={chapterIntroduction}
+          onContinue={completeCurrentIntroduction}
+          onSkipIntro={completeCurrentIntroduction}
         />
-      ) : null}
+      ) : (
+        <>
+          {/* Resupply and other dialogs wait until the chapter introduction closes. */}
+          {game.resupplyDeliveredOnDay !== null && !game.state.mission.modifiers.noResupply ? (
+            <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
+          ) : null}
 
-      {/* PAUSED overlay. */}
-      {flow.phase === 'PAUSED' ? (
-        <PauseScreen onResume={flow.resume} onNewRun={goToNewRun} />
-      ) : null}
+          {flow.phase === 'PAUSED' ? (
+            <PauseScreen onResume={flow.resume} onNewRun={goToNewRun} />
+          ) : null}
 
-      {/* GAME_OVER overlay. */}
-      {flow.phase === 'GAME_OVER' ? (
-        <GameOver
-          state={game.state}
-          onRestartSame={handleRestartSame}
-          onNewRun={goToNewRun}
-          onViewDebrief={flow.viewDebrief}
-        />
-      ) : null}
+          {flow.phase === 'GAME_OVER' ? (
+            <GameOver
+              state={game.state}
+              onRestartSame={handleRestartSame}
+              onNewRun={goToNewRun}
+              onViewDebrief={flow.viewDebrief}
+            />
+          ) : null}
 
-      {/* MISSION_COMPLETE overlay. */}
-      {flow.phase === 'MISSION_COMPLETE' ? (
-        <MissionComplete
-          state={game.state}
-          onViewDebrief={flow.viewDebrief}
-          onNewRun={goToNewRun}
-        />
-      ) : null}
+          {flow.phase === 'MISSION_COMPLETE' ? (
+            <MissionComplete
+              state={game.state}
+              onViewDebrief={flow.viewDebrief}
+              onNewRun={goToNewRun}
+            />
+          ) : null}
 
-      <ConfirmDialog
-        open={confirm !== null}
-        title={confirm?.kind === 'restart' ? 'Reset mission?' : 'Start a new run?'}
-        message={
-          confirm?.kind === 'restart'
-            ? `This restarts the current mission from Sol 1 with the same site and occupation. Progress (Sol ${game.state.day}, ${game.state.history.length} decisions) will be lost.`
-            : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and continues to mission selection, then character setup.`
-        }
-        confirmLabel={confirm?.kind === 'restart' ? 'Reset & restart' : 'Discard & continue'}
-        onConfirm={() => {
-          const kind = confirm?.kind;
-          setConfirm(null);
-          if (kind === 'restart') handleRestartSame();
-          else goToNewRun();
-        }}
-        onCancel={() => setConfirm(null)}
-      />
+          <ConfirmDialog
+            open={confirm !== null}
+            title={confirm?.kind === 'restart' ? 'Reset mission?' : 'Start a new run?'}
+            message={
+              confirm?.kind === 'restart'
+                ? `This restarts the current mission from Sol 1 with the same site and occupation. Progress (Sol ${game.state.day}, ${game.state.history.length} decisions) will be lost.`
+                : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and continues to mission selection, then character setup.`
+            }
+            confirmLabel={confirm?.kind === 'restart' ? 'Reset & restart' : 'Discard & continue'}
+            onConfirm={() => {
+              const kind = confirm?.kind;
+              setConfirm(null);
+              if (kind === 'restart') handleRestartSame();
+              else goToNewRun();
+            }}
+            onCancel={() => setConfirm(null)}
+          />
+        </>
+      )}
     </AppShell>
   );
 }

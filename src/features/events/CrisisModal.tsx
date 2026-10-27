@@ -5,7 +5,7 @@
  * Creates urgency and impact for major decision moments.
  */
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { EventAction, GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
@@ -106,8 +106,17 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
   // Two-phase flow: pick an action, then review a short consequence summary
   // before it is committed to the simulation. `chosen` holds the pending action.
   const [chosen, setChosen] = useState<EventAction | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const confirmedRef = useRef(false);
 
   const stakes = useMemo(() => affectedMetrics(event), [event]);
+
+  // A queued event can reuse this component after the prior event is resolved.
+  useEffect(() => {
+    setChosen(null);
+    setConfirmed(false);
+    confirmedRef.current = false;
+  }, [event.id]);
 
   // Lock body scroll when modal is open.
   useEffect(() => {
@@ -125,24 +134,25 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
 
   // Phase 2: confirm → commit the decision to the engine.
   const confirmChoice = (): void => {
-    if (chosen) onChoose(chosen.id, 'self-directed');
+    if (!chosen || confirmedRef.current) return;
+    confirmedRef.current = true;
+    setConfirmed(true);
+    onChoose(chosen.id, 'self-directed');
   };
 
   // Render outside the animated app layout so its transform cannot trap the fixed overlay.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
-      {/* Crisis Container - Fits within viewport with scroll */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm animate-fadeIn">
       <div
         className={`
-          relative w-full max-w-5xl
+          relative w-full max-w-3xl max-h-[calc(100dvh-2rem)]
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
-          overflow-visible mb-6
+          overflow-hidden
         `}
       >
-        {/* Scrollable content wrapper - wider padding for tooltip space */}
-        <div className="overflow-y-auto overflow-x-visible max-h-[70vh]">
+        <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto overflow-x-hidden">
           {/* Header */}
           <div className={`sticky top-0 z-10 ${style.bg} border-b border-current/20 px-8 py-4 overflow-visible`}>
             <div className="flex items-start justify-between gap-4">
@@ -189,7 +199,9 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
           {chosen ? (
             <div className="px-8 py-5 pb-6 space-y-4">
               <div className="rounded-lg border-2 border-gray-700 bg-gray-900/50 p-4">
-                <div className="mb-1 text-sm font-semibold text-emerald-400">Decision recorded.</div>
+                <div className="mb-1 text-sm font-semibold text-emerald-400">
+                  Review your decision.
+                </div>
                 <div className="mb-3 text-sm font-bold text-white">{chosen.label}</div>
                 {(() => {
                   const consequences = immediateConsequences(chosen);
@@ -227,9 +239,10 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
                 </button>
                 <button
                   onClick={confirmChoice}
+                  disabled={confirmed}
                   className="rounded-lg border-2 border-emerald-600 bg-emerald-900/40 px-5 py-2 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-800/60"
                 >
-                  Continue →
+                  Confirm choice →
                 </button>
               </div>
             </div>

@@ -17,6 +17,8 @@ import { parseGameState, serializeGameState } from './validation';
 
 /** The localStorage key under which the single active game is stored. */
 export const STORAGE_KEY = 'mars-outpost-zero:save:v1';
+/** Separate UI progress; chapter introductions do not change simulation saves. */
+export const CHAPTER_INTRODUCTIONS_KEY = 'mars-outpost-zero:chapter-introductions:v1';
 
 /** Result of a load attempt. */
 export type LoadResult =
@@ -53,6 +55,55 @@ function getStorage(): Storage | null {
 /** True when persistence is available in this environment. */
 export function isStorageAvailable(): boolean {
   return getStorage() !== null;
+}
+
+/**
+ * Read the chapters the player has completed for this playthrough.
+ * Invalid or unavailable preference data is ignored without touching the game save.
+ */
+export function loadCompletedChapterIntroductions(gameId: string): number[] {
+  const storage = getStorage();
+  if (!storage) return [];
+
+  try {
+    const raw = storage.getItem(CHAPTER_INTRODUCTIONS_KEY);
+    if (!raw) return [];
+    const saved: unknown = JSON.parse(raw);
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return [];
+    const chapters = (saved as Record<string, unknown>)[gameId];
+    if (!Array.isArray(chapters)) return [];
+    return [...new Set(chapters.filter(
+      (chapter): chapter is number =>
+        Number.isInteger(chapter) && chapter > 0,
+    ))];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Persist one completed introduction without changing the saved GameState.
+ * Returns false when browser storage is unavailable or cannot be written.
+ */
+export function completeChapterIntroduction(gameId: string, chapterNumber: number): boolean {
+  if (!Number.isInteger(chapterNumber) || chapterNumber < 1) return false;
+  const storage = getStorage();
+  if (!storage) return false;
+
+  try {
+    const raw = storage.getItem(CHAPTER_INTRODUCTIONS_KEY);
+    const saved: unknown = raw ? JSON.parse(raw) : {};
+    const progress =
+      saved && typeof saved === 'object' && !Array.isArray(saved)
+        ? (saved as Record<string, unknown>)
+        : {};
+    const chapters = Array.isArray(progress[gameId]) ? progress[gameId] : [];
+    progress[gameId] = [...new Set([...chapters, chapterNumber])];
+    storage.setItem(CHAPTER_INTRODUCTIONS_KEY, JSON.stringify(progress));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
