@@ -229,6 +229,7 @@ export function App(): ReactElement {
               state={game.state}
               activity={game.activity}
               onDecide={game.decide}
+              onAdvanceDay={game.advanceDay}
               progression={progression}
               onNavigate={(v) => setSubView(v as SubView)}
             />
@@ -246,8 +247,8 @@ export function App(): ReactElement {
         <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
       ) : null}
 
-      {/* CRISIS overlay. */}
-      {flow.phase === 'CRISIS' && game.state.activeEvents[0] ? (
+      {/* The dashboard handles emergencies inline; other views keep the overlay. */}
+      {flow.phase === 'CRISIS' && subView !== 'dashboard' && game.state.activeEvents[0] ? (
         <CrisisModal
           event={game.state.activeEvents[0]}
           onChoose={(actionId, choice) => {
