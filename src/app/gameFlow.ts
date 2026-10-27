@@ -75,6 +75,7 @@ const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase
   },
   MISSION_SELECT: {
     SELECT_MISSION: 'SETUP',
+    RESTORE_RUN: 'PLAYING',
     QUIT_TITLE: 'TITLE',
   },
   SETUP: {

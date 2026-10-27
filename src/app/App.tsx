@@ -35,6 +35,8 @@ import { PauseScreen } from '../features/mission/PauseScreen';
 import { Debrief } from '../features/debrief/Debrief';
 import { HowToPlay } from '../features/how-to-play/HowToPlay';
 import { AchievementsPage } from '../features/progression/AchievementsPage';
+import { Leaderboard } from '../features/leaderboard/Leaderboard';
+import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { CrisisModal } from '../features/events/CrisisModal';
 import { Login } from '../features/auth/Login';
@@ -45,16 +47,19 @@ import { useProgression } from '../hooks/useProgression';
 import type { MissionConfig, MissionType } from '../features/mission/missionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
-import { isAuthenticated, logout } from '../features/auth/authService';
+import { getCurrentSession, isAuthenticated, logout } from '../features/auth/authService';
 
 /** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
-type SubView = Extract<ViewKey, 'dashboard' | 'debrief' | 'achievements' | 'how-to-play'>;
+type SubView = Extract<
+  ViewKey,
+  'dashboard' | 'debrief' | 'achievements' | 'leaderboard' | 'how-to-play'
+>;
 
 export function App(): ReactElement {
   const game = useGameState();
-  // Flow starts at BRIEFING: after login the player goes straight into the
-  // briefing, then occupation selection, then the dashboard. (No title screen.)
-  const flow = useGameFlow('BRIEFING');
+  // Flow starts at MISSION_SELECT: entering the site goes straight to mission
+  // selection, then occupation selection, then the dashboard. (No title/briefing.)
+  const flow = useGameFlow('MISSION_SELECT');
   const { progression, dismissNotifications } = useProgression(game.state);
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -65,6 +70,8 @@ export function App(): ReactElement {
   const [confirm, setConfirm] = useState<{ kind: 'new-run' | 'restart' } | null>(null);
   // The mission site chosen on the MISSION_SELECT screen, carried into SETUP.
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
+  // The leaderboard entry id for the run just submitted (for highlighting).
+  const [lastLeaderboardId, setLastLeaderboardId] = useState<string | undefined>(undefined);
 
   // --- Auth -----------------------------------------------------------------
   useEffect(() => {
@@ -73,9 +80,9 @@ export function App(): ReactElement {
 
   // --- Engine <-> flow synchronisation --------------------------------------
 
-  // A restored saved run jumps straight into PLAYING (skipping the briefing).
+  // A restored saved run jumps straight into PLAYING (skipping mission select).
   useEffect(() => {
-    if (game.notice.kind === 'restored' && flow.phase === 'BRIEFING') {
+    if (game.notice.kind === 'restored' && flow.phase === 'MISSION_SELECT') {
       flow.restoreRun();
     }
   }, [game.notice.kind, flow]);
@@ -90,6 +97,29 @@ export function App(): ReactElement {
       else if (status === 'completed') flow.complete();
     }
   }, [status, flow]);
+
+  // Auto-submit the player's result to the leaderboard once, when the run ends.
+  // Keyed on the run's gameId so each run posts a single entry.
+  useEffect(() => {
+    if (status !== 'failed' && status !== 'completed') return;
+    const runId = `run_${game.state.gameId}`;
+    if (lastLeaderboardId === runId) return; // already submitted this run
+
+    const session = getCurrentSession();
+    const name = session ? session.email.split('@')[0] || 'Operator' : 'Operator';
+
+    submitScore({
+      id: runId,
+      name,
+      daysSurvived: game.state.day,
+      score: game.state.mission.score,
+      missionType: game.state.mission.missionType,
+      occupation: game.state.character.occupation,
+      outcome: status === 'completed' ? 'completed' : 'failed',
+      timestamp: Date.now(),
+    });
+    setLastLeaderboardId(runId);
+  }, [status, game.state, lastLeaderboardId]);
 
   // Crisis: a new active event interrupts PLAYING; clearing it returns to play.
   useEffect(() => {
@@ -145,10 +175,12 @@ export function App(): ReactElement {
   };
 
   // Sidebar navigation. "Mission Setup" is not a sub-view any more: setup is a
-  // full-screen phase of the flow, so route it to the new-run flow instead of
-  // leaving the main panel empty.
+  // full-screen phase of the flow, so route it straight to mission selection.
+  // No confirmation here — the sidebar item is a plain navigation, so clicking
+  // it just goes to mission selection (the destructive "New Mission" top-bar
+  // button keeps its confirm).
   const handleNavigate = (view: ViewKey): void => {
-    if (view === 'mission-setup') handleNewMission();
+    if (view === 'mission-setup') goToNewRun();
     else setSubView(view as SubView);
   };
 
@@ -253,6 +285,7 @@ export function App(): ReactElement {
           ) : null}
           {subView === 'debrief' ? <Debrief state={game.state} /> : null}
           {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
+          {subView === 'leaderboard' ? <Leaderboard highlightId={lastLeaderboardId} /> : null}
           {subView === 'how-to-play' ? <HowToPlay /> : null}
         </>
       )}

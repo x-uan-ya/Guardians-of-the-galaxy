@@ -10,10 +10,16 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { ClipboardList, HelpCircle, LayoutDashboard, Rocket, Trophy } from 'lucide-react';
+import { BarChart3, ClipboardList, HelpCircle, LayoutDashboard, Rocket, Trophy } from 'lucide-react';
 
 /** All top-level views in the application. */
-export type ViewKey = 'dashboard' | 'mission-setup' | 'debrief' | 'achievements' | 'how-to-play';
+export type ViewKey =
+  | 'dashboard'
+  | 'mission-setup'
+  | 'debrief'
+  | 'achievements'
+  | 'leaderboard'
+  | 'how-to-play';
 
 export interface RouteDef {
   key: ViewKey;
@@ -46,6 +52,12 @@ export const ROUTES: readonly RouteDef[] = [
     label: 'Badges',
     icon: Trophy,
     description: 'Badges you have earned across your missions.',
+  },
+  {
+    key: 'leaderboard',
+    label: 'Leaderboard',
+    icon: BarChart3,
+    description: 'Top operators ranked by sols survived.',
   },
   {
     key: 'how-to-play',
