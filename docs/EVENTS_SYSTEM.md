@@ -217,6 +217,16 @@ Modal renders over dashboard:
 )}
 ```
 
+## Mission-Specific Events
+
+Each mission site (Lunar / Mars / Deep-Space) has its own crisis events that are
+only eligible on that site, making the locations mechanically different. They
+reuse this same event system — see **Mission-Specific Crisis Events** in
+`docs/EVENTS_ARCHITECTURE.md` for eligibility, occupation interactions,
+determinism, and how to add one. Content lives in
+`src/features/events/missionEvents.ts`; site-gating and occupation variants are
+wired in `eventTriggers.ts`.
+
 ## Adding New Events
 
 ### 1. Define Event in Catalog

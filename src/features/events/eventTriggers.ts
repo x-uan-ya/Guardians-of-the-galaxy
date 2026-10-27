@@ -12,6 +12,7 @@ import { EVENT_CATALOG, findEvent } from './eventCatalog';
 import { chapter1EventForMission } from './chapter1Events';
 import { chapter2EventForState } from './chapter2Events';
 import { chapter3EventForState } from './chapter3Events';
+import { MISSION_EVENTS_BY_SITE, MISSION_EVENT_IDS, missionEventVariant } from './missionEvents';
 import { seededRandom } from '../../lib/random';
 
 /** Fixed event IDs for Chapter 1, indexed by the Sol on which they appear. */
@@ -202,7 +203,60 @@ export function calculateEventWeights(state: GameState): EventWeight[] {
   if (crew.morale > 50) experimentWeight += 15;
   weights.push({ eventId: 'successful-experiment', weight: experimentWeight });
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // MISSION-SPECIFIC EVENTS — only eligible on their own site. These make each
+  // location feel mechanically distinct. Weighted a little higher than the
+  // generic pool, and nudged up further when their themed metric is stressed.
+  // ═══════════════════════════════════════════════════════════════════════
+  // Weighted well above the generic pool so the site's identity is actually
+  // felt during the short post-story window (Sols 16-30). Still not guaranteed
+  // every roll — generic events remain possible.
+  const MISSION_EVENT_BASE = 80;
+  for (const missionEvent of MISSION_EVENTS_BY_SITE[mission.missionType]) {
+    let weight = MISSION_EVENT_BASE;
+    switch (missionEvent.id) {
+      case 'mission-lunar-power-instability':
+        if (resources.power < 50) weight += 20;
+        if (systems.powerGeneration < 60) weight += 15;
+        break;
+      case 'mission-lunar-thermal-emergency':
+        if (systems.lifeSupportEfficiency < 60) weight += 20;
+        break;
+      case 'mission-mars-dust-storm':
+        if (systems.powerGeneration < 70) weight += 15;
+        break;
+      case 'mission-mars-radiation-spike':
+        if (crew.radiationExposure > 40) weight += 25;
+        if (systems.shieldingIntegrity < 60) weight += 15;
+        break;
+      case 'mission-deep-space-anomaly':
+        // Opportunity: a touch more likely when resources are tight.
+        if (resources.water < 50 || resources.food < 50) weight += 15;
+        break;
+      case 'mission-deep-space-systems-failure':
+        if (systems.lifeSupportEfficiency < 60) weight += 20;
+        if (resources.power < 40) weight += 15;
+        break;
+    }
+    weights.push({ eventId: missionEvent.id, weight });
+  }
+
   return weights;
+}
+
+/**
+ * Resolve an event id to a GameEvent, applying the mission-specific occupation
+ * variant when the id is a mission event. Mission events only resolve for the
+ * matching site, which enforces eligibility at selection time too.
+ */
+export function resolveEventForState(eventId: string, state: GameState): GameEvent | undefined {
+  if (MISSION_EVENT_IDS.has(eventId)) {
+    const siteEvents = MISSION_EVENTS_BY_SITE[state.mission.missionType];
+    const base = siteEvents.find((e) => e.id === eventId);
+    if (!base) return undefined; // not eligible on this site
+    return missionEventVariant(base, state.character.occupation);
+  }
+  return EVENT_CATALOG.find((e) => e.id === eventId);
 }
 
 /**
@@ -242,15 +296,16 @@ export function rollForEvent(state: GameState): GameEvent | undefined {
   for (const { eventId, weight } of weights) {
     cumulative += weight;
     if (roll < cumulative) {
-      const event = EVENT_CATALOG.find(e => e.id === eventId);
-      return event;
+      // resolveEventForState applies the mission/occupation variant when the
+      // selected event is a mission-specific one.
+      return resolveEventForState(eventId, state);
     }
   }
   
   // Fallback: return first event if weights array exists
   const firstWeight = weights[0];
   if (firstWeight) {
-    return EVENT_CATALOG.find(e => e.id === firstWeight.eventId);
+    return resolveEventForState(firstWeight.eventId, state);
   }
   
   return undefined;

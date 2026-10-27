@@ -15,6 +15,8 @@ import type { EventAction, GameEvent } from './eventTypes';
 import { CHAPTER_1_EVENTS } from './chapter1Events';
 import { CHAPTER_2_EVENTS } from './chapter2Events';
 import { CHAPTER_3_EVENTS } from './chapter3Events';
+// Mission-specific crises (site-gated; see missionEvents.ts + eventTriggers.ts).
+import { MISSION_EVENTS } from './missionEvents';
 
 /**
  * Free actions are always valid as a player decision, independent of any
@@ -59,6 +61,7 @@ export const EVENT_CATALOG: GameEvent[] = [
   ...CHAPTER_1_EVENTS,
   ...CHAPTER_2_EVENTS,
   ...CHAPTER_3_EVENTS,
+  ...MISSION_EVENTS,
   // ═══════════════════════════════════════════════════════════════════════════
   // CRITICAL EVENTS - The flagship crises that define high-stakes gameplay
   // ═══════════════════════════════════════════════════════════════════════════

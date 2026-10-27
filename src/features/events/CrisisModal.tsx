@@ -5,9 +5,9 @@
  * Creates urgency and impact for major decision moments.
  */
 
-import React, { useEffect, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameEvent } from './eventTypes';
+import type { EventAction, GameEvent } from './eventTypes';
 import type { PlayerChoice } from '../decisions/decisionTypes';
 import { EventDescription } from './EventDescription';
 
@@ -15,6 +15,49 @@ interface CrisisModalProps {
   event: GameEvent;
   onChoose: (actionId: string, choice: PlayerChoice) => void;
   onDismiss?: () => void;
+}
+
+/** Human labels for the metrics an event can touch (for the "at stake" row). */
+const METRIC_LABELS: Record<string, string> = {
+  power: 'Power',
+  water: 'Water',
+  food: 'Food',
+  oxygen: 'Oxygen',
+  health: 'Health',
+  morale: 'Morale',
+  radiationExposure: 'Radiation',
+  powerGeneration: 'Power Generation',
+  lifeSupportEfficiency: 'Life Support',
+  foodProduction: 'Food Production',
+  shieldingIntegrity: 'Shielding',
+};
+
+/** Collect every metric key any of the event's actions can affect. */
+function affectedMetrics(event: GameEvent): string[] {
+  const keys = new Set<string>();
+  for (const action of event.availableActions) {
+    const e = action.effect;
+    Object.keys(e.immediateResources ?? {}).forEach((k) => keys.add(k));
+    Object.keys(e.immediateCrew ?? {}).forEach((k) => keys.add(k));
+    Object.keys(e.immediateSystems ?? {}).forEach((k) => keys.add(k));
+  }
+  return [...keys];
+}
+
+/** Flatten one action's immediate effects into labelled signed deltas. */
+function immediateConsequences(action: EventAction): { label: string; value: number }[] {
+  const e = action.effect;
+  const out: { label: string; value: number }[] = [];
+  const push = (obj: Record<string, number> | undefined): void => {
+    if (!obj) return;
+    for (const [k, v] of Object.entries(obj)) {
+      out.push({ label: METRIC_LABELS[k] ?? k, value: v });
+    }
+  };
+  push(e.immediateResources as Record<string, number> | undefined);
+  push(e.immediateCrew as Record<string, number> | undefined);
+  push(e.immediateSystems as Record<string, number> | undefined);
+  return out;
 }
 
 /** Map severity to visual styling */
@@ -60,25 +103,30 @@ const SEVERITY_STYLES = {
 export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): ReactElement {
   const style = SEVERITY_STYLES[event.severity];
 
-  // Lock body scroll when modal is open
+  // Two-phase flow: pick an action, then review a short consequence summary
+  // before it is committed to the simulation. `chosen` holds the pending action.
+  const [chosen, setChosen] = useState<EventAction | null>(null);
+
+  const stakes = useMemo(() => affectedMetrics(event), [event]);
+
+  // Lock body scroll when modal is open.
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
   }, []);
-  
-  const handleAction = (actionId: string) => {
-    onChoose(actionId, 'self-directed');
+
+  // Phase 1: player selects an action → show its consequence summary.
+  const handleAction = (actionId: string): void => {
+    const action = event.availableActions.find((a) => a.id === actionId);
+    setChosen(action ?? null);
   };
 
-  // Lock body scroll when modal is open
-  React.useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  // Phase 2: confirm → commit the decision to the engine.
+  const confirmChoice = (): void => {
+    if (chosen) onChoose(chosen.id, 'self-directed');
+  };
 
   // Render outside the animated app layout so its transform cannot trap the fixed overlay.
   return createPortal(
@@ -108,6 +156,22 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
                 <p className="text-gray-300 text-sm leading-relaxed">
                   <EventDescription eventId={event.id} description={event.description} />
                 </p>
+                {/* What is at stake: the systems/resources this crisis can touch. */}
+                {stakes.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+                      Affected:
+                    </span>
+                    {stakes.map((key) => (
+                      <span
+                        key={key}
+                        className="rounded border border-current/30 bg-black/30 px-1.5 py-0.5 text-[10px] font-mono text-gray-300"
+                      >
+                        {METRIC_LABELS[key] ?? key}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               {onDismiss && event.severity !== 'critical' && (
                 <button
@@ -121,7 +185,56 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
             </div>
           </div>
 
-          {/* Action Choices */}
+          {/* Phase 2: consequence summary after a choice, before committing. */}
+          {chosen ? (
+            <div className="px-8 py-5 pb-6 space-y-4">
+              <div className="rounded-lg border-2 border-gray-700 bg-gray-900/50 p-4">
+                <div className="mb-1 text-sm font-semibold text-emerald-400">Decision recorded.</div>
+                <div className="mb-3 text-sm font-bold text-white">{chosen.label}</div>
+                {(() => {
+                  const consequences = immediateConsequences(chosen);
+                  const delayedCount = chosen.effect.delayed?.length ?? 0;
+                  return (
+                    <div className="space-y-1.5 font-mono text-xs">
+                      {consequences.length === 0 && delayedCount === 0 ? (
+                        <div className="text-gray-400">No immediate change this Sol.</div>
+                      ) : (
+                        consequences.map((c, i) => (
+                          <div key={`${c.label}-${i}`} className="flex justify-between gap-4">
+                            <span className="text-gray-400">{c.label}</span>
+                            <span className={c.value >= 0 ? 'text-green-400' : 'text-red-400'}>
+                              {c.value >= 0 ? '+' : ''}
+                              {c.value}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                      {delayedCount > 0 && (
+                        <div className="pt-1 text-yellow-400">
+                          ⏱ {delayedCount} delayed consequence{delayedCount === 1 ? '' : 's'} scheduled.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => setChosen(null)}
+                  className="text-xs text-gray-400 transition-colors hover:text-white"
+                >
+                  ← Reconsider
+                </button>
+                <button
+                  onClick={confirmChoice}
+                  className="rounded-lg border-2 border-emerald-600 bg-emerald-900/40 px-5 py-2 text-sm font-bold text-emerald-300 transition-colors hover:bg-emerald-800/60"
+                >
+                  Continue →
+                </button>
+              </div>
+            </div>
+          ) : (
+          /* Phase 1: action choices. */
           <div className="px-8 py-4 pb-6 space-y-3 overflow-visible">
             <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
               CHOOSE YOUR RESPONSE:
@@ -201,9 +314,10 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
               </button>
             ))}
           </div>
+          )}
 
           {/* Footer hint */}
-          {event.severity === 'critical' && (
+          {event.severity === 'critical' && !chosen && (
             <div className={`sticky bottom-0 ${style.bg} border-t border-current/20 px-8 py-3 text-center`}>
               <p className="text-xs text-gray-500 font-mono">
                 CRITICAL: You must choose before advancing

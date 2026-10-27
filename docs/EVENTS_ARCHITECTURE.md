@@ -347,3 +347,91 @@ GameState {
 ### Occupation-Specific Events
 - Add occupation check in weight calculation
 - Adjust probabilities per character type
+
+
+---
+
+## Mission-Specific Crisis Events
+
+Mission-specific events make the three sites (**Lunar / Mars / Deep-Space**)
+mechanically different. They reuse the existing event architecture — same
+`GameEvent` shape, same scheduler, same resolver, same `CrisisModal`. There is
+**no second event system**.
+
+Files:
+
+```
+src/features/events/missionEvents.ts   # content: the 6 events + eligibility + occupation variants
+src/features/events/eventTriggers.ts   # eligibility + variant resolution wired into the roll
+src/features/events/eventCatalog.ts    # MISSION_EVENTS registered into EVENT_CATALOG (for findEvent)
+```
+
+### The events
+
+| Mission | Event id | Theme |
+| ------- | -------- | ----- |
+| Lunar | `mission-lunar-power-instability` | thermal swings destabilise power generation |
+| Lunar | `mission-lunar-thermal-emergency` | extreme temperature strains life support |
+| Mars | `mission-mars-dust-storm` | dust cuts solar power generation |
+| Mars | `mission-mars-radiation-spike` | radiation exposure rises (uses the existing radiation system) |
+| Deep-Space | `mission-deep-space-anomaly` | investigate an unknown signature for a delayed resource gain |
+| Deep-Space | `mission-deep-space-systems-failure` | a core subsystem fails; repairs cost scarce power |
+
+### Eligibility (site-gating)
+
+`MISSION_EVENTS_BY_SITE: Record<MissionType, GameEvent[]>` is the source of
+truth. In `calculateEventWeights()`, only `MISSION_EVENTS_BY_SITE[mission.missionType]`
+is added to the weight pool, so a Lunar event can never be rolled on Mars, etc.
+`resolveEventForState(eventId, state)` double-enforces this: a mission event id
+only resolves when it belongs to the current site (returns `undefined` otherwise).
+
+Mission events are weighted above the generic pool (`MISSION_EVENT_BASE = 80`,
+plus themed bonuses when the relevant metric is stressed) so the site identity
+is actually felt during the post-story window (Sols 16–30). Generic events
+remain possible; mission events are not guaranteed every roll.
+
+### Consequences → simulation
+
+Mission events change **real game state**, never just UI text. Effects use only
+the existing shared types (`immediateResources`, `immediateCrew`,
+`immediateSystems`, and `delayed[]` with `DelayedEffectParameters`). The engine
+(`applyPlayerDecision`) applies immediate deltas, schedules delayed effects,
+records the decision in history, removes the event from `activeEvents`, and
+recomputes mission status — identical to every other event. The radiation
+events use the existing `crew.radiationExposure` metric (no separate variable).
+
+### Occupation interactions
+
+Occupation advantages reuse the established "append an action" pattern (see
+`chapter1Events.ts`). `missionEventVariant(event, occupation)` returns a copy of
+the event with **one** extra mitigation action appended when the character's
+occupation is a good thematic fit (e.g. Engineer on a systems failure, Medical
+Officer on a radiation spike). The variant is built at trigger time and stored
+in `state.activeEvents`, and the resolver validates against the stored variant —
+so the appended action is accepted. Occupations without a thematic fit get no
+extra action, so no occupation is universally superior. Advantages are a modest,
+better trade-off — never an "I win" button.
+
+### Determinism
+
+Mission events are plain data with fixed deltas, selected through the same
+`seededRandom(gameId + day)` path as every other event. Same starting state +
+mission + occupation + decision sequence ⇒ identical outcomes. Only one crisis
+is active at a time (enforced by the existing `activeEvents.length` guards), and
+events respect all game-over rules — a consequence that legitimately drives
+health/oxygen to 0 (or radiation to 100) fails the mission via the normal
+`recomputeMissionStatus` rule.
+
+### Adding another mission-specific event
+
+1. Add a `GameEvent` to the right site array in `MISSION_EVENTS_BY_SITE`
+   (`missionEvents.ts`). Use existing resources/systems/crew in its effects and
+   give it at least one low-risk survival path.
+2. (Optional) Add an occupation mitigation in `OCCUPATION_MITIGATIONS` keyed by
+   the event id → occupation.
+3. (Optional) Add a themed weight bonus in `calculateEventWeights()` so it
+   reacts to the relevant metric.
+4. Add a test in `src/tests/missionEvents.test.ts` for each choice's effect.
+
+That's it — registration in `EVENT_CATALOG`, scheduling, the modal, history,
+and delayed effects are all automatic.
