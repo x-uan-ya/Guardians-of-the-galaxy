@@ -3,7 +3,7 @@
  * ----------------
  * Tests for the top-level game-flow state machine. The machine is the single
  * source of truth for flow, so these lock in the documented transitions:
- *  - the full happy path TITLE -> ... -> DEBRIEF -> SETUP,
+ *  - the full happy path TITLE -> ... -> DEBRIEF -> MISSION_SELECT -> SETUP,
  *  - invalid events are no-ops (do not corrupt the phase),
  *  - crisis and pause round-trips,
  *  - both terminal paths (death vs. completion),
@@ -32,7 +32,7 @@ describe('initial phase', () => {
 });
 
 describe('happy path', () => {
-  it('walks TITLE -> BRIEFING -> MISSION_SELECT -> SETUP -> PLAYING -> MISSION_COMPLETE -> DEBRIEF -> SETUP', () => {
+  it('walks the briefing and new-run paths through mission selection', () => {
     const phases: GamePhase[] = [];
     let p: GamePhase = INITIAL_PHASE;
     for (const ev of [
@@ -43,6 +43,7 @@ describe('happy path', () => {
       'COMPLETED',
       'VIEW_DEBRIEF',
       'NEW_RUN',
+      'SELECT_MISSION',
     ] as FlowEvent['type'][]) {
       p = transition(p, { type: ev } as FlowEvent);
       phases.push(p);
@@ -54,6 +55,7 @@ describe('happy path', () => {
       'PLAYING',
       'MISSION_COMPLETE',
       'DEBRIEF',
+      'MISSION_SELECT',
       'SETUP',
     ]);
   });
@@ -113,10 +115,15 @@ describe('terminal paths', () => {
 });
 
 describe('new run + restore', () => {
-  it('NEW_RUN from any in-run or terminal phase returns to SETUP', () => {
+  it('NEW_RUN from any in-run or terminal phase returns to mission selection', () => {
     for (const phase of ['PLAYING', 'CRISIS', 'PAUSED', 'GAME_OVER', 'MISSION_COMPLETE', 'DEBRIEF'] as GamePhase[]) {
-      expect(transition(phase, { type: 'NEW_RUN' })).toBe('SETUP');
+      expect(transition(phase, { type: 'NEW_RUN' })).toBe('MISSION_SELECT');
     }
+  });
+
+  it('selecting a mission continues to character setup before launch', () => {
+    expect(transition('MISSION_SELECT', { type: 'SELECT_MISSION' })).toBe('SETUP');
+    expect(transition('SETUP', { type: 'LAUNCH' })).toBe('PLAYING');
   });
 
   it('restoring a saved run jumps TITLE -> PLAYING', () => {

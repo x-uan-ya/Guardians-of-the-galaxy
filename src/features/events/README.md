@@ -15,6 +15,10 @@ export const EVENT_CATALOG: GameEvent[] = [
 ];
 ```
 
+Chapter 1–3 storyline definitions live in `chapter1Events.ts`,
+`chapter2Events.ts`, and `chapter3Events.ts`; `eventCatalog.ts` registers them
+alongside the existing random-event catalogue.
+
 To add an event, append to `EVENT_CATALOG` with:
 - Unique `id`
 - `title` and `description`
@@ -22,13 +26,31 @@ To add an event, append to `EVENT_CATALOG` with:
 - Array of `availableActions` (minimum 1)
 
 ### `eventTriggers.ts`
-**Event selection system** using weighted probabilities.
+**Event selection system** for scheduled story events, forced events, and weighted random events.
 
 Key functions:
 - `calculateEventWeights(state)` - Compute event probabilities based on game state
 - `rollForEvent(state)` - Randomly select an event to trigger
 - `checkForcedEvent(state)` - Force critical events when conditions warrant
-- `triggerEvent(state)` - Main entry point (checks forced, then rolls)
+- `chapter1EventForDay(day, missionType)` - Look up the Chapter 1 event variant for a Sol and mission site
+- `chapter2EventForDay(day, state)` - Look up a Chapter 2 variant using mission and state context
+- `chapter3EventForDay(day, state)` - Look up a Chapter 3 event, including the Sol 15 resupply variant
+- `triggerEvent(state)` - Main entry point (scheduled story event, then forced, then random)
+
+Chapter 1 events are scheduled on Sols 1–5. Sol 1 is placed in the initial game
+state; Sols 2–5 are selected during day advance. Chapter 2 events are scheduled
+on Sols 6–10, and Chapter 3 events on Sols 11–15. Chapters 1–3 keep shared
+schedules across mission sites with location-specific descriptions. Chapter 3
+Sol 15 acknowledges the existing Lunar/Mars resupply without adding resources
+again; Deep Space instead receives a no-resupply survival event. Chapter 1 Sol
+5 offers one extra response for the local crisis; Chapter 2 Sol 6 and Sol 9
+adapt their narrative to decision history and system condition.
+
+Scheduled story events take priority over forced and random events on their
+Sols. Events do not stack: players must resolve an active event before
+advancing or taking a free action. Once Sol 15 passes, the existing forced and
+random event selection continues. Resolution uses the active event's stored
+choices, preserving the presented variant when a game is restored.
 
 ### `eventTypes.ts`
 **TypeScript types** for the event system.

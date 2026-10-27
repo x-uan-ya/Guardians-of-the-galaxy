@@ -8,20 +8,15 @@
  * FLOW (see the diagram in the design doc):
  *
  *   TITLE
- *     ↓ start
- *   BRIEFING
- *     ↓ continue
- *   SETUP            (occupation selection + mission config)
- *     ↓ launch
- *   PLAYING  ⇄  CRISIS         (a crisis interrupts play; resolving returns)
- *     ↓            ↓
- *   PLAYING  ⇄  PAUSED         (player can pause/resume)
- *     ↓
- *   GAME_OVER  or  MISSION_COMPLETE   (death/failure vs. survived to extraction)
- *     ↓ debrief
- *   DEBRIEF
- *     ↓ newRun
- *   SETUP            (back to occupation selection for a fresh run)
+ *     ↓ start                  ↓ restore saved run
+ *   BRIEFING                  PLAYING
+ *     ↓ continue                 ⇄ CRISIS / PAUSED
+ *   MISSION_SELECT              ↓
+ *     ↓ select                 GAME_OVER or MISSION_COMPLETE
+ *   SETUP                       ↓ debrief
+ *     ↓ launch                 DEBRIEF
+ *   PLAYING                       ↓ newRun
+ *     ⇄ CRISIS / PAUSED        MISSION_SELECT
  *
  * This module is PURE: no React, no I/O. The reducer validates every
  * transition, so illegal jumps are caught instead of silently corrupting flow.
@@ -55,7 +50,7 @@ export type FlowEvent =
   | { type: 'DIED' } //              PLAYING/CRISIS -> GAME_OVER
   | { type: 'COMPLETED' } //         PLAYING/CRISIS -> MISSION_COMPLETE
   | { type: 'VIEW_DEBRIEF' } //      GAME_OVER/MISSION_COMPLETE -> DEBRIEF
-  | { type: 'NEW_RUN' } //           (most phases) -> SETUP
+  | { type: 'NEW_RUN' } //           (most phases) -> MISSION_SELECT
   | { type: 'QUIT_TITLE' } //        (most phases) -> TITLE
   | { type: 'RESTORE_RUN' }; //      TITLE -> PLAYING (a saved run was loaded)
 
@@ -71,7 +66,7 @@ const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase
   TITLE: {
     START: 'BRIEFING',
     RESTORE_RUN: 'PLAYING',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
   },
   BRIEFING: {
     CONTINUE_BRIEFING: 'MISSION_SELECT',
@@ -91,7 +86,7 @@ const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase
     PAUSE: 'PAUSED',
     DIED: 'GAME_OVER',
     COMPLETED: 'MISSION_COMPLETE',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
   CRISIS: {
@@ -99,26 +94,26 @@ const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase
     PAUSE: 'PAUSED',
     DIED: 'GAME_OVER',
     COMPLETED: 'MISSION_COMPLETE',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
   PAUSED: {
     RESUME: 'PLAYING',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
   GAME_OVER: {
     VIEW_DEBRIEF: 'DEBRIEF',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
   MISSION_COMPLETE: {
     VIEW_DEBRIEF: 'DEBRIEF',
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
   DEBRIEF: {
-    NEW_RUN: 'SETUP',
+    NEW_RUN: 'MISSION_SELECT',
     QUIT_TITLE: 'TITLE',
   },
 };

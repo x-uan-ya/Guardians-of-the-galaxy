@@ -71,12 +71,16 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
               <button
                 key={action.id}
                 type="button"
-                disabled={terminal}
+                disabled={terminal || state.activeEvents.length > 0}
                 onClick={() =>
                   onDecide({ actionId: action.id, playerChoice: choiceFor(action.id) })
                 }
                 className={`btn-secondary ${recommended ? 'ring-1 ring-accent-blue/60' : ''}`}
-                title={action.description}
+                title={
+                  state.activeEvents.length > 0
+                    ? 'Resolve the active event before taking a routine action.'
+                    : action.description
+                }
               >
                 {action.label}
                 {recommended ? <span className="text-accent-blue">★</span> : null}

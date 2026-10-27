@@ -22,12 +22,12 @@ import {
 } from '../features/simulation/simulationEngine';
 import { OCCUPATION_CATALOG } from '../features/mission/occupations';
 import { OCCUPATIONS, type GameState } from '../features/simulation/simulationTypes';
-import { FIXED_CONFIG, freshGame } from './helpers';
+import { advanceTestDay, FIXED_CONFIG, freshGame } from './helpers';
 
 /** Advance N days, returning the final state. */
 function advanceDays(state: GameState, n: number): GameState {
   let s = state;
-  for (let i = 0; i < n; i++) s = advanceSimulationDay(s).state;
+  for (let i = 0; i < n; i++) s = advanceTestDay(s).state;
   return s;
 }
 

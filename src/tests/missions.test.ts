@@ -11,10 +11,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { advanceSimulationDay, validateGameState } from '../features/simulation/simulationEngine';
+import {
+  advanceSimulationDay,
+  createInitialGameState,
+  RESUPPLY_AMOUNT,
+  resolveEvent,
+  validateGameState,
+} from '../features/simulation/simulationEngine';
 import { MISSION_CATALOG } from '../features/mission/missions';
 import { MISSION_TYPES, type GameState } from '../features/simulation/simulationTypes';
-import { freshGame } from './helpers';
+import { advanceTestDay, FIXED_CONFIG, freshGame } from './helpers';
+import { applyResourceChanges } from '../features/simulation/resourceCalculations';
 
 function keepAlive(state: GameState): GameState {
   return {
@@ -43,17 +50,74 @@ describe('mission seeding', () => {
 });
 
 describe('noResupply (deep-space)', () => {
+  it('does not grant resources on Sol 1 or Sol 15', () => {
+    let state = createInitialGameState({ ...FIXED_CONFIG, missionType: 'deep-space' });
+    const sol1Event = state.activeEvents[0]!;
+    state = resolveEvent(state, sol1Event.id, sol1Event.availableActions[0]!.id);
+    const beforeSol2 = state.resources;
+    const sol2 = advanceSimulationDay(state);
+    expect(sol2.resupplyFired).toBe(false);
+    expect(sol2.state.mission.resupplyDelivered).toBe(false);
+    expect(sol2.state.resources).toEqual(applyResourceChanges(beforeSol2, sol2.dailyDelta));
+
+    state = {
+      ...freshGame({ missionType: 'deep-space' }),
+      day: 14,
+      activeEvents: [],
+      resources: { power: 40, water: 40, food: 40, oxygen: 40 },
+      crew: { health: 90, morale: 80, radiationExposure: 0 },
+    };
+    const beforeSol15 = state.resources;
+    const sol15 = advanceSimulationDay(state);
+    expect(sol15.state.day).toBe(15);
+    expect(sol15.resupplyFired).toBe(false);
+    expect(sol15.state.mission.resupplyDelivered).toBe(false);
+    expect(sol15.state.resources).toEqual(applyResourceChanges(beforeSol15, sol15.dailyDelta));
+    expect(sol15.state.activeEvents[0]?.id).toBe('story-sol-15-no-resupply-isolation-test');
+  });
+
   it('never delivers the Sol-15 resupply', () => {
     let state = keepAlive(freshGame({ missionType: 'deep-space' }));
     let anyResupply = false;
     for (let i = 0; i < 20 && state.mission.status !== 'completed'; i++) {
       state = keepAlive(state);
-      const res = advanceSimulationDay(state);
+      const res = advanceTestDay(state);
       if (res.resupplyFired) anyResupply = true;
       state = res.state;
     }
     expect(anyResupply).toBe(false);
     expect(state.mission.resupplyDelivered).toBe(false);
+  });
+});
+
+describe('resupply delivery by mission', () => {
+  it('delivers +25 once on Sol 15 for Lunar and Mars, not again after acknowledgement', () => {
+    for (const missionType of ['lunar', 'mars'] as const) {
+      const state: GameState = {
+        ...freshGame({ missionType }),
+        day: 14,
+        activeEvents: [],
+        resources: { power: 40, water: 40, food: 40, oxygen: 40 },
+        crew: { health: 90, morale: 80, radiationExposure: 0 },
+      };
+      const before = state.resources;
+      const arrival = advanceSimulationDay(state);
+      expect(arrival.resupplyFired).toBe(true);
+      expect(arrival.state.mission.resupplyDelivered).toBe(true);
+      expect(arrival.state.resources).toEqual(
+        applyResourceChanges(
+          applyResourceChanges(before, arrival.dailyDelta),
+          { power: RESUPPLY_AMOUNT, water: RESUPPLY_AMOUNT, food: RESUPPLY_AMOUNT, oxygen: RESUPPLY_AMOUNT }
+        )
+      );
+
+      const acknowledgment = arrival.state.activeEvents[0]!;
+      const resolved = resolveEvent(arrival.state, acknowledgment.id, acknowledgment.availableActions[0]!.id);
+      expect(resolved.resources).toEqual(arrival.state.resources);
+      const nextDay = advanceSimulationDay(resolved);
+      expect(nextDay.resupplyFired).toBe(false);
+      expect(nextDay.state.mission.resupplyDelivered).toBe(true);
+    }
   });
 });
 
@@ -63,7 +127,7 @@ describe('radiation hazard (mars)', () => {
     const before = state.crew.radiationExposure;
     for (let i = 0; i < 5; i++) {
       state = keepAlive(state);
-      state = advanceSimulationDay(state).state;
+      state = advanceTestDay(state).state;
     }
     expect(state.crew.radiationExposure).toBeGreaterThan(before);
   });

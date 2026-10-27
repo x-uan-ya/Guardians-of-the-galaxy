@@ -38,8 +38,8 @@ export function MissionActivity({ state, activity }: MissionActivityProps): Reac
           <p className="text-sm text-slate-400">No decisions recorded yet.</p>
         ) : (
           <ul className="space-y-2">
-            {decisions.map((d) => (
-              <li key={d.id} className="rounded-md border border-space-600 bg-space-700/50 p-2">
+            {decisions.map((d, index) => (
+              <li key={`${d.id}-${index}`} className="rounded-md border border-space-600 bg-space-700/50 p-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-slate-200">{d.actionLabel}</span>
                   <span className="tnum text-xs text-slate-400">Sol {d.day}</span>

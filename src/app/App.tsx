@@ -126,13 +126,13 @@ export function App(): ReactElement {
     flow.launch();
   };
 
-  // Start a fresh run from a terminal/paused screen (-> SETUP).
+  // Start a fresh run by choosing a site before entering character setup.
   const goToNewRun = (): void => {
     setSubView('dashboard');
     flow.newRun();
   };
 
-  // TopBar "New Mission" during play: confirm (discards progress), then SETUP.
+  // TopBar "New Mission" during play: confirm before choosing a new site.
   const handleNewMission = (): void => setConfirm({ kind: 'new-run' });
 
   // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
@@ -242,7 +242,7 @@ export function App(): ReactElement {
       <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
 
       {/* Resupply pop-up (Sol 15 drop). */}
-      {game.resupplyDeliveredOnDay !== null ? (
+      {game.resupplyDeliveredOnDay !== null && !game.state.mission.modifiers.noResupply ? (
         <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
       ) : null}
 
@@ -287,7 +287,7 @@ export function App(): ReactElement {
         message={
           confirm?.kind === 'restart'
             ? `This restarts the current mission from Sol 1 with the same site and occupation. Progress (Sol ${game.state.day}, ${game.state.history.length} decisions) will be lost.`
-            : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and returns to occupation selection.`
+            : `This discards the current mission (Sol ${game.state.day}, ${game.state.history.length} decisions) and continues to mission selection, then character setup.`
         }
         confirmLabel={confirm?.kind === 'restart' ? 'Reset & restart' : 'Discard & continue'}
         onConfirm={() => {

@@ -13,7 +13,7 @@
  * All engine calls return NEW state; we just hand that to setState.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   advanceSimulationDay,
   applyPlayerDecision,
@@ -100,6 +100,8 @@ export function useGameState(): UseGameState {
 
   // Lazy initial state: try to restore, otherwise start the default mission.
   const [state, setState] = useState<GameState>(() => createInitialGameState(DEFAULT_MISSION_CONFIG));
+  const stateRef = useRef(state);
+  const restoreAttemptedRef = useRef(false);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [notice, setNotice] = useState<PersistenceNotice>({ kind: 'idle' });
   // Set to the Sol the resupply was delivered, so the UI can pop a modal.
@@ -107,16 +109,24 @@ export function useGameState(): UseGameState {
 
   const pushActivity = useCallback(
     (day: number, message: string, tone: ActivityEntry['tone']) => {
-      setActivity((prev) => [makeActivity(day, message, tone, Date.now()), ...prev].slice(0, 40));
+      const entry = makeActivity(day, message, tone, Date.now());
+      // Keep the React updater pure; StrictMode may call it more than once.
+      setActivity((prev) => [entry, ...prev].slice(0, 40));
     },
     []
   );
 
   // Restore once on mount.
   useEffect(() => {
+    // StrictMode replays mount effects in development, but storage should load once.
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+
     const result = loadGame();
     switch (result.status) {
       case 'loaded':
+      setResupplyDeliveredOnDay(null);
+      stateRef.current = result.state;
         setState(result.state);
         setNotice({ kind: 'restored' });
         pushActivity(result.state.day, 'Saved mission restored from local storage.', 'info');
@@ -141,62 +151,67 @@ export function useGameState(): UseGameState {
   }, []);
 
   const advanceDay = useCallback(() => {
-    setState((prev) => {
-      if (prev.mission.status === 'failed' || prev.mission.status === 'completed') {
-        pushActivity(prev.day, `Mission is ${prev.mission.status}. Start a new mission to continue.`, 'warn');
-        return prev;
-      }
-      const stamped = withTimestamp(prev, Date.now());
-      const { state: next, firedEffects, dailyDelta, resupplyFired } = advanceSimulationDay(stamped);
+    const prev = stateRef.current;
+    if (prev.mission.status === 'failed' || prev.mission.status === 'completed') {
+      pushActivity(prev.day, `Mission is ${prev.mission.status}. Start a new mission to continue.`, 'warn');
+      return;
+    }
+    if (prev.activeEvents.length > 0) {
+      pushActivity(prev.day, 'Resolve the active event before advancing the day.', 'warn');
+      return;
+    }
 
-      const deltaSummary = Object.entries(dailyDelta)
-        .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v}`)
-        .join(', ');
-      pushActivity(next.day, `Advanced to day ${next.day}. Net daily change: ${deltaSummary || 'none'}.`, 'info');
+    const stamped = withTimestamp(prev, Date.now());
+    const { state: next, firedEffects, dailyDelta, resupplyFired } = advanceSimulationDay(stamped);
+    stateRef.current = next;
+    setState(next);
 
-      if (resupplyFired) {
-        pushActivity(next.day, `📦 Resupply delivered! All resources +${RESUPPLY_AMOUNT}.`, 'good');
-        setResupplyDeliveredOnDay(next.day);
-      }
+    const deltaSummary = Object.entries(dailyDelta)
+      .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v}`)
+      .join(', ');
+    pushActivity(next.day, `Advanced to day ${next.day}. Net daily change: ${deltaSummary || 'none'}.`, 'info');
 
-      for (const effect of firedEffects) {
-        pushActivity(next.day, `Delayed effect: ${effect.description}`, 'warn');
-      }
+    if (resupplyFired) {
+      pushActivity(next.day, `📦 Resupply delivered! All resources +${RESUPPLY_AMOUNT}.`, 'good');
+      setResupplyDeliveredOnDay(next.day);
+    }
 
-      // Announce new events
-      if (next.activeEvents.length > prev.activeEvents.length) {
-        const newEvent = next.activeEvents[next.activeEvents.length - 1];
-        if (newEvent) {
-          pushActivity(next.day, `🚨 EVENT: ${newEvent.title}`, 'bad');
-        }
-      }
+    for (const effect of firedEffects) {
+      pushActivity(next.day, `Delayed effect: ${effect.description}`, 'warn');
+    }
 
-      if (next.mission.status !== prev.mission.status) {
-        const tone = next.mission.status === 'failed' ? 'bad' : next.mission.status === 'completed' ? 'good' : 'warn';
-        pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, tone);
+    // Announce new events
+    if (next.activeEvents.length > prev.activeEvents.length) {
+      const newEvent = next.activeEvents[next.activeEvents.length - 1];
+      if (newEvent) {
+        pushActivity(next.day, `🚨 EVENT: ${newEvent.title}`, 'bad');
       }
-      return next;
-    });
+    }
+
+    if (next.mission.status !== prev.mission.status) {
+      const tone = next.mission.status === 'failed' ? 'bad' : next.mission.status === 'completed' ? 'good' : 'warn';
+      pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, tone);
+    }
   }, [pushActivity]);
 
   const decide = useCallback(
     (input: DecisionInput) => {
-      setState((prev) => {
-        try {
-          const stamped = withTimestamp(prev, Date.now());
-          const next = applyPlayerDecision(stamped, input);
-          const last = next.history[next.history.length - 1];
-          pushActivity(next.day, `Decision: ${last?.actionLabel ?? input.actionId}.`, 'good');
-          if (next.mission.status !== prev.mission.status) {
-            pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, 'warn');
-          }
-          return next;
-        } catch (err) {
-          const message = err instanceof InvalidDecisionError ? err.message : 'Decision rejected.';
-          pushActivity(prev.day, message, 'bad');
-          return prev; // reject invalid decision, state unchanged
+      const prev = stateRef.current;
+      try {
+        const stamped = withTimestamp(prev, Date.now());
+        const next = applyPlayerDecision(stamped, input);
+        stateRef.current = next;
+        setState(next);
+
+        const last = next.history[next.history.length - 1];
+        pushActivity(next.day, `Decision: ${last?.actionLabel ?? input.actionId}.`, 'good');
+        if (next.mission.status !== prev.mission.status) {
+          pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, 'warn');
         }
-      });
+      } catch (err) {
+        const message = err instanceof InvalidDecisionError ? err.message : 'Decision rejected.';
+        pushActivity(prev.day, message, 'bad');
+      }
     },
     [pushActivity]
   );
@@ -211,6 +226,9 @@ export function useGameState(): UseGameState {
   const startNewMission = useCallback(
     (config: MissionConfig) => {
       const fresh = createInitialGameState({ ...config, now: Date.now() });
+      // A resupply popup belongs to the previous run and must not leak into a new mission.
+      setResupplyDeliveredOnDay(null);
+      stateRef.current = fresh;
       setState(fresh);
       setActivity([]);
       pushActivity(fresh.day, `New ${config.objective} mission initialised (${config.operatingPhilosophy}).`, 'info');
@@ -222,30 +240,31 @@ export function useGameState(): UseGameState {
   );
 
   const save = useCallback(() => {
-    setState((prev) => {
-      const stamped = withTimestamp(prev, Date.now());
-      const result = saveGame(stamped);
-      switch (result.status) {
-        case 'saved':
-          setNotice({ kind: 'saved' });
-          pushActivity(stamped.day, 'Mission saved.', 'good');
-          break;
-        case 'rejected-invalid':
-          setNotice({ kind: 'save-failed', reason: result.errors[0] ?? 'Invalid state.' });
-          pushActivity(stamped.day, 'Save refused: current state is invalid.', 'bad');
-          break;
-        case 'unavailable':
-          setNotice({ kind: 'unavailable' });
-          pushActivity(stamped.day, 'Save failed: local storage unavailable.', 'warn');
-          break;
-      }
-      return stamped;
-    });
+    const stamped = withTimestamp(stateRef.current, Date.now());
+    const result = saveGame(stamped);
+    stateRef.current = stamped;
+    setState(stamped);
+    switch (result.status) {
+      case 'saved':
+        setNotice({ kind: 'saved' });
+        pushActivity(stamped.day, 'Mission saved.', 'good');
+        break;
+      case 'rejected-invalid':
+        setNotice({ kind: 'save-failed', reason: result.errors[0] ?? 'Invalid state.' });
+        pushActivity(stamped.day, 'Save refused: current state is invalid.', 'bad');
+        break;
+      case 'unavailable':
+        setNotice({ kind: 'unavailable' });
+        pushActivity(stamped.day, 'Save failed: local storage unavailable.', 'warn');
+        break;
+    }
   }, [pushActivity]);
 
   const reset = useCallback(() => {
     clearGame();
     const fresh = createInitialGameState({ ...DEFAULT_MISSION_CONFIG, now: Date.now() });
+    setResupplyDeliveredOnDay(null);
+    stateRef.current = fresh;
     setState(fresh);
     setActivity([]);
     setNotice({ kind: 'idle' });
