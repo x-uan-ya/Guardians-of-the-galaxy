@@ -132,8 +132,25 @@ export function App(): ReactElement {
     flow.newRun();
   };
 
-  // TopBar "New Mission" during play: confirm before choosing a new site.
-  const handleNewMission = (): void => setConfirm({ kind: 'new-run' });
+  // "New Mission" (top bar) and "Mission Setup" (sidebar): start a new run via
+  // mission selection, then character setup. Confirm first only when there is
+  // an unfinished run with progress that would be thrown away.
+  const handleNewMission = (): void => {
+    const runInProgress =
+      status !== 'failed' &&
+      status !== 'completed' &&
+      (game.state.day > 1 || game.state.history.length > 0);
+    if (runInProgress) setConfirm({ kind: 'new-run' });
+    else goToNewRun();
+  };
+
+  // Sidebar navigation. "Mission Setup" is not a sub-view any more: setup is a
+  // full-screen phase of the flow, so route it to the new-run flow instead of
+  // leaving the main panel empty.
+  const handleNavigate = (view: ViewKey): void => {
+    if (view === 'mission-setup') handleNewMission();
+    else setSubView(view as SubView);
+  };
 
   // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
   // (same mission + occupation) — straight back into play, not occupation select.
@@ -208,7 +225,7 @@ export function App(): ReactElement {
       activeView={subView}
       hasActiveEvents={hasActiveEvent}
       sidebarOpen={sidebarOpen}
-      onNavigate={(v) => setSubView(v as SubView)}
+      onNavigate={handleNavigate}
       onAdvanceDay={game.advanceDay}
       onSave={game.save}
       onNewMission={handleNewMission}
@@ -231,7 +248,7 @@ export function App(): ReactElement {
               onDecide={game.decide}
               onAdvanceDay={game.advanceDay}
               progression={progression}
-              onNavigate={(v) => setSubView(v as SubView)}
+              onNavigate={handleNavigate}
             />
           ) : null}
           {subView === 'debrief' ? <Debrief state={game.state} /> : null}
