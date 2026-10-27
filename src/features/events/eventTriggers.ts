@@ -12,6 +12,7 @@ import { EVENT_CATALOG, findEvent } from './eventCatalog';
 import { chapter1EventForMission } from './chapter1Events';
 import { chapter2EventForState } from './chapter2Events';
 import { chapter3EventForState } from './chapter3Events';
+import { chapter4EventForState } from './chapter4Events';
 import { MISSION_EVENTS_BY_SITE, MISSION_EVENT_IDS, missionEventVariant } from './missionEvents';
 import { seededRandom } from '../../lib/random';
 
@@ -39,6 +40,18 @@ const CHAPTER_3_EVENT_IDS: Record<number, string> = {
   12: 'story-sol-12-medical-radiation-concerns',
   13: 'story-sol-13-emergency-resource-allocation',
   14: 'story-sol-14-midpoint-preparation',
+};
+
+/** Fixed Chapter 4 events, indexed by Sol. */
+const CHAPTER_4_EVENT_IDS: Record<number, string> = {
+  16: 'story-sol-16-recovery-reassessment',
+  17: 'story-sol-17-unusual-sensor-readings',
+  18: 'story-sol-18-unexpected-discovery',
+  19: 'story-sol-19-research-or-recovery',
+  20: 'story-sol-20-hidden-system-vulnerability',
+  21: 'story-sol-21-cost-of-exploration',
+  22: 'story-sol-22-brief-opportunity',
+  23: 'story-sol-23-outpost-secret',
 };
 
 /**
@@ -89,6 +102,21 @@ export function chapter3EventForDay(day: number, state: GameState): GameEvent | 
     throw new Error(`Scheduled Chapter 3 event "${eventId}" is missing from the event catalogue.`);
   }
   return chapter3EventForState(event, state);
+}
+
+/**
+ * Return the scheduled Chapter 4 event, adapting its description to the
+ * current mission and relevant earlier decisions.
+ */
+export function chapter4EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId = CHAPTER_4_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 4 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter4EventForState(event, state);
 }
 
 /** Probability weight for an event. Higher = more likely. */
@@ -370,6 +398,8 @@ export function triggerEvent(state: GameState): GameEvent | undefined {
   if (chapter2Event) return chapter2Event;
   const chapter3Event = chapter3EventForDay(state.day, state);
   if (chapter3Event) return chapter3Event;
+  const chapter4Event = chapter4EventForDay(state.day, state);
+  if (chapter4Event) return chapter4Event;
 
   // First check for forced critical events
   const forcedEvent = checkForcedEvent(state);

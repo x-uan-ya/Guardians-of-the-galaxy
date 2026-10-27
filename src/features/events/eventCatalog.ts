@@ -12,9 +12,15 @@
 
 import type { EventAction, GameEvent } from './eventTypes';
 // Storyline chapters share the existing event catalogue and resolver.
+
+// Fixed storyline events for Sols 1-5.
 import { CHAPTER_1_EVENTS } from './chapter1Events';
+// Fixed storyline events for Sols 6-10.
 import { CHAPTER_2_EVENTS } from './chapter2Events';
+// Fixed storyline events for Sols 11-15.
 import { CHAPTER_3_EVENTS } from './chapter3Events';
+// Fixed storyline events for Sols 16–23.
+import { CHAPTER_4_EVENTS } from './chapter4Events';
 // Mission-specific crises (site-gated; see missionEvents.ts + eventTriggers.ts).
 import { MISSION_EVENTS } from './missionEvents';
 
@@ -61,6 +67,7 @@ export const EVENT_CATALOG: GameEvent[] = [
   ...CHAPTER_1_EVENTS,
   ...CHAPTER_2_EVENTS,
   ...CHAPTER_3_EVENTS,
+  ...CHAPTER_4_EVENTS,
   ...MISSION_EVENTS,
   // ═══════════════════════════════════════════════════════════════════════════
   // CRITICAL EVENTS - The flagship crises that define high-stakes gameplay

@@ -299,13 +299,17 @@ describe('game-over safety', () => {
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('mission identity integration', () => {
-  function collectMissionEventIds(missionType: MissionType, days: number): Set<string> {
+  function collectMissionEventIds(
+    missionType: MissionType,
+    days: number,
+    gameId = `integ-${missionType}`
+  ): Set<string> {
     // Start a real run and play straight through, resolving every event with
     // its first action, collecting any mission-specific events encountered.
     let state = createInitialGameState({
       ...FIXED_CONFIG,
       missionType,
-      gameId: `integ-${missionType}`,
+      gameId,
     });
     const seen = new Set<string>();
     for (let i = 0; i < days && state.mission.status === 'active'; i++) {
@@ -350,12 +354,15 @@ describe('mission identity integration', () => {
   });
 
   it('can actually surface at least one mission-specific event on each site', () => {
-    // Across the three sites, the scheduler should produce mission events
-    // (proving mission selection + scheduler + engine are connected). We run
-    // long enough that the deterministic rolls yield at least one per site.
+    // Chapter 4 uses eight Sols before random events return, so try a few
+    // deterministic game IDs to find a roll that surfaces each site's event.
     for (const site of MISSION_TYPES) {
-      const seen = collectMissionEventIds(site, 120);
-      expect(seen.size).toBeGreaterThan(0);
+      let surfacedMissionEvent = false;
+      for (let seed = 0; seed < 25 && !surfacedMissionEvent; seed += 1) {
+        const seen = collectMissionEventIds(site, 120, `integ-${site}-${seed}`);
+        surfacedMissionEvent = seen.size > 0;
+      }
+      expect(surfacedMissionEvent).toBe(true);
     }
   });
 });

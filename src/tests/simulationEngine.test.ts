@@ -29,8 +29,12 @@ import { CHAPTER_1_EVENTS } from '../features/events/chapter1Events';
 import {
   chapter2EventForDay,
   chapter3EventForDay,
+  chapter4EventForDay,
+  rollForEvent,
   triggerEvent,
 } from '../features/events/eventTriggers';
+import { CHAPTER_4_EVENTS } from '../features/events/chapter4Events';
+import { EVENT_CATALOG, findEvent, findEventAction } from '../features/events/eventCatalog';
 import {
   advanceTestDay,
   clone,
@@ -760,6 +764,101 @@ describe('Chapter 3 scheduled storyline', () => {
     expect(reserves.resources).toMatchObject({ power: 54, water: 65, oxygen: 65 });
     expect(reserves.pendingEffects[0]?.scheduledDay).toBe(17);
     expect(deep.mission.modifiers.noResupply).toBe(true);
+  });
+});
+
+describe('Chapter 4 scheduled storyline', () => {
+  const expectedIds = {
+    16: 'story-sol-16-recovery-reassessment',
+    17: 'story-sol-17-unusual-sensor-readings',
+    18: 'story-sol-18-unexpected-discovery',
+    19: 'story-sol-19-research-or-recovery',
+    20: 'story-sol-20-hidden-system-vulnerability',
+    21: 'story-sol-21-cost-of-exploration',
+    22: 'story-sol-22-brief-opportunity',
+    23: 'story-sol-23-outpost-secret',
+  } as const;
+
+  it('schedules the correct mission-specific event on every Sol 16–23', () => {
+    const locations: MissionType[] = ['lunar', 'mars', 'deep-space'];
+    const descriptionsByDay = Array.from({ length: 8 }, () => new Set<string>());
+
+    for (const missionType of locations) {
+      for (let day = 16; day <= 23; day += 1) {
+        const state: GameState = {
+          ...freshGame({ missionType }),
+          day,
+          activeEvents: [],
+        };
+        const scheduled = chapter4EventForDay(day, state);
+        const expectedId = expectedIds[day as keyof typeof expectedIds];
+        expect(scheduled?.id).toBe(expectedId);
+        descriptionsByDay[day - 16]!.add(scheduled!.description);
+
+        // Check the same event is returned through the normal game scheduler.
+        expect(triggerEvent(state)?.id).toBe(expectedId);
+      }
+    }
+
+    // Sol 21 has a shared fallback narrative until an earlier action is known.
+    expect(
+      descriptionsByDay.every((descriptions, index) => index === 5 || descriptions.size === 3)
+    ).toBe(true);
+  });
+
+  it('does not schedule Chapter 4 events outside Sols 16–23', () => {
+    const state = freshGame();
+    expect(chapter4EventForDay(15, state)).toBeUndefined();
+    expect(chapter4EventForDay(24, state)).toBeUndefined();
+  });
+
+  it('registers each Chapter 4 event once and resolves every listed action', () => {
+    const locations: MissionType[] = ['lunar', 'mars', 'deep-space'];
+
+    for (const baseEvent of CHAPTER_4_EVENTS) {
+      expect(EVENT_CATALOG.filter((event) => event.id === baseEvent.id)).toHaveLength(1);
+      expect(findEvent(baseEvent.id)?.availableActions.map((action) => action.id)).toEqual(
+        baseEvent.availableActions.map((action) => action.id)
+      );
+
+      const day = Number(baseEvent.id.match(/^story-sol-(\d{2})-/)?.[1]);
+      for (const missionType of locations) {
+        const state: GameState = {
+          ...freshGame({ missionType }),
+          day,
+          activeEvents: [],
+        };
+        const event = chapter4EventForDay(day, state);
+        if (!event) throw new Error(`No Chapter 4 event is scheduled for Sol ${day}.`);
+
+        for (const action of event.availableActions) {
+          expect(findEventAction(event.id, action.id)).toEqual(action);
+          const resolved = resolveEvent(
+            { ...state, activeEvents: [event] },
+            event.id,
+            action.id
+          );
+          expect(resolved.history[resolved.history.length - 1]?.actionId).toBe(action.id);
+        }
+      }
+    }
+  });
+
+  it('keeps scheduled Chapter 4 events ahead of random events', () => {
+    let randomEventState: GameState | undefined;
+    for (let seed = 0; seed < 100 && !randomEventState; seed += 1) {
+      const candidate: GameState = {
+        ...freshGame({ gameId: `chapter-4-random-priority-${seed}` }),
+        day: 16,
+        activeEvents: [],
+      };
+      if (rollForEvent(candidate)) randomEventState = candidate;
+    }
+
+    if (!randomEventState) {
+      throw new Error('Could not find a deterministic Sol 16 random-event roll for the priority test.');
+    }
+    expect(triggerEvent(randomEventState)?.id).toBe(expectedIds[16]);
   });
 });
 
