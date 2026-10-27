@@ -13,6 +13,7 @@ import { chapter1EventForMission } from './chapter1Events';
 import { chapter2EventForState } from './chapter2Events';
 import { chapter3EventForState } from './chapter3Events';
 import { chapter4EventForState } from './chapter4Events';
+import { chapter5EventForState } from './chapter5Events';
 import { MISSION_EVENTS_BY_SITE, MISSION_EVENT_IDS, missionEventVariant } from './missionEvents';
 import { seededRandom } from '../../lib/random';
 
@@ -52,6 +53,16 @@ const CHAPTER_4_EVENT_IDS: Record<number, string> = {
   21: 'story-sol-21-cost-of-exploration',
   22: 'story-sol-22-brief-opportunity',
   23: 'story-sol-23-outpost-secret',
+};
+
+/** Fixed Chapter 5 events, indexed by Sol; Sol 30 is a debrief, not an event. */
+const CHAPTER_5_EVENT_IDS: Record<number, string> = {
+  24: 'story-sol-24-final-mission-assessment',
+  25: 'story-sol-25-system-deterioration',
+  26: 'story-sol-26-dangerous-opportunity',
+  27: 'story-sol-27-last-major-crisis',
+  28: 'story-sol-28-stabilisation-efforts',
+  29: 'story-sol-29-final-preparations',
 };
 
 /**
@@ -117,6 +128,21 @@ export function chapter4EventForDay(day: number, state: GameState): GameEvent | 
     throw new Error(`Scheduled Chapter 4 event "${eventId}" is missing from the event catalogue.`);
   }
   return chapter4EventForState(event, state);
+}
+
+/**
+ * Return the scheduled Chapter 5 event with mission-specific and
+ * history-dependent narrative details. Sol 30 is intentionally not scheduled.
+ */
+export function chapter5EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId = CHAPTER_5_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 5 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter5EventForState(event, state);
 }
 
 /** Probability weight for an event. Higher = more likely. */
@@ -400,6 +426,8 @@ export function triggerEvent(state: GameState): GameEvent | undefined {
   if (chapter3Event) return chapter3Event;
   const chapter4Event = chapter4EventForDay(state.day, state);
   if (chapter4Event) return chapter4Event;
+  const chapter5Event = chapter5EventForDay(state.day, state);
+  if (chapter5Event) return chapter5Event;
 
   // First check for forced critical events
   const forcedEvent = checkForcedEvent(state);

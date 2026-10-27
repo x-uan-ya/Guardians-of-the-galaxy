@@ -30,10 +30,12 @@ import {
   chapter2EventForDay,
   chapter3EventForDay,
   chapter4EventForDay,
+  chapter5EventForDay,
   rollForEvent,
   triggerEvent,
 } from '../features/events/eventTriggers';
 import { CHAPTER_4_EVENTS } from '../features/events/chapter4Events';
+import { CHAPTER_5_EVENTS } from '../features/events/chapter5Events';
 import { EVENT_CATALOG, findEvent, findEventAction } from '../features/events/eventCatalog';
 import {
   advanceTestDay,
@@ -859,6 +861,126 @@ describe('Chapter 4 scheduled storyline', () => {
       throw new Error('Could not find a deterministic Sol 16 random-event roll for the priority test.');
     }
     expect(triggerEvent(randomEventState)?.id).toBe(expectedIds[16]);
+  });
+});
+
+describe('Chapter 5 scheduled storyline', () => {
+  const expectedIds = {
+    24: 'story-sol-24-final-mission-assessment',
+    25: 'story-sol-25-system-deterioration',
+    26: 'story-sol-26-dangerous-opportunity',
+    27: 'story-sol-27-last-major-crisis',
+    28: 'story-sol-28-stabilisation-efforts',
+    29: 'story-sol-29-final-preparations',
+  } as const;
+
+  it('schedules the correct mission-specific event on every Sol 24–29', () => {
+    const locations: MissionType[] = ['lunar', 'mars', 'deep-space'];
+    const descriptionsByDay = Array.from({ length: 6 }, () => new Set<string>());
+
+    for (const missionType of locations) {
+      for (let day = 24; day <= 29; day += 1) {
+        const state: GameState = {
+          ...freshGame({ missionType }),
+          day,
+          activeEvents: [],
+        };
+        const scheduled = chapter5EventForDay(day, state);
+        const expectedId = expectedIds[day as keyof typeof expectedIds];
+        expect(scheduled?.id).toBe(expectedId);
+        descriptionsByDay[day - 24]!.add(scheduled!.description);
+        expect(triggerEvent(state)?.id).toBe(expectedId);
+      }
+    }
+
+    // Every Sol has a distinct description for Lunar, Mars, and Deep Space.
+    expect(descriptionsByDay.every((descriptions) => descriptions.size === 3)).toBe(true);
+  });
+
+  it('does not schedule Chapter 5 events outside Sols 24–29, including Sol 30', () => {
+    const state = freshGame();
+    expect(chapter5EventForDay(23, state)).toBeUndefined();
+    expect(chapter5EventForDay(30, state)).toBeUndefined();
+  });
+
+  it('registers each Chapter 5 event once and resolves every listed action', () => {
+    const locations: MissionType[] = ['lunar', 'mars', 'deep-space'];
+
+    for (const baseEvent of CHAPTER_5_EVENTS) {
+      expect(EVENT_CATALOG.filter((event) => event.id === baseEvent.id)).toHaveLength(1);
+      expect(findEvent(baseEvent.id)?.availableActions.map((action) => action.id)).toEqual(
+        baseEvent.availableActions.map((action) => action.id)
+      );
+
+      const day = Number(baseEvent.id.match(/^story-sol-(\d{2})-/)?.[1]);
+      for (const missionType of locations) {
+        const state: GameState = {
+          ...freshGame({ missionType }),
+          day,
+          activeEvents: [],
+        };
+        const event = chapter5EventForDay(day, state);
+        if (!event) throw new Error(`No Chapter 5 event is scheduled for Sol ${day}.`);
+
+        for (const action of event.availableActions) {
+          expect(findEventAction(event.id, action.id)).toEqual(action);
+          const resolved = resolveEvent(
+            { ...state, activeEvents: [event] },
+            event.id,
+            action.id
+          );
+          expect(resolved.history[resolved.history.length - 1]?.actionId).toBe(action.id);
+        }
+      }
+    }
+  });
+
+  it('keeps scheduled Chapter 5 events ahead of forced and random events', () => {
+    let randomEventState: GameState | undefined;
+    for (let seed = 0; seed < 100 && !randomEventState; seed += 1) {
+      const candidate: GameState = {
+        ...freshGame({ gameId: `chapter-5-random-priority-${seed}` }),
+        day: 24,
+        activeEvents: [],
+        resources: { power: 10, water: 10, food: 10, oxygen: 10 },
+        systems: {
+          powerGeneration: 0,
+          lifeSupportEfficiency: 0,
+          foodProduction: 0,
+          shieldingIntegrity: 0,
+        },
+      };
+      if (rollForEvent(candidate)) randomEventState = candidate;
+    }
+
+    if (!randomEventState) {
+      throw new Error('Could not find a deterministic Sol 24 random-event roll for the priority test.');
+    }
+    expect(triggerEvent(randomEventState)?.id).toBe(expectedIds[24]);
+  });
+
+  it('includes history-based narrative details in scheduled events', () => {
+    const state: GameState = {
+      ...freshGame(),
+      day: 28,
+      activeEvents: [],
+      history: [
+        {
+          id: 'test-decision',
+          day: 25,
+          actionId: 'story-sol-25-temporary-patch',
+          actionLabel: 'Apply a Temporary Patch',
+          playerChoice: 'self-directed',
+          resourceChanges: {},
+          explanation: 'A temporary repair was chosen.',
+          timestamp: 0,
+        },
+      ],
+    };
+
+    expect(chapter5EventForDay(28, state)?.description).toContain(
+      'temporary power-generation patch'
+    );
   });
 });
 

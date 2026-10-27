@@ -21,6 +21,8 @@ import { CHAPTER_2_EVENTS } from './chapter2Events';
 import { CHAPTER_3_EVENTS } from './chapter3Events';
 // Fixed storyline events for Sols 16–23.
 import { CHAPTER_4_EVENTS } from './chapter4Events';
+// Fixed storyline events for Sols 24–29; Sol 30 is a debrief narrative.
+import { CHAPTER_5_EVENTS } from './chapter5Events';
 // Mission-specific crises (site-gated; see missionEvents.ts + eventTriggers.ts).
 import { MISSION_EVENTS } from './missionEvents';
 
@@ -68,6 +70,7 @@ export const EVENT_CATALOG: GameEvent[] = [
   ...CHAPTER_2_EVENTS,
   ...CHAPTER_3_EVENTS,
   ...CHAPTER_4_EVENTS,
+  ...CHAPTER_5_EVENTS,
   ...MISSION_EVENTS,
   // ═══════════════════════════════════════════════════════════════════════════
   // CRITICAL EVENTS - The flagship crises that define high-stakes gameplay

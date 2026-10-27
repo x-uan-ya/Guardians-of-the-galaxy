@@ -7,13 +7,11 @@
  *  - occupation interactions (the appended mitigation + its effect),
  *  - determinism (same state + choice → same result),
  *  - game-over safety (a legitimate fatal consequence ends the run normally),
- *  - a mission-identity integration test (mission events are actually reachable
- *    through the scheduler on their site, and not on others).
+ *  - mission-event catalogue eligibility and site-specific scheduling behavior.
  */
 
 import { describe, expect, it } from 'vitest';
 import {
-  advanceSimulationDay,
   applyPlayerDecision,
   createInitialGameState,
   resolveEvent,
@@ -21,6 +19,7 @@ import {
 import {
   calculateEventWeights,
   resolveEventForState,
+  triggerEvent,
 } from '../features/events/eventTriggers';
 import {
   MISSION_EVENTS_BY_SITE,
@@ -293,76 +292,37 @@ describe('game-over safety', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// Mission-identity integration: events are reachable on their site via the
-// scheduler, and never on another site. We advance days and collect any
-// mission events the scheduler produces.
+// Mission identity integration: Chapter 5 now occupies the remaining playable
+// Sols, before the simulation marks surviving runs complete on Sol 30.
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('mission identity integration', () => {
-  function collectMissionEventIds(
-    missionType: MissionType,
-    days: number,
-    gameId = `integ-${missionType}`
-  ): Set<string> {
-    // Start a real run and play straight through, resolving every event with
-    // its first action, collecting any mission-specific events encountered.
-    let state = createInitialGameState({
-      ...FIXED_CONFIG,
-      missionType,
-      gameId,
-    });
-    const seen = new Set<string>();
-    for (let i = 0; i < days && state.mission.status === 'active'; i++) {
-      // Keep the crew alive so we can observe many Sols.
-      state = {
-        ...state,
-        crew: { ...state.crew, health: 90, radiationExposure: Math.min(state.crew.radiationExposure, 30) },
-        resources: {
-          power: Math.max(state.resources.power, 60),
-          water: Math.max(state.resources.water, 60),
-          food: Math.max(state.resources.food, 60),
-          oxygen: Math.max(state.resources.oxygen, 60),
+  it('keeps Chapter 5 scheduled ahead of random mission events through Sol 29', () => {
+    const expectedChapter5Ids = [
+      'story-sol-24-final-mission-assessment',
+      'story-sol-25-system-deterioration',
+      'story-sol-26-dangerous-opportunity',
+      'story-sol-27-last-major-crisis',
+      'story-sol-28-stabilisation-efforts',
+      'story-sol-29-final-preparations',
+    ];
+
+    for (const site of MISSION_TYPES) {
+      for (let day = 24; day <= 29; day += 1) {
+        const state = postStoryState(site, { day });
+        const activeEvent = triggerEvent(state);
+        expect(activeEvent?.id).toBe(expectedChapter5Ids[day - 24]);
+        expect(activeEvent && MISSION_EVENT_IDS.has(activeEvent.id)).toBe(false);
+      }
+
+      const completed = postStoryState(site, {
+        day: 30,
+        mission: {
+          ...postStoryState(site).mission,
+          status: 'completed',
         },
-      };
-      const active = state.activeEvents[0];
-      if (active) {
-        if (MISSION_EVENT_IDS.has(active.id)) seen.add(active.id);
-        const firstAction = active.availableActions[0]!;
-        state = resolveEvent(state, active.id, firstAction.id);
-      } else {
-        state = advanceSimulationDay(state).state;
-      }
-    }
-    return seen;
-  }
-
-  it('encounters only its own site mission events across a long run', () => {
-    for (const site of MISSION_TYPES) {
-      const seen = collectMissionEventIds(site, 80);
-      // Every mission event seen belongs to this site.
-      for (const id of seen) {
-        expect(siteForMissionEvent(id)).toBe(site);
-      }
-      // And none belong to another site.
-      for (const other of MISSION_TYPES) {
-        if (other === site) continue;
-        for (const e of MISSION_EVENTS_BY_SITE[other]) {
-          expect(seen.has(e.id)).toBe(false);
-        }
-      }
-    }
-  });
-
-  it('can actually surface at least one mission-specific event on each site', () => {
-    // Chapter 4 uses eight Sols before random events return, so try a few
-    // deterministic game IDs to find a roll that surfaces each site's event.
-    for (const site of MISSION_TYPES) {
-      let surfacedMissionEvent = false;
-      for (let seed = 0; seed < 25 && !surfacedMissionEvent; seed += 1) {
-        const seen = collectMissionEventIds(site, 120, `integ-${site}-${seed}`);
-        surfacedMissionEvent = seen.size > 0;
-      }
-      expect(surfacedMissionEvent).toBe(true);
+      });
+      expect(triggerEvent(completed)).toBeUndefined();
     }
   });
 });
