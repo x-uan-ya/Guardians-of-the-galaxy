@@ -91,4 +91,53 @@ describe('AI Mission Controller', () => {
 
     expect(recommendation).toBeNull();
   });
+
+it('prioritizes shielding when crew radiation exposure is high', () => {
+  const baseState = freshGame();
+  const stressedState = {
+    ...baseState,
+    crew: {
+      ...baseState.crew,
+      radiationExposure: 80,
+    },
+  };
+
+  const state = withActiveEvent(stressedState, 'solar-storm');
+
+  const recommendation = ruleBasedAdvisor.recommend({
+    state,
+    eventId: 'solar-storm',
+  });
+
+  expect(recommendation?.actionId).toBe(
+    'solar-storm--activate-shielding'
+  );
 });
+
+it('prioritizes oxygen recovery when oxygen is critically low', () => {
+  const baseState = freshGame();
+  const lowOxygenState = {
+    ...baseState,
+    resources: {
+      ...baseState.resources,
+      oxygen: 10,
+    },
+  };
+
+  const state = withActiveEvent(
+    lowOxygenState,
+    'story-sol-13-emergency-resource-allocation'
+  );
+
+  const recommendation = ruleBasedAdvisor.recommend({
+    state,
+    eventId: 'story-sol-13-emergency-resource-allocation',
+  });
+
+  expect(recommendation?.actionId).toBe(
+    'story-sol-13-prioritise-oxygen'
+  );
+});
+
+});
+
