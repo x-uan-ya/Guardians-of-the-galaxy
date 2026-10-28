@@ -128,6 +128,147 @@ describe('createInitialGameState / validateGameState', () => {
 });
 
 describe('advanceSimulationDay', () => {
+  it('uses the power reserve at the start of the Sol to derate gross life-support production', () => {
+    const createPowerState = (power: number): GameState => ({
+      ...freshGame(),
+      resources: { power, water: 50, food: 50, oxygen: 50 },
+      crew: { health: 70, morale: 100, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 0,
+        lifeSupportEfficiency: 100,
+        foodProduction: 100,
+        shieldingIntegrity: 100,
+      },
+    });
+
+    const at36 = advanceSimulationDay(createPowerState(36));
+    const at15 = advanceSimulationDay(createPowerState(15));
+    const at0 = advanceSimulationDay(createPowerState(0));
+
+    expect(at36.dailyDelta.oxygen).toBe(1);
+    expect(at36.dailyDelta.water).toBe(0.5);
+    expect(at15.dailyDelta.oxygen).toBe(-2.15);
+    expect(at15.dailyDelta.water).toBe(-2.12);
+    expect(at0.dailyDelta.oxygen).toBe(-3.5);
+    expect(at0.dailyDelta.water).toBe(-3.25);
+    // At 36 power, the reserve falls into the 16–35 band during this Sol;
+    // that lower tier only applies starting with the next advancement.
+    expect(at36.state.resources.power).toBeLessThanOrEqual(35);
+  });
+
+  it('applies food and water shortages once using resources after daily consumption', () => {
+    const state: GameState = {
+      ...freshGame(),
+      resources: { power: 100, water: 21.96, food: 20.96, oxygen: 100 },
+      crew: { health: 70, morale: 80, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 100,
+        lifeSupportEfficiency: 0,
+        foodProduction: 0,
+        shieldingIntegrity: 100,
+      },
+    };
+
+    const next = advanceSimulationDay(state).state;
+
+    expect(next.resources.food).toBeLessThanOrEqual(15);
+    expect(next.resources.water).toBeLessThanOrEqual(15);
+    expect(next.crew.health).toBe(68.5);
+    expect(next.crew.morale).toBe(79);
+  });
+
+  it('stops applying shortage penalties after food and water recover', () => {
+    const depleted: GameState = {
+      ...freshGame(),
+      resources: { power: 100, water: 20, food: 20, oxygen: 100 },
+      crew: { health: 70, morale: 80, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 100,
+        lifeSupportEfficiency: 0,
+        foodProduction: 0,
+        shieldingIntegrity: 100,
+      },
+    };
+    const afterShortage = advanceSimulationDay(depleted).state;
+    const healthAfterShortage = afterShortage.crew.health;
+    const moraleAfterShortage = afterShortage.crew.morale;
+    const recovered: GameState = {
+      ...afterShortage,
+      activeEvents: [],
+      resources: { power: 100, water: 100, food: 100, oxygen: 100 },
+    };
+
+    const next = advanceSimulationDay(recovered).state;
+
+    expect(healthAfterShortage).toBeLessThan(depleted.crew.health);
+    expect(moraleAfterShortage).toBeLessThan(depleted.crew.morale);
+    expect(next.crew.health).toBe(healthAfterShortage);
+    expect(next.crew.morale).toBe(moraleAfterShortage);
+  });
+
+  it('caps combined food and water health losses at three per Sol', () => {
+    const depleted: GameState = {
+      ...freshGame(),
+      resources: { power: 100, water: 0, food: 0, oxygen: 100 },
+      crew: { health: 70, morale: 80, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 100,
+        lifeSupportEfficiency: 0,
+        foodProduction: 0,
+        shieldingIntegrity: 100,
+      },
+    };
+
+    const next = advanceSimulationDay(depleted).state;
+
+    expect(next.crew.health).toBe(67);
+    expect(next.crew.morale).toBe(78);
+  });
+
+  it('fails from shortage-driven health loss and does not activate another event', () => {
+    const endangered: GameState = {
+      ...freshGame(),
+      resources: { power: 100, water: 0, food: 0, oxygen: 100 },
+      crew: { health: 2, morale: 80, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 100,
+        lifeSupportEfficiency: 0,
+        foodProduction: 0,
+        shieldingIntegrity: 100,
+      },
+    };
+
+    const next = advanceSimulationDay(endangered).state;
+
+    expect(next.crew.health).toBe(0);
+    expect(next.mission.status).toBe('failed');
+    expect(next.activeEvents).toEqual([]);
+  });
+
+  it.each([
+    ['oxygen', { power: 50, water: 50, food: 50, oxygen: 0 }, { health: 70, morale: 80, radiationExposure: 0 }],
+    ['health', { power: 50, water: 50, food: 50, oxygen: 50 }, { health: 0, morale: 80, radiationExposure: 0 }],
+    ['radiation', { power: 50, water: 50, food: 50, oxygen: 50 }, { health: 70, morale: 80, radiationExposure: 100 }],
+  ])('preserves the existing %s failure condition and suppresses events', (_reason, resources, crew) => {
+    const endangered: GameState = {
+      ...freshGame(),
+      resources,
+      crew,
+      systems: {
+        powerGeneration: 0,
+        lifeSupportEfficiency: 0,
+        foodProduction: 0,
+        shieldingIntegrity: 100,
+      },
+    };
+
+    const next = advanceSimulationDay(endangered).state;
+
+    if (_reason === 'oxygen') expect(next.resources.oxygen).toBe(0);
+    expect(next.mission.status).toBe('failed');
+    expect(next.activeEvents).toEqual([]);
+  });
+
   it('returns a new state and does not mutate the original (spec 2 & 3)', () => {
     const state = freshGame();
     const snapshot = clone(state);

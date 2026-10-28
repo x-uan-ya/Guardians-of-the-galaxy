@@ -62,8 +62,10 @@ import {
   clamp,
   computeDailyResourceDelta,
   isValidNumber,
+  lifeSupportProductionFactor,
   round2,
   sanitizeResourceChanges,
+  shortageCrewChanges,
 } from './resourceCalculations';
 import { calculateDerivedStatus } from './simulationSelectors';
 import {
@@ -595,7 +597,13 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   //    botanist's flat food bonus and the other occupations' flat bonuses
   //    (geologist water, chemist oxygen, pilot power).
   const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
-  const baseDelta = computeDailyResourceDelta(systems, state.crew, consumptionFactor);
+  const powerAvailabilityFactor = lifeSupportProductionFactor(state.resources.power);
+  const baseDelta = computeDailyResourceDelta(
+    systems,
+    state.crew,
+    consumptionFactor,
+    powerAvailabilityFactor
+  );
   const foodBonus = foodProductionBonus(state.character);
   const roleBonus = dailyResourceBonus(state.character);
 
@@ -609,12 +617,18 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   const dailyDelta: ResourceChanges = {
     power: scaleGain(round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0)), powerFactor),
-    water: scaleGain(round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0)), mod.lifeSupportFactor),
+    water: scaleGain(
+      round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0) * powerAvailabilityFactor),
+      mod.lifeSupportFactor
+    ),
     food: scaleGain(
       round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
       mod.foodProductionFactor
     ),
-    oxygen: scaleGain(round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)), mod.lifeSupportFactor),
+    oxygen: scaleGain(
+      round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0) * powerAvailabilityFactor),
+      mod.lifeSupportFactor
+    ),
   };
   let resources = applyResourceChanges(state.resources, dailyDelta);
 
@@ -633,13 +647,15 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
     });
   }
 
-  // 3. Daily crew recovery: the medical officer's health (only while not in
-  //    danger) and the commander's morale.
+  // 3. Daily crew recovery, shortage effects, and mission radiation.
   const recovery = dailyHealthRecovery(state.crew, state.character);
   const moraleRecovery = dailyMoraleRecovery(state.character);
+  const shortageChanges = shortageCrewChanges(resources);
   const crewChanges: CrewChanges = {};
-  if (recovery > 0) crewChanges.health = recovery;
-  if (moraleRecovery > 0) crewChanges.morale = moraleRecovery;
+  const healthChange = recovery + (shortageChanges.health ?? 0);
+  const moraleChange = moraleRecovery + (shortageChanges.morale ?? 0);
+  if (healthChange !== 0) crewChanges.health = healthChange;
+  if (moraleChange !== 0) crewChanges.morale = moraleChange;
   // Mission radiation hazard (Mars / deep-space) accrues each day.
   if (mod.radiationPerDay > 0) crewChanges.radiationExposure = mod.radiationPerDay;
   const crew =
