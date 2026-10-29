@@ -66,7 +66,7 @@ export function ChapterIntroModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 p-3 backdrop-blur-md sm:p-4">
-      <div className="relative flex w-full items-center justify-center py-1 sm:py-2">
+      <div className="relative flex w-full items-center justify-center">
         <div
           ref={dialogRef}
           className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl border border-mars-orange/40 bg-space-900/95 p-4 text-center shadow-2xl shadow-mars-orange/10 animate-fade-in-up sm:max-h-[calc(100dvh-2rem)] sm:p-6"
@@ -85,7 +85,11 @@ export function ChapterIntroModal({
               <img
                 src={`/chapters/chapter-${chapter.chapterNumber}.png`}
                 alt={imageDescriptions[chapter.chapterNumber] ?? ''}
-                className="h-full w-full object-cover"
+                className={`h-full w-full object-cover ${
+                  chapter.chapterNumber === 3 || chapter.chapterNumber === 4
+                    ? 'scale-[1.02]'
+                    : ''
+                }`}
               />
             </div>
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.35em] text-mars-orange">
