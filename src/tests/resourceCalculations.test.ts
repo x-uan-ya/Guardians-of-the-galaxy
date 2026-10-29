@@ -81,6 +81,33 @@ describe('lifeSupportProductionFactor', () => {
     expect(impaired.oxygen).toBe(-3.5);
     expect(impaired.water).toBe(-3.25);
   });
+
+  it('applies output factors to gross production in surplus and deficit cases', () => {
+    const systems = {
+      powerGeneration: 100,
+      lifeSupportEfficiency: 100,
+      foodProduction: 100,
+      shieldingIntegrity: 100,
+    };
+    const crew = { health: 100, morale: 100, radiationExposure: 0 };
+    const factors = { power: 0.85, water: 0.8, food: 0.9, oxygen: 0.8 };
+
+    const surplus = computeDailyResourceDelta(systems, crew, 1, 1, factors);
+    expect(surplus.power).toBeCloseTo(10.2 - 9);
+    expect(surplus.oxygen).toBeCloseTo(7.2 - 8);
+    expect(surplus.food).toBeCloseTo(6.3 - 6);
+    expect(surplus.water).toBeCloseTo(6 - 7);
+
+    const deficit = computeDailyResourceDelta(
+      { ...systems, powerGeneration: 50 },
+      crew,
+      1,
+      1,
+      factors
+    );
+    expect(deficit.power).toBeCloseTo(5.1 - 9);
+    expect(deficit.power).toBeLessThan(-3);
+  });
 });
 
 describe('shortageCrewChanges', () => {

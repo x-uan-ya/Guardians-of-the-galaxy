@@ -19,6 +19,7 @@ import {
   advanceSimulationDay,
   applyPlayerDecision,
   createInitialGameState,
+  getGameOverReason,
   InvalidDecisionError,
   processDelayedEffects,
   resolveEvent,
@@ -696,6 +697,154 @@ describe('advanceSimulationDay', () => {
     expect(next.mission.status).toBe('completed');
     expect(next.activeEvents).toEqual([]);
   });
+
+  it.each([
+    [
+      'oxygen',
+      {
+        resources: { power: 50, water: 50, food: 50, oxygen: 0.1 },
+        systems: {
+          powerGeneration: 50,
+          lifeSupportEfficiency: 0,
+          foodProduction: 50,
+          shieldingIntegrity: 50,
+        },
+        crew: { health: 70, morale: 80, radiationExposure: 0 },
+      },
+      'oxygen-depleted',
+    ],
+    [
+      'health',
+      {
+        resources: { power: 50, water: 0, food: 0, oxygen: 50 },
+        systems: {
+          powerGeneration: 100,
+          lifeSupportEfficiency: 0,
+          foodProduction: 0,
+          shieldingIntegrity: 50,
+        },
+        crew: { health: 1, morale: 80, radiationExposure: 0 },
+      },
+      'character-died',
+    ],
+    [
+      'radiation',
+      {
+        resources: { power: 50, water: 50, food: 50, oxygen: 50 },
+        systems: {
+          powerGeneration: 50,
+          lifeSupportEfficiency: 50,
+          foodProduction: 50,
+          shieldingIntegrity: 50,
+        },
+        crew: { health: 70, morale: 80, radiationExposure: 99 },
+      },
+      'radiation-lethal',
+    ],
+  ] as const)(
+    'fails on Sol 30 when %s reaches its fatal threshold during the advance',
+    (_condition, overrides, expectedReason) => {
+      const state: GameState = {
+        ...freshGame(),
+        ...overrides,
+        day: 29,
+        activeEvents: [],
+        mission: {
+          ...freshGame().mission,
+          status: 'active',
+          ...(expectedReason === 'radiation-lethal'
+            ? { modifiers: { ...freshGame().mission.modifiers, radiationPerDay: 1 } }
+            : {}),
+        },
+      };
+
+      const next = advanceSimulationDay(state).state;
+
+      expect(next.day).toBe(30);
+      expect(next.mission.status).toBe('failed');
+      expect(getGameOverReason(next)).toBe(expectedReason);
+      expect(next.activeEvents).toEqual([]);
+    }
+  );
+
+  it.each(['completed', 'failed'] as const)(
+    'does not advance a terminal %s mission again',
+    (terminalStatus) => {
+      const state: GameState = {
+        ...freshGame(),
+        day: terminalStatus === 'completed' ? 30 : 29,
+        mission: {
+          ...freshGame().mission,
+          status: terminalStatus,
+        },
+      };
+
+      const result = advanceSimulationDay(state);
+
+      expect(result.state).toBe(state);
+      expect(result.state.day).toBe(state.day);
+      expect(result.dailyDelta).toEqual({});
+      expect(result.state.activeEvents).toEqual([]);
+    }
+  );
+
+  it.each(['oxygen', 'health', 'radiation'] as const)(
+    'does not let a delayed completion status override fatal %s on Sol 30',
+    (condition) => {
+      const base = freshGame();
+      const state: GameState = {
+        ...base,
+        day: 29,
+        resources: {
+          ...base.resources,
+          ...(condition === 'oxygen' ? { oxygen: 0.1 } : {}),
+          ...(condition === 'health' ? { food: 0, water: 0 } : {}),
+        },
+        systems: {
+          ...base.systems,
+          ...(condition === 'oxygen' || condition === 'health'
+            ? { lifeSupportEfficiency: 0 }
+            : {}),
+          ...(condition === 'health' ? { foodProduction: 0 } : {}),
+        },
+        crew: {
+          ...base.crew,
+          ...(condition === 'health' ? { health: 1 } : {}),
+          ...(condition === 'radiation' ? { radiationExposure: 99 } : {}),
+        },
+        mission: {
+          ...base.mission,
+          modifiers:
+            condition === 'radiation'
+              ? { ...base.mission.modifiers, radiationPerDay: 1 }
+              : base.mission.modifiers,
+        },
+        activeEvents: [],
+        pendingEffects: [
+          {
+            id: `test-complete-on-sol-30-${condition}`,
+            sourceDecisionId: 'test-decision',
+            scheduledDay: 30,
+            type: 'status',
+            description: 'Test-only completion effect.',
+            parameters: { kind: 'status', status: 'completed' },
+          },
+        ],
+      };
+
+      const next = advanceSimulationDay(state).state;
+
+      expect(next.day).toBe(30);
+      expect(next.mission.status).toBe('failed');
+      expect(getGameOverReason(next)).toBe(
+        condition === 'oxygen'
+          ? 'oxygen-depleted'
+          : condition === 'health'
+            ? 'character-died'
+            : 'radiation-lethal'
+      );
+    }
+  );
 });
 
 describe('Chapter 2 scheduled storyline', () => {

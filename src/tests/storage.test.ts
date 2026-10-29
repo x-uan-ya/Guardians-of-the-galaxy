@@ -20,7 +20,9 @@ import { freshGame, withActiveEvent } from './helpers';
 import { chapter2EventForDay, chapter3EventForDay } from '../features/events/eventTriggers';
 import {
   advanceSimulationDay,
+  applyPlayerDecision,
   createInitialGameState,
+  getGameOverReason,
   resolveEvent,
 } from '../features/simulation/simulationEngine';
 import type { MissionType } from '../features/simulation/simulationTypes';
@@ -41,6 +43,61 @@ describe('loadGame / saveGame round trip', () => {
       expect(loaded.state.gameId).toBe(state.gameId);
       expect(loaded.state.day).toBe(state.day);
     }
+  });
+
+  it('preserves a completed mission and its debrief data after restoring', () => {
+    let state = applyPlayerDecision(freshGame(), {
+      actionId: 'routine-operations',
+      playerChoice: 'self-directed',
+    });
+    state = {
+      ...state,
+      day: 29,
+      activeEvents: [],
+      mission: { ...state.mission, status: 'active' },
+    };
+    const completed = advanceSimulationDay(state).state;
+
+    expect(completed.mission.status).toBe('completed');
+    expect(saveGame(completed).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.mission.status).toBe('completed');
+    expect(loaded.state.mission.score).toBe(completed.mission.score);
+    expect(loaded.state.resources).toEqual(completed.resources);
+    expect(loaded.state.history).toEqual(completed.history);
+  });
+
+  it('preserves a failed mission and its debrief data after restoring', () => {
+    const base = freshGame();
+    const withHistory = applyPlayerDecision(base, {
+      actionId: 'routine-operations',
+      playerChoice: 'self-directed',
+    });
+    const atSol29 = {
+      ...withHistory,
+      day: 29,
+      resources: { ...withHistory.resources, oxygen: 0.1 },
+      systems: { ...withHistory.systems, lifeSupportEfficiency: 0 },
+      activeEvents: [],
+      mission: { ...withHistory.mission, status: 'active' as const },
+    };
+    const failed = advanceSimulationDay(atSol29).state;
+
+    expect(failed.mission.status).toBe('failed');
+    expect(getGameOverReason(failed)).toBe('oxygen-depleted');
+    expect(saveGame(failed).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.mission.status).toBe('failed');
+    expect(getGameOverReason(loaded.state)).toBe('oxygen-depleted');
+    expect(loaded.state.mission.score).toBe(failed.mission.score);
+    expect(loaded.state.resources).toEqual(failed.resources);
+    expect(loaded.state.history).toEqual(failed.history);
   });
 
   it('restores location-specific active event content and resolves its saved choice', () => {
