@@ -87,20 +87,86 @@ describe('chapter introduction data', () => {
     expect(getChapterIntroductionByOpeningSol(7)).toBeUndefined();
   });
 
-  it('keeps chapter titles shared and appends the selected mission context', () => {
-    const lunar = getChapterIntroductionByOpeningSol(16, 'lunar');
-    const mars = getChapterIntroductionByOpeningSol(16, 'mars');
-    const deepSpace = getChapterIntroductionByOpeningSol(16, 'deep-space');
+  it.each(
+    CHAPTER_INTRODUCTIONS.flatMap((chapter) =>
+      (['lunar', 'mars', 'deep-space'] as const).map((missionType) => ({
+        chapter,
+        missionType,
+      })),
+    ),
+  )(
+    'renders Chapter $chapter.chapterNumber for the $missionType mission without changing its narrative',
+    ({ chapter, missionType }) => {
+      const selectedChapter = getChapterIntroductionByOpeningSol(
+        chapter.openingSol,
+        missionType,
+      );
+      if (!selectedChapter) throw new Error(`Missing Chapter ${chapter.chapterNumber}.`);
 
-    expect(lunar?.title).toBe(mars?.title);
-    expect(mars?.title).toBe(deepSpace?.title);
-    expect(new Set([lunar?.narrative, mars?.narrative, deepSpace?.narrative]).size).toBe(3);
-    expect(lunar?.narrative).toContain('lunar terrain');
-    expect(deepSpace?.narrative).toContain('isolated habitat');
-  });
+      render(
+        <ChapterIntroModal chapter={selectedChapter} onContinue={() => {}} />,
+      );
+
+      const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+      const image = dialog?.querySelector<HTMLImageElement>('img');
+      const narrative = dialog?.querySelector<HTMLElement>(
+        `[id="${dialog?.getAttribute('aria-describedby')}"]`,
+      );
+
+      expect(image?.getAttribute('src')).toBe(
+        `/chapters/chapter-${chapter.chapterNumber}.png`,
+      );
+      expect(dialog?.querySelector('h1')?.textContent).toBe(chapter.title);
+      expect(narrative?.textContent).toBe(selectedChapter.narrative);
+      expect(dialog?.textContent).toContain(
+        `Sol ${chapter.openingSol}–${chapter.endingSol}`,
+      );
+    },
+  );
 });
 
 describe('ChapterIntroModal', () => {
+  it.each([
+    {
+      chapterNumber: 1,
+      alt: 'An astronaut looks out from a habitat toward a new outpost.',
+    },
+    {
+      chapterNumber: 2,
+      alt: 'An astronaut monitors a communications array and signal display.',
+    },
+    {
+      chapterNumber: 3,
+      alt: 'An astronaut stands beside illuminated habitat systems.',
+    },
+    {
+      chapterNumber: 4,
+      alt: 'An astronaut observes icy terrain and a rover from the habitat.',
+    },
+    {
+      chapterNumber: 5,
+      alt: 'Astronauts walk through a habitat outpost at sunset.',
+    },
+  ])('renders the Chapter $chapterNumber artwork and existing chapter content', ({
+    chapterNumber,
+    alt,
+  }) => {
+    const chapter = CHAPTER_INTRODUCTIONS[chapterNumber - 1]!;
+    render(<ChapterIntroModal chapter={chapter} onContinue={() => {}} />);
+
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    const image = dialog?.querySelector<HTMLImageElement>('img');
+
+    expect(image?.getAttribute('src')).toBe(`/chapters/chapter-${chapterNumber}.png`);
+    expect(image?.getAttribute('alt')).toBe(alt);
+    expect(image?.className).toContain('object-cover');
+    expect(image?.parentElement?.className).toContain('aspect-video');
+    expect(dialog?.textContent).toContain(chapter.title);
+    expect(dialog?.textContent).toContain(chapter.narrative);
+    expect(dialog?.textContent).toContain(`Sol ${chapter.openingSol}–${chapter.endingSol}`);
+    expect(dialog?.querySelector('button')?.textContent).toContain('Continue');
+  });
+
   it('keeps Escape from completing the intro and exposes only Continue', () => {
     const chapter = getChapterIntroductionByOpeningSol(1)!;
     let continued = 0;
@@ -116,6 +182,8 @@ describe('ChapterIntroModal', () => {
     const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
     expect(document.activeElement?.textContent).toContain('Continue');
+    expect(dialog?.getAttribute('aria-labelledby')).not.toBeNull();
+    expect(dialog?.getAttribute('aria-describedby')).not.toBeNull();
     expect(dialog?.querySelectorAll('button')).toHaveLength(1);
     expect(dialog?.textContent).not.toContain('Skip Intro');
     dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -123,6 +191,70 @@ describe('ChapterIntroModal', () => {
 
     clickButton('Continue');
     expect(continued).toBe(1);
+  });
+
+  it('keeps keyboard focus in the modal, locks scrolling, and restores focus on unmount', () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Open chapter';
+    document.body.appendChild(opener);
+    opener.focus();
+
+    render(
+      <ChapterIntroModal
+        chapter={getChapterIntroductionByOpeningSol(1)!}
+        onContinue={() => {}}
+      />,
+    );
+
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    const continueButton = dialog?.querySelector<HTMLButtonElement>('button');
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.activeElement).toBe(continueButton);
+
+    const tabEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    continueButton?.dispatchEvent(tabEvent);
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(continueButton);
+
+    const shiftTabEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    continueButton?.dispatchEvent(shiftTabEvent);
+    expect(shiftTabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(continueButton);
+
+    act(() => root?.unmount());
+    root = undefined;
+
+    expect(document.body.style.overflow).toBe('');
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('keeps the artwork and Continue control available with a longer narrative', () => {
+    const chapter = getChapterIntroductionByOpeningSol(24, 'deep-space')!;
+    const longChapter = {
+      ...chapter,
+      narrative: `${chapter.narrative} ${'Additional mission context. '.repeat(40)}`,
+    };
+    render(<ChapterIntroModal chapter={longChapter} onContinue={() => {}} />);
+
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    const image = dialog?.querySelector<HTMLImageElement>('img');
+
+    expect(dialog?.className).toContain('max-h-[calc(100dvh-1.5rem)]');
+    expect(dialog?.className).toContain('overflow-y-auto');
+    expect(image?.parentElement?.className).toContain('aspect-video');
+    expect(image?.className).toContain('object-cover');
+    expect(dialog?.textContent).toContain(longChapter.narrative);
+    expect(dialog?.querySelector('button')?.textContent).toContain('Continue');
   });
 });
 

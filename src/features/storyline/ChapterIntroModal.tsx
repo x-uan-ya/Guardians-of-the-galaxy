@@ -16,6 +16,13 @@ export function ChapterIntroModal({
   const continueButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const narrativeId = useId();
+  const imageDescriptions: Record<number, string> = {
+    1: 'An astronaut looks out from a habitat toward a new outpost.',
+    2: 'An astronaut monitors a communications array and signal display.',
+    3: 'An astronaut stands beside illuminated habitat systems.',
+    4: 'An astronaut observes icy terrain and a rover from the habitat.',
+    5: 'Astronauts walk through a habitat outpost at sunset.',
+  };
 
   useEffect(() => {
     // Keep keyboard focus in the modal and return it to the opener when dismissed.
@@ -58,11 +65,11 @@ export function ChapterIntroModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 p-4 backdrop-blur-md">
-      <div className="relative flex min-h-full w-full items-center justify-center py-4 sm:min-h-0 sm:py-0">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 p-3 backdrop-blur-md sm:p-4">
+      <div className="relative flex w-full items-center justify-center py-1 sm:py-2">
         <div
           ref={dialogRef}
-          className="relative w-full max-w-2xl overflow-hidden rounded-xl border border-mars-orange/40 bg-space-900/95 p-6 text-center shadow-2xl shadow-mars-orange/10 animate-fade-in-up sm:p-10"
+          className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl border border-mars-orange/40 bg-space-900/95 p-4 text-center shadow-2xl shadow-mars-orange/10 animate-fade-in-up sm:max-h-[calc(100dvh-2rem)] sm:p-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -74,30 +81,37 @@ export function ChapterIntroModal({
             aria-hidden="true"
           />
           <div className="relative">
+            <div className="mx-auto mb-3 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg border border-mars-orange/30 sm:mb-4 sm:max-w-[450px]">
+              <img
+                src={`/chapters/chapter-${chapter.chapterNumber}.png`}
+                alt={imageDescriptions[chapter.chapterNumber] ?? ''}
+                className="h-full w-full object-cover"
+              />
+            </div>
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.35em] text-mars-orange">
               Chapter {String(chapter.chapterNumber).padStart(2, '0')}
             </p>
-            <div className="mx-auto my-5 h-px w-20 bg-gradient-to-r from-transparent via-mars-orange/70 to-transparent" />
+            <div className="mx-auto my-3 h-px w-20 bg-gradient-to-r from-transparent via-mars-orange/70 to-transparent sm:my-4" />
             <h1
               id={titleId}
-              className="font-mono text-3xl font-bold tracking-tight text-slate-100 sm:text-5xl"
+              className="font-mono text-2xl font-bold tracking-tight text-slate-100 sm:text-3xl"
             >
               {chapter.title}
             </h1>
             <p
               id={narrativeId}
-              className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg"
+              className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-300 sm:mt-4 sm:text-base"
             >
               {chapter.narrative}
             </p>
-            <p className="mt-7 font-mono text-xs uppercase tracking-[0.25em] text-slate-400">
+            <p className="mt-4 font-mono text-xs uppercase tracking-[0.25em] text-slate-400 sm:mt-5">
               Sol {chapter.openingSol}–{chapter.endingSol}
             </p>
-            <div className="mt-8 flex flex-col-reverse justify-center gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col-reverse justify-center gap-3 sm:mt-6 sm:flex-row">
               <button
                 ref={continueButtonRef}
                 type="button"
-                className="btn-primary min-w-36 justify-center"
+                className="btn-primary min-w-36 justify-center max-sm:mx-auto max-sm:w-[200px]"
                 onClick={onContinue}
               >
                 Continue
