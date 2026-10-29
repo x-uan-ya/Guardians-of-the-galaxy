@@ -6,14 +6,11 @@ import type { ChapterIntroduction } from './chapterIntroductions';
 interface ChapterIntroModalProps {
   chapter: ChapterIntroduction;
   onContinue: () => void;
-  /** Add a secondary action for players who prefer to skip chapter introductions. */
-  onSkipIntro?: () => void;
 }
 
 export function ChapterIntroModal({
   chapter,
   onContinue,
-  onSkipIntro,
 }: ChapterIntroModalProps): ReactElement {
   const dialogRef = useRef<HTMLDivElement>(null);
   const continueButtonRef = useRef<HTMLButtonElement>(null);
@@ -97,15 +94,6 @@ export function ChapterIntroModal({
               Sol {chapter.openingSol}–{chapter.endingSol}
             </p>
             <div className="mt-8 flex flex-col-reverse justify-center gap-3 sm:flex-row">
-              {onSkipIntro ? (
-                <button
-                  type="button"
-                  className="btn-secondary justify-center"
-                  onClick={onSkipIntro}
-                >
-                  Skip Intro
-                </button>
-              ) : null}
               <button
                 ref={continueButtonRef}
                 type="button"

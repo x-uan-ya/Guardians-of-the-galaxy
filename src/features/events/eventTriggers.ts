@@ -151,6 +151,31 @@ interface EventWeight {
   weight: number;
 }
 
+const FORCED_INCIDENT_COOLDOWN_DAYS = 5;
+const FORCED_INCIDENT_IDS = new Set(['catastrophic-system-failure', 'solar-storm']);
+
+function wasIncidentRecentlyResolved(state: GameState, eventId: string): boolean {
+  return state.history.some(
+    (decision) =>
+      decision.eventId === eventId &&
+      state.day - decision.day >= 0 &&
+      state.day - decision.day < FORCED_INCIDENT_COOLDOWN_DAYS
+  );
+}
+
+function selectWeightedIncident(state: GameState, weights: EventWeight[], seed: string): GameEvent | undefined {
+  const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) return undefined;
+
+  const roll = seededRandom(seed) * totalWeight;
+  let cumulative = 0;
+  for (const item of weights) {
+    cumulative += item.weight;
+    if (roll < cumulative) return resolveEventForState(item.eventId, state);
+  }
+  return undefined;
+}
+
 /**
  * Calculate dynamic event probabilities based on current game state.
  * Events become more likely when related resources/metrics are stressed.
@@ -401,6 +426,57 @@ export function checkForcedEvent(state: GameState): GameEvent | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Select one optional incident without consulting the scheduled story events.
+ * The helper is pure: it only reads the supplied state and uses gameId/day
+ * seeds so repeated calls for the same state return the same result.
+ */
+export function selectSupplementaryIncident(state: GameState): GameEvent | undefined {
+  if (
+    state.mission.status === 'failed' ||
+    state.mission.status === 'completed' ||
+    state.activeEvents.length > 0 ||
+    state.day < 1 ||
+    state.day > 29
+  ) {
+    return undefined;
+  }
+
+  const { resources, crew, systems } = state;
+  const criticalSystems = [
+    systems.powerGeneration < 20,
+    systems.lifeSupportEfficiency < 20,
+    resources.oxygen < 20,
+    resources.power < 15,
+  ].filter(Boolean).length;
+
+  if (
+    criticalSystems >= 3 &&
+    !wasIncidentRecentlyResolved(state, 'catastrophic-system-failure')
+  ) {
+    return EVENT_CATALOG.find((event) => event.id === 'catastrophic-system-failure');
+  }
+
+  if (
+    crew.radiationExposure > 70 &&
+    systems.shieldingIntegrity < 30 &&
+    !wasIncidentRecentlyResolved(state, 'solar-storm')
+  ) {
+    return EVENT_CATALOG.find((event) => event.id === 'solar-storm');
+  }
+
+  const chance = state.day < 10 ? 0.1 : state.day < 20 ? 0.15 : 0.2;
+  const rollSeed = `${state.gameId}-day-${state.day}-supplementary-incident-roll`;
+  if (seededRandom(rollSeed) >= chance) return undefined;
+
+  const weights = calculateEventWeights(state).filter(
+    ({ eventId }) =>
+      !FORCED_INCIDENT_IDS.has(eventId) || !wasIncidentRecentlyResolved(state, eventId)
+  );
+  const selectionSeed = `${state.gameId}-day-${state.day}-supplementary-incident-select`;
+  return selectWeightedIncident(state, weights, selectionSeed);
 }
 
 /**

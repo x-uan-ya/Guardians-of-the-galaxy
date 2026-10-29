@@ -14,6 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { seededRandom } from '../lib/random';
 import {
   advanceSimulationDay,
   applyPlayerDecision,
@@ -32,6 +33,7 @@ import {
   chapter4EventForDay,
   chapter5EventForDay,
   rollForEvent,
+  selectSupplementaryIncident,
   triggerEvent,
 } from '../features/events/eventTriggers';
 import { CHAPTER_4_EVENTS } from '../features/events/chapter4Events';
@@ -100,6 +102,16 @@ function stateWithChapter3Event(
   return { ...state, activeEvents: [event] };
 }
 
+function gameIdForSupplementaryRoll(shouldRoll: boolean): string {
+  for (let index = 0; index < 10_000; index += 1) {
+    const gameId = `step-2-sol-1-${index}`;
+    if ((seededRandom(`${gameId}-day-1-supplementary-incident-roll`) < 0.1) === shouldRoll) {
+      return gameId;
+    }
+  }
+  throw new Error(`Could not find a Sol 1 seed with shouldRoll=${shouldRoll}.`);
+}
+
 describe('createInitialGameState / validateGameState', () => {
   it('starts a new game with the Sol 1 storyline event active', () => {
     const state = createInitialGameState(FIXED_CONFIG);
@@ -124,6 +136,230 @@ describe('createInitialGameState / validateGameState', () => {
     const result = validateGameState(bad);
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('supplementary incidents after scheduled story decisions', () => {
+  it('keeps the Sol 1 storyline first, then may activate one resolvable incident', () => {
+    const state = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: gameIdForSupplementaryRoll(true),
+    });
+    const story = state.activeEvents[0]!;
+
+    expect(story.id).toBe('story-sol-01-supply-inspection');
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+    const supplementary = afterStory.activeEvents[0];
+
+    expect(afterStory.history[afterStory.history.length - 1]?.eventId).toBe(story.id);
+    expect(afterStory.activeEvents).toHaveLength(1);
+    expect(supplementary).toBeDefined();
+    expect(supplementary?.id).not.toBe(story.id);
+    expect(supplementary?.id).not.toMatch(/^story-/);
+
+    const eventAfterStory = selectSupplementaryIncident({
+      ...afterStory,
+      activeEvents: [],
+    });
+    expect(eventAfterStory?.id).toBe(supplementary?.id);
+    expect(() =>
+      resolveEvent(afterStory, supplementary!.id, supplementary!.availableActions[0]!.id)
+    ).not.toThrow();
+  });
+
+  it('leaves the Sol 1 event alone when its optional roll does not trigger', () => {
+    const state = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: gameIdForSupplementaryRoll(false),
+    });
+    const story = state.activeEvents[0]!;
+
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+
+    expect(afterStory.activeEvents).toHaveLength(0);
+    expect(afterStory.history[afterStory.history.length - 1]?.eventId).toBe(story.id);
+  });
+
+  it('prioritizes forced emergencies after a scheduled storyline event', () => {
+    const initial = createInitialGameState(FIXED_CONFIG);
+    const state: GameState = {
+      ...initial,
+      resources: { ...initial.resources, power: 10, oxygen: 10 },
+      systems: { ...initial.systems, powerGeneration: 10, lifeSupportEfficiency: 10 },
+    };
+    const story = state.activeEvents[0]!;
+
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+
+    expect(afterStory.activeEvents.map((event) => event.id)).toEqual([
+      'catastrophic-system-failure',
+    ]);
+  });
+
+  it('does not append an incident when another active event remains', () => {
+    const initial = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: gameIdForSupplementaryRoll(true),
+    });
+    const story = initial.activeEvents[0]!;
+    const state = {
+      ...initial,
+      resources: { ...initial.resources, power: 10, oxygen: 10 },
+      systems: { ...initial.systems, powerGeneration: 10, lifeSupportEfficiency: 10 },
+      activeEvents: [...initial.activeEvents, findEvent('solar-storm')!],
+    };
+
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+
+    expect(afterStory.activeEvents.map((event) => event.id)).toEqual(['solar-storm']);
+  });
+
+  it('does not recursively trigger another incident after resolving a supplementary incident', () => {
+    const state = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: gameIdForSupplementaryRoll(true),
+    });
+    const story = state.activeEvents[0]!;
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+    const supplementary = afterStory.activeEvents[0]!;
+
+    const afterIncident = resolveEvent(
+      afterStory,
+      supplementary.id,
+      supplementary.availableActions[0]!.id
+    );
+
+    expect(afterIncident.activeEvents).toHaveLength(0);
+    expect(afterIncident.history[afterIncident.history.length - 1]?.eventId).toBe(
+      supplementary.id
+    );
+  });
+
+  it('does not add an incident if resolving the scheduled event makes the mission fail', () => {
+    const initial = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: gameIdForSupplementaryRoll(true),
+    });
+    const state: GameState = {
+      ...initial,
+      crew: { ...initial.crew, health: 0 },
+    };
+    const story = state.activeEvents[0]!;
+
+    const afterStory = resolveEvent(state, story.id, story.availableActions[0]!.id);
+
+    expect(afterStory.mission.status).toBe('failed');
+    expect(afterStory.activeEvents).toHaveLength(0);
+  });
+
+  it('replays the same supplementary incident for the same initial state and decision', () => {
+    const createResult = (): GameState => {
+      const state = createInitialGameState({
+        ...FIXED_CONFIG,
+        gameId: gameIdForSupplementaryRoll(true),
+      });
+      const story = state.activeEvents[0]!;
+      return resolveEvent(state, story.id, story.availableActions[0]!.id);
+    };
+
+    expect(createResult()).toEqual(createResult());
+  });
+
+  it('limits each Sol to one supplementary incident and respects the cooldown across Sols', () => {
+    const scheduledIds = [
+      'story-sol-01-supply-inspection',
+      'story-sol-02-water-recycling',
+      'story-sol-03-power-instability',
+      'story-sol-04-greenhouse-contamination',
+      'story-sol-05-environmental-crisis',
+      'story-sol-06-aftermath-assessment',
+    ];
+    let state: GameState = createInitialGameState({
+      ...FIXED_CONFIG,
+      gameId: 'integrated-supplementary-cooldown',
+    });
+    const observedIncidents: Record<number, string[]> = {};
+
+    for (let day = 1; day <= 6; day += 1) {
+      state = {
+        ...state,
+        resources: { ...state.resources, power: 14, oxygen: 80 },
+        crew: { ...state.crew, health: 80, radiationExposure: 0 },
+        systems: {
+          ...state.systems,
+          powerGeneration: 10,
+          lifeSupportEfficiency: 10,
+          shieldingIntegrity: 80,
+        },
+      };
+
+      expect(state.day).toBe(day);
+      const story = state.activeEvents[0];
+      expect(story?.id).toMatch(/^story-/);
+
+      state = resolveEvent(state, story!.id, story!.availableActions[0]!.id);
+      const supplementary = state.activeEvents.filter((event) => !event.id.startsWith('story-'));
+      expect(supplementary.length).toBeLessThanOrEqual(1);
+      observedIncidents[day] = supplementary.map((event) => event.id);
+
+      if (day === 1) {
+        expect(supplementary.map((event) => event.id)).toEqual([
+          'catastrophic-system-failure',
+        ]);
+      } else if (day < 6) {
+        expect(supplementary.map((event) => event.id)).not.toContain(
+          'catastrophic-system-failure',
+        );
+      } else {
+        expect(supplementary.map((event) => event.id)).toEqual([
+          'catastrophic-system-failure',
+        ]);
+      }
+
+      while (state.activeEvents.length > 0) {
+        const incident = state.activeEvents[0]!;
+        expect(incident.id).not.toMatch(/^story-/);
+        state = resolveEvent(state, incident.id, incident.availableActions[0]!.id);
+        expect(state.activeEvents).toHaveLength(0);
+      }
+
+      if (day < 6) {
+        state = advanceSimulationDay(state).state;
+        expect(state.activeEvents.map((event) => event.id)).toEqual([
+          scheduledIds[state.day - 1],
+        ]);
+      }
+    }
+
+    expect(observedIncidents[1]).toEqual(['catastrophic-system-failure']);
+    expect(observedIncidents[2]).not.toContain('catastrophic-system-failure');
+    expect(observedIncidents[3]).not.toContain('catastrophic-system-failure');
+    expect(observedIncidents[4]).not.toContain('catastrophic-system-failure');
+    expect(observedIncidents[5]).not.toContain('catastrophic-system-failure');
+    expect(observedIncidents[6]).toEqual(['catastrophic-system-failure']);
+  });
+
+  it('does not trigger supplementary incidents after completing the mission', () => {
+    const base = {
+      ...freshGame({ gameId: 'completed-supplementary-guard' }),
+      day: 29,
+    };
+    const story = chapter5EventForDay(29, base);
+    if (!story) throw new Error('Chapter 5 Sol 29 event is missing.');
+
+    let state: GameState = { ...base, activeEvents: [story] };
+    state = resolveEvent(state, story.id, story.availableActions[0]!.id);
+    while (state.activeEvents.length > 0) {
+      const incident = state.activeEvents[0]!;
+      state = resolveEvent(state, incident.id, incident.availableActions[0]!.id);
+    }
+
+    state = advanceSimulationDay(state).state;
+
+    expect(state.day).toBe(30);
+    expect(state.mission.status).toBe('completed');
+    expect(state.activeEvents).toHaveLength(0);
+    expect(selectSupplementaryIncident(state)).toBeUndefined();
   });
 });
 
@@ -525,7 +761,7 @@ describe('Chapter 2 scheduled storyline', () => {
                           ? 'story-sol-08-system-diagnostics'
                           : 'story-sol-09-balanced-repairs';
         state = resolveEvent(state, event.id, actionId);
-        state = advanceSimulationDay(state).state;
+        state = advanceTestDay(state).state;
       }
     }
 
@@ -626,12 +862,12 @@ describe('Chapter 2 scheduled storyline', () => {
     state = resolveEvent(state, state.activeEvents[0]!.id, 'story-sol-07-low-power');
     const communicationEffectId = state.pendingEffects[0]!.id;
 
-    state = advanceSimulationDay(state).state;
+    state = advanceTestDay(state).state;
     expect(state.day).toBe(8);
     state = resolveEvent(state, state.activeEvents[0]!.id, 'story-sol-08-resource-recovery');
     const sol8RecoveryDecisionId = state.history[state.history.length - 1]!.id;
 
-    const sol9 = advanceSimulationDay(state);
+    const sol9 = advanceTestDay(state);
     expect(sol9.state.day).toBe(9);
     expect(sol9.firedEffects.map((effect) => effect.id)).toContain(communicationEffectId);
     expect(sol9.firedEffects.find((effect) => effect.id === communicationEffectId)?.parameters)
@@ -641,7 +877,7 @@ describe('Chapter 2 scheduled storyline', () => {
       (effect) => effect.sourceDecisionId === sol8RecoveryDecisionId
     )!;
 
-    const sol10 = advanceSimulationDay(state);
+    const sol10 = advanceTestDay(state);
     expect(sol10.state.day).toBe(10);
     expect(sol10.firedEffects.map((effect) => effect.id)).toContain(sol8RecoveryEffect.id);
     expect(sol10.firedEffects.find((effect) => effect.id === sol8RecoveryEffect.id)?.parameters)

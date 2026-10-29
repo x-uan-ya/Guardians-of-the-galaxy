@@ -14,7 +14,9 @@ import type {
   DelayedEffect,
   GameState,
   MissionType,
+  Occupation,
   ResourceKey,
+  StartingCondition,
 } from '../features/simulation/simulationTypes';
 import type { MissionConfig } from '../features/mission/missionTypes';
 
@@ -58,9 +60,14 @@ interface PlaythroughReport {
   endingSol: number;
   score: number;
   failureReason?: string;
+  failureSol?: number;
+  occupation: Occupation;
+  startingCondition: StartingCondition;
   lowestResources: Record<ResourceKey, number>;
+  lowestCrew: { health: number; morale: number };
   eventDecisions: EventDecisionSummary[];
   scheduledEventsEncountered: number;
+  supplementaryIncidentsEncountered: number;
   delayedEffectsFired: DelayedEffect[];
   pendingEffectsAtTermination: DelayedEffect[];
 }
@@ -114,17 +121,22 @@ const STRATEGY_WEIGHTS: Record<Exclude<Strategy, 'seeded-random'>, StrategyWeigh
 function configFor(
   mission: MissionType,
   strategy: Strategy,
+  occupation: Occupation = 'engineer',
+  startingCondition: StartingCondition = 'standard',
+  scenarioId?: string,
 ): MissionConfig & { gameId: string } {
   const gameId =
-    mission === 'mars' && strategy === 'balanced'
+    scenarioId
+      ? `playthrough-expanded-${scenarioId}`
+      : mission === 'mars' && strategy === 'balanced'
       ? 'playthrough-mars-balanced-sol-1'
       : `playthrough-${mission}-${strategy}-sol-1`;
   return {
     missionType: mission,
-    occupation: 'engineer',
+    occupation,
     objective: 'survival',
     operatingPhilosophy: 'balanced',
-    startingCondition: 'standard',
+    startingCondition,
     // Keep the original Mars balanced scenario's fixed identity.
     gameId,
     now: FIXED_NOW,
@@ -225,6 +237,16 @@ function observeResources(
   };
 }
 
+function observeCrew(
+  state: GameState,
+  lowest: { health: number; morale: number },
+): { health: number; morale: number } {
+  return {
+    health: Math.min(lowest.health, state.crew.health),
+    morale: Math.min(lowest.morale, state.crew.morale),
+  };
+}
+
 function assertValidState(state: GameState, context: string): void {
   const validation = validateGameState(state);
   if (!validation.valid) {
@@ -232,8 +254,14 @@ function assertValidState(state: GameState, context: string): void {
   }
 }
 
-function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughReport {
-  const config = configFor(mission, strategy);
+function runPlaythrough(
+  mission: MissionType,
+  strategy: Strategy,
+  occupation: Occupation = 'engineer',
+  startingCondition: StartingCondition = 'standard',
+  scenarioId?: string,
+): PlaythroughReport {
+  const config = configFor(mission, strategy, occupation, startingCondition, scenarioId);
   let state = createInitialGameState(config);
   assertValidState(state, 'Initial state');
   if (state.mission.missionType !== mission) {
@@ -246,6 +274,7 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
   // This RNG belongs to the test policy, separate from the engine's event rolls.
   const policyRng = createRng(`${config.gameId}-policy-seed-v1`);
   let lowestResources: Record<ResourceKey, number> = { ...state.resources };
+  let lowestCrew = { health: state.crew.health, morale: state.crew.morale };
   const eventDecisions: EventDecisionSummary[] = [];
   const delayedEffectsFired: DelayedEffect[] = [];
   const resolvedEventKeys = new Set<string>();
@@ -294,6 +323,7 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
         actionLabel: action.label,
       });
       lowestResources = observeResources(state, lowestResources);
+      lowestCrew = observeCrew(state, lowestCrew);
     }
 
     if (state.mission.status === 'completed' || state.mission.status === 'failed') break;
@@ -320,6 +350,7 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
       });
       assertValidState(state, `Applying routine action ${routineAction.id}`);
       lowestResources = observeResources(state, lowestResources);
+      lowestCrew = observeCrew(state, lowestCrew);
     }
 
     if (state.mission.status === 'completed' || state.mission.status === 'failed') break;
@@ -336,6 +367,7 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
     state = advance.state;
     delayedEffectsFired.push(...advance.firedEffects);
     lowestResources = observeResources(state, lowestResources);
+    lowestCrew = observeCrew(state, lowestCrew);
   }
 
   assertValidState(state, 'Terminal state');
@@ -362,12 +394,18 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
     endingSol: state.day,
     score: state.mission.score,
     ...(state.mission.status === 'failed'
-      ? { failureReason: getGameOverReason(state) }
+      ? { failureReason: getGameOverReason(state), failureSol: state.day }
       : {}),
+    occupation,
+    startingCondition,
     lowestResources,
+    lowestCrew,
     eventDecisions,
     scheduledEventsEncountered: eventDecisions.filter((decision) =>
       decision.eventId.startsWith('story-'),
+    ).length,
+    supplementaryIncidentsEncountered: eventDecisions.filter(
+      (decision) => !decision.eventId.startsWith('story-'),
     ).length,
     delayedEffectsFired,
     pendingEffectsAtTermination: state.pendingEffects,
@@ -377,25 +415,33 @@ function runPlaythrough(mission: MissionType, strategy: Strategy): PlaythroughRe
 function formatSummaryTable(playthroughs: readonly PlaythroughReport[]): string {
   const headers = [
     'Mission',
+    'Occupation',
     'Strategy',
+    'Starting condition',
     'Outcome',
     'Sol',
+    'Failure Sol',
     'Score',
     'Failure reason',
-    'Lowest P/W/F/O',
-    'Story events',
+    'Lowest O/P/F/W/H/M',
+    'Story',
+    'Supplementary',
     'Effects fired',
     'Effects pending',
   ];
   const rows = playthroughs.map((report) => [
     report.mission,
+    report.occupation,
     report.strategy,
+    report.startingCondition,
     report.finalStatus,
     String(report.endingSol),
+    report.failureSol === undefined ? '-' : String(report.failureSol),
     report.score.toFixed(2),
     report.failureReason ?? '-',
-    `${report.lowestResources.power.toFixed(1)}/${report.lowestResources.water.toFixed(1)}/${report.lowestResources.food.toFixed(1)}/${report.lowestResources.oxygen.toFixed(1)}`,
+    `${report.lowestResources.oxygen.toFixed(1)}/${report.lowestResources.power.toFixed(1)}/${report.lowestResources.food.toFixed(1)}/${report.lowestResources.water.toFixed(1)}/${report.lowestCrew.health.toFixed(1)}/${report.lowestCrew.morale.toFixed(1)}`,
     String(report.scheduledEventsEncountered),
+    String(report.supplementaryIncidentsEncountered),
     String(report.delayedEffectsFired.length),
     String(report.pendingEffectsAtTermination.length),
   ]);
@@ -482,5 +528,90 @@ describe('headless deterministic simulation playthroughs', () => {
         ? `Suspicious findings (review only):\n- ${findings.join('\n- ')}`
         : 'Suspicious findings (review only): none detected.',
     );
+  });
+
+  it('samples additional missions, occupations, strategies, and starting conditions', () => {
+    const scenarios: {
+        id: string;
+        mission: MissionType;
+        occupation: Occupation;
+        strategy: Strategy;
+        startingCondition: StartingCondition;
+    }[] = [
+        {
+          id: 'lunar-botanist-constrained-safety',
+          mission: 'lunar',
+          occupation: 'botanist',
+          strategy: 'safety-first',
+          startingCondition: 'resource-constrained',
+        },
+        {
+          id: 'lunar-pilot-standard-random',
+          mission: 'lunar',
+          occupation: 'pilot',
+          strategy: 'seeded-random',
+          startingCondition: 'standard',
+        },
+        {
+          id: 'mars-scientist-standard-risk',
+          mission: 'mars',
+          occupation: 'scientist',
+          strategy: 'risk-taking',
+          startingCondition: 'standard',
+        },
+        {
+          id: 'mars-geologist-constrained-saving',
+          mission: 'mars',
+          occupation: 'geologist',
+          strategy: 'resource-saving',
+          startingCondition: 'resource-constrained',
+        },
+        {
+          id: 'deep-space-medical-constrained-random',
+          mission: 'deep-space',
+          occupation: 'medicalOfficer',
+          strategy: 'seeded-random',
+          startingCondition: 'resource-constrained',
+        },
+        {
+          id: 'deep-space-commander-standard-balanced',
+          mission: 'deep-space',
+          occupation: 'commander',
+          strategy: 'balanced',
+          startingCondition: 'standard',
+        },
+    ];
+
+    const playthroughs = scenarios.map((scenario) => {
+        const firstRun = runPlaythrough(
+          scenario.mission,
+          scenario.strategy,
+          scenario.occupation,
+          scenario.startingCondition,
+          scenario.id,
+        );
+        const replay = runPlaythrough(
+          scenario.mission,
+          scenario.strategy,
+          scenario.occupation,
+          scenario.startingCondition,
+          scenario.id,
+        );
+
+        expect(firstRun).toEqual(replay);
+        expect(firstRun.mission).toBe(scenario.mission);
+        expect(firstRun.occupation).toBe(scenario.occupation);
+        expect(firstRun.strategy).toBe(scenario.strategy);
+        expect(firstRun.startingCondition).toBe(scenario.startingCondition);
+        expect(['completed', 'failed']).toContain(firstRun.finalStatus);
+        expect(firstRun.endingSol).toBeLessThanOrEqual(30);
+        expect(firstRun.finalStatus === 'failed' ? firstRun.failureSol : undefined).toBe(
+          firstRun.finalStatus === 'failed' ? firstRun.endingSol : undefined,
+        );
+        return firstRun;
+    });
+
+    console.info(`6-scenario expanded playthrough summary:\n${formatSummaryTable(playthroughs)}`);
+    expect(playthroughs).toHaveLength(6);
   });
 });

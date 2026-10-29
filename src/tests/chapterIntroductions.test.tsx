@@ -101,18 +101,14 @@ describe('chapter introduction data', () => {
 });
 
 describe('ChapterIntroModal', () => {
-  it('keeps Escape from completing the intro and completes only on an explicit button click', () => {
+  it('keeps Escape from completing the intro and exposes only Continue', () => {
     const chapter = getChapterIntroductionByOpeningSol(1)!;
     let continued = 0;
-    let skipped = 0;
     render(
       <ChapterIntroModal
         chapter={chapter}
         onContinue={() => {
           continued += 1;
-        }}
-        onSkipIntro={() => {
-          skipped += 1;
         }}
       />,
     );
@@ -120,13 +116,13 @@ describe('ChapterIntroModal', () => {
     const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
     expect(document.activeElement?.textContent).toContain('Continue');
+    expect(dialog?.querySelectorAll('button')).toHaveLength(1);
+    expect(dialog?.textContent).not.toContain('Skip Intro');
     dialog?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(continued).toBe(0);
-    expect(skipped).toBe(0);
 
-    clickButton('Skip Intro');
-    expect(skipped).toBe(1);
-    expect(continued).toBe(0);
+    clickButton('Continue');
+    expect(continued).toBe(1);
   });
 });
 
@@ -234,6 +230,15 @@ describe('chapter introduction game integration', () => {
     clickButton('Continue');
     expect(loadCompletedChapterIntroductions(launchedGame.state.gameId)).toEqual([1]);
     expect(document.body.textContent).toContain('Emergency Supply Inspection');
+    const continuedGame = loadGame();
+    expect(continuedGame.status).toBe('loaded');
+    if (continuedGame.status === 'loaded') {
+      expect(continuedGame.state.day).toBe(1);
+      expect(continuedGame.state.history).toHaveLength(0);
+      expect(continuedGame.state.activeEvents[0]?.id).toBe(
+        'story-sol-01-supply-inspection',
+      );
+    }
     expect(
       [...document.body.querySelectorAll('button')].some(
         (button) => button.textContent?.includes('Inspect Essential Systems'),

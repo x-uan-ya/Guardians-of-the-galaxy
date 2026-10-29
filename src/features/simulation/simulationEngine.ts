@@ -28,7 +28,15 @@
 
 import { generateGameId, makeId } from '../../lib/ids';
 import { FREE_ACTIONS } from '../events/eventCatalog';
-import { chapter1EventForDay, triggerEvent } from '../events/eventTriggers';
+import {
+  chapter1EventForDay,
+  chapter2EventForDay,
+  chapter3EventForDay,
+  chapter4EventForDay,
+  chapter5EventForDay,
+  selectSupplementaryIncident,
+  triggerEvent,
+} from '../events/eventTriggers';
 import {
   DEFAULT_CREW,
   DEFAULT_SYSTEMS,
@@ -446,6 +454,16 @@ function withDerivedMission(state: GameState): GameState {
   return { ...state, mission: { ...state.mission, status, score } };
 }
 
+function isScheduledStoryEvent(state: GameState, eventId: string): boolean {
+  return [
+    chapter1EventForDay(state.day, state.mission.missionType),
+    chapter2EventForDay(state.day, state),
+    chapter3EventForDay(state.day, state),
+    chapter4EventForDay(state.day, state),
+    chapter5EventForDay(state.day, state),
+  ].some((event) => event?.id === eventId);
+}
+
 // ---------------------------------------------------------------------------
 // applyPlayerDecision
 // ---------------------------------------------------------------------------
@@ -521,7 +539,15 @@ export function applyPlayerDecision(state: GameState, input: DecisionInput): Gam
     updatedAt: state.updatedAt,
   };
 
-  return withDerivedMission(next);
+  const derived = withDerivedMission(next);
+  if (input.eventId === undefined || !isScheduledStoryEvent(state, input.eventId)) {
+    return derived;
+  }
+
+  const supplementaryIncident = selectSupplementaryIncident(derived);
+  return supplementaryIncident
+    ? { ...derived, activeEvents: [...derived.activeEvents, supplementaryIncident] }
+    : derived;
 }
 
 // ---------------------------------------------------------------------------

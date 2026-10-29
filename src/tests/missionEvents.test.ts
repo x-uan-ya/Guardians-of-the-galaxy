@@ -19,6 +19,7 @@ import {
 import {
   calculateEventWeights,
   resolveEventForState,
+  selectSupplementaryIncident,
   triggerEvent,
 } from '../features/events/eventTriggers';
 import {
@@ -30,6 +31,7 @@ import {
 import { findEvent } from '../features/events/eventCatalog';
 import { MISSION_TYPES, type GameState, type MissionType, type Occupation } from '../features/simulation/simulationTypes';
 import { FIXED_CONFIG } from './helpers';
+import { seededRandom } from '../lib/random';
 
 /**
  * A quiet post-story state (Sol 16+, no active event) on a given site, where
@@ -44,6 +46,45 @@ function postStoryState(missionType: MissionType, overrides: Partial<GameState> 
     resources: { power: 70, water: 70, food: 70, oxygen: 70 },
     crew: { health: 90, morale: 80, radiationExposure: 10 },
     ...overrides,
+  };
+}
+
+function stateWithRollInRange(day: number, min: number, max: number): GameState {
+  for (let index = 0; index < 10_000; index += 1) {
+    const gameId = `supplementary-roll-${index}`;
+    const roll = seededRandom(`${gameId}-day-${day}-supplementary-incident-roll`);
+    if (roll >= min && roll < max) {
+      return postStoryState('mars', { day, gameId });
+    }
+  }
+  throw new Error(`Could not find a supplementary roll in [${min}, ${max}) for Sol ${day}`);
+}
+
+function stateSelectingMissionEvent(day: number, eventId: string): GameState {
+  for (let index = 0; index < 10_000; index += 1) {
+    const gameId = `supplementary-selection-${index}`;
+    const state = postStoryState('mars', { day, gameId });
+    if (selectSupplementaryIncident(state)?.id === eventId) return state;
+  }
+  throw new Error(`Could not select ${eventId} in 10,000 deterministic seeds`);
+}
+
+function withRecordedEvent(state: GameState, eventId: string, day: number): GameState {
+  return {
+    ...state,
+    history: [
+      {
+        id: `decision-${eventId}-${day}`,
+        day,
+        eventId,
+        actionId: `${eventId}--resolved`,
+        actionLabel: 'Resolved incident',
+        playerChoice: 'self-directed',
+        resourceChanges: {},
+        explanation: 'Test history record',
+        timestamp: 0,
+      },
+    ],
   };
 }
 
@@ -324,5 +365,104 @@ describe('mission identity integration', () => {
       });
       expect(triggerEvent(completed)).toBeUndefined();
     }
+  });
+});
+
+describe('supplementary incident selection', () => {
+  it('uses the 10%, 15%, and 20% chances for the three Sol ranges', () => {
+    expect(selectSupplementaryIncident(stateWithRollInRange(9, 0.1, 0.15))).toBeUndefined();
+    expect(selectSupplementaryIncident(stateWithRollInRange(10, 0.1, 0.15))).toBeDefined();
+    expect(selectSupplementaryIncident(stateWithRollInRange(19, 0.15, 0.2))).toBeUndefined();
+    expect(selectSupplementaryIncident(stateWithRollInRange(20, 0.15, 0.2))).toBeDefined();
+  });
+
+  it('selects forced emergencies before attempting a random incident', () => {
+    const state = postStoryState('mars', {
+      day: 20,
+      resources: { power: 10, water: 70, food: 70, oxygen: 10 },
+      systems: {
+        ...postStoryState('mars').systems,
+        powerGeneration: 10,
+        lifeSupportEfficiency: 10,
+      },
+    });
+
+    expect(selectSupplementaryIncident(state)?.id).toBe('catastrophic-system-failure');
+  });
+
+  it('is deterministic and does not mutate the supplied state', () => {
+    const state = stateWithRollInRange(20, 0, 0.1);
+    const before = JSON.stringify(state);
+
+    expect(selectSupplementaryIncident(state)).toEqual(selectSupplementaryIncident(state));
+    expect(JSON.stringify(state)).toBe(before);
+  });
+
+  it('only selects mission events eligible for the active site', () => {
+    const marsState = stateSelectingMissionEvent(20, 'mission-mars-dust-storm');
+
+    expect(selectSupplementaryIncident(marsState)?.id).toBe('mission-mars-dust-storm');
+    expect(
+      selectSupplementaryIncident({
+        ...marsState,
+        mission: { ...marsState.mission, missionType: 'lunar' },
+      })?.id
+    ).not.toBe('mission-mars-dust-storm');
+  });
+
+  it('applies a five-Sol cooldown to repeated forced emergencies', () => {
+    const criticalState = {
+      ...stateWithRollInRange(20, 0.2, 1),
+      day: 20,
+      resources: { power: 10, water: 70, food: 70, oxygen: 10 },
+      systems: {
+        ...postStoryState('mars').systems,
+        powerGeneration: 10,
+        lifeSupportEfficiency: 10,
+      },
+    };
+
+    expect(
+      selectSupplementaryIncident(withRecordedEvent(criticalState, 'catastrophic-system-failure', 16))
+    ).toBeUndefined();
+    expect(
+      selectSupplementaryIncident(withRecordedEvent(criticalState, 'catastrophic-system-failure', 15))?.id
+    ).toBe('catastrophic-system-failure');
+
+    const solarState = {
+      ...stateWithRollInRange(20, 0.2, 1),
+      day: 20,
+      crew: { health: 90, morale: 80, radiationExposure: 80 },
+      systems: { ...postStoryState('mars').systems, shieldingIntegrity: 20 },
+    };
+    expect(selectSupplementaryIncident(withRecordedEvent(solarState, 'solar-storm', 16))).toBeUndefined();
+    expect(selectSupplementaryIncident(withRecordedEvent(solarState, 'solar-storm', 15))?.id).toBe('solar-storm');
+  });
+
+  it('does not select incidents for terminal missions or when an event is active', () => {
+    const state = postStoryState('mars', { day: 20 });
+
+    expect(
+      selectSupplementaryIncident({
+        ...state,
+        mission: { ...state.mission, status: 'failed' },
+      })
+    ).toBeUndefined();
+    expect(
+      selectSupplementaryIncident({
+        ...state,
+        mission: { ...state.mission, status: 'completed' },
+      })
+    ).toBeUndefined();
+    expect(selectSupplementaryIncident({ ...state, activeEvents: [findEvent('solar-storm')!] })).toBeUndefined();
+  });
+
+  it('does not return a scheduled storyline event as a supplementary incident', () => {
+    const state = stateWithRollInRange(1, 0, 0.1);
+    const supplementaryEvent = selectSupplementaryIncident(state);
+
+    expect(triggerEvent(state)?.id).toBe('story-sol-01-supply-inspection');
+    expect(supplementaryEvent).toBeDefined();
+    expect(supplementaryEvent?.id).not.toMatch(/^story-/);
   });
 });

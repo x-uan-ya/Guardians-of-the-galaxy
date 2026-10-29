@@ -20,7 +20,7 @@
  * flow changes route through useGameFlow.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -38,6 +38,7 @@ import { AchievementsPage } from '../features/progression/AchievementsPage';
 import { Leaderboard } from '../features/leaderboard/Leaderboard';
 import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
+import { CrisisModal } from '../features/events/CrisisModal';
 import { ChapterIntroModal } from '../features/storyline/ChapterIntroModal';
 import { getChapterIntroductionByOpeningSol } from '../features/storyline/chapterIntroductions';
 import { Login } from '../features/auth/Login';
@@ -46,6 +47,7 @@ import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
 import { useGameFlow } from '../hooks/useGameFlow';
 import { useProgression } from '../hooks/useProgression';
 import type { MissionConfig, MissionType } from '../features/mission/missionTypes';
+import type { DecisionInput } from '../features/decisions/decisionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
 import { getCurrentSession, isAuthenticated, logout } from '../features/auth/authService';
@@ -73,6 +75,8 @@ export function App(): ReactElement {
   // Secondary navigation WITHIN the PLAYING phase (dashboard is the default).
   const [subView, setSubView] = useState<SubView>('dashboard');
   const [confirm, setConfirm] = useState<{ kind: 'new-run' | 'restart' } | null>(null);
+  const [pendingEventDecision, setPendingEventDecision] = useState<DecisionInput | null>(null);
+  const eventDecisionCommitted = useRef(false);
   // The mission site chosen on the MISSION_SELECT screen, carried into SETUP.
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
   // The leaderboard entry id for the run just submitted (for highlighting).
@@ -123,7 +127,7 @@ export function App(): ReactElement {
   const completeCurrentIntroduction = (): void => {
     if (!chapterIntroOpen || !chapterIntroduction) return;
 
-    // Record only after an explicit Continue or Skip Intro action.
+    // Record only after the player explicitly continues.
     completeChapterIntroduction(game.state.gameId, chapterIntroduction.chapterNumber);
     setChapterIntroProgress((current) => {
       const completed =
@@ -142,8 +146,42 @@ export function App(): ReactElement {
     if (!chapterIntroOpen) game.advanceDay();
   };
   const handleDecide = (input: Parameters<typeof game.decide>[0]): void => {
-    if (!chapterIntroOpen) game.decide(input);
+    if (chapterIntroOpen) return;
+
+    if (input.eventId !== undefined) {
+      const event = game.state.activeEvents.find((active) => active.id === input.eventId);
+      const actionIsAvailable = event?.availableActions.some(
+        (action) => action.id === input.actionId,
+      );
+      if (event && actionIsAvailable) {
+        eventDecisionCommitted.current = false;
+        setPendingEventDecision(input);
+        return;
+      }
+    }
+
+    game.decide(input);
   };
+
+  const reconsiderEventDecision = useCallback(() => {
+    eventDecisionCommitted.current = false;
+    setPendingEventDecision(null);
+  }, []);
+
+  const confirmEventDecision = useCallback(() => {
+    if (!pendingEventDecision || chapterIntroOpen || eventDecisionCommitted.current) return;
+    eventDecisionCommitted.current = true;
+    setPendingEventDecision(null);
+    game.decide(pendingEventDecision);
+  }, [chapterIntroOpen, game.decide, pendingEventDecision]);
+  const pendingEvent = pendingEventDecision?.eventId
+    ? game.state.activeEvents.find((event) => event.id === pendingEventDecision.eventId)
+    : undefined;
+  const pendingAction = pendingEventDecision
+    ? pendingEvent?.availableActions.find(
+        (action) => action.id === pendingEventDecision.actionId,
+      )
+    : undefined;
 
   // Death / completion: move the flow into the matching terminal phase.
   useEffect(() => {
@@ -366,10 +404,18 @@ export function App(): ReactElement {
         <ChapterIntroModal
           chapter={chapterIntroduction}
           onContinue={completeCurrentIntroduction}
-          onSkipIntro={completeCurrentIntroduction}
         />
       ) : (
         <>
+          {pendingEvent && pendingAction ? (
+            <CrisisModal
+              event={pendingEvent}
+              action={pendingAction}
+              onConfirm={confirmEventDecision}
+              onReconsider={reconsiderEventDecision}
+            />
+          ) : null}
+
           {/* Resupply and other dialogs wait until the chapter introduction closes. */}
           {game.resupplyDeliveredOnDay !== null && !game.state.mission.modifiers.noResupply ? (
             <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />

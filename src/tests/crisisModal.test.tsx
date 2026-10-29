@@ -33,8 +33,8 @@ function clickButton(label: string): void {
   act(() => button.click());
 }
 
-describe('CrisisModal', () => {
-  it('previews a decision until confirmation and invokes the commit callback only once', () => {
+describe('CrisisModal decision review', () => {
+  it('previews action details and consequences without committing until confirmed once', () => {
     const event = createInitialGameState({
       missionType: 'mars',
       occupation: 'engineer',
@@ -42,40 +42,71 @@ describe('CrisisModal', () => {
       operatingPhilosophy: 'balanced',
       startingCondition: 'standard',
     }).activeEvents[0];
-    if (!event) throw new Error('Expected the initial Sol 1 event.');
+    const action = event?.availableActions.find((choice) => choice.id === 'story-sol-01-inspect');
+    if (!event || !action) throw new Error('Expected the Sol 1 inspection action.');
 
-    const selections: string[] = [];
+    let confirmed = 0;
+    let reconsidered = 0;
     render(
       <CrisisModal
         event={event}
-        onChoose={(actionId) => selections.push(actionId)}
+        action={action}
+        onConfirm={() => {
+          confirmed += 1;
+        }}
+        onReconsider={() => {
+          reconsidered += 1;
+        }}
       />,
     );
 
-    const backdrop = document.body.lastElementChild as HTMLElement | null;
-    expect(backdrop?.className).toContain('fixed');
-    expect(backdrop?.className).toContain('overflow-y-auto');
-    expect(backdrop?.firstElementChild?.className).toContain('max-w-3xl');
-    expect(backdrop?.firstElementChild?.className).toContain('max-h-[calc(100dvh-2rem)]');
-
-    clickButton('Inspect Essential Systems');
-    expect(document.body.textContent).toContain('Review your decision.');
-    expect(document.body.textContent).not.toContain('Decision recorded.');
-    expect(selections).toEqual([]);
-
-    clickButton('Reconsider');
-    expect(document.body.textContent).toContain('CHOOSE YOUR RESPONSE:');
-    expect(selections).toEqual([]);
-
-    clickButton('Inspect Essential Systems');
-    const confirmButton = [...document.body.querySelectorAll('button')].find((button) =>
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.getAttribute('aria-modal')).toBe('true');
+    expect(dialog?.textContent).toContain(action.label);
+    expect(dialog?.textContent).toContain(action.description);
+    const immediateEffects = dialog?.querySelector('[aria-label="Immediate effects"]');
+    expect(immediateEffects?.textContent).toContain('Power-4');
+    expect(immediateEffects?.textContent).toContain('Life Support+3');
+    const reconsiderButton = [...(dialog?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('Reconsider'),
+    );
+    const confirmButton = [...(dialog?.querySelectorAll('button') ?? [])].find((button) =>
       button.textContent?.includes('Confirm choice'),
     );
-    if (!confirmButton) throw new Error('Could not find the decision confirmation button.');
-    act(() => {
-      confirmButton.click();
-      confirmButton.click();
-    });
-    expect(selections).toEqual(['story-sol-01-inspect']);
+    expect(reconsiderButton?.className).toContain('btn-secondary');
+    expect(reconsiderButton?.className).toContain('min-h-10');
+    expect(reconsiderButton?.className).toContain('focus-visible:ring');
+    expect(confirmButton?.className).toContain('hover:bg-emerald-800/60');
+    expect(confirmButton?.className).toContain('focus-visible:ring-emerald-300');
+    expect(confirmButton?.className).toContain('min-h-10');
+    expect(document.body.lastElementChild?.className).toContain('fixed');
+    expect(dialog?.className).toContain('max-w-2xl');
+    expect(dialog?.className).toContain('overflow-y-auto');
+    expect(confirmed).toBe(0);
+
+    clickButton('Reconsider');
+    expect(reconsidered).toBe(1);
+    expect(confirmed).toBe(0);
+  });
+
+  it('describes delayed consequences without exposing their narrative details', () => {
+    const event = createInitialGameState({
+      missionType: 'mars',
+      occupation: 'engineer',
+      objective: 'survival',
+      operatingPhilosophy: 'balanced',
+      startingCondition: 'standard',
+    }).activeEvents[0];
+    const action = event?.availableActions.find((choice) => choice.id === 'story-sol-01-begin');
+    if (!event || !action) throw new Error('Expected the Sol 1 delayed-effect action.');
+
+    render(
+      <CrisisModal event={event} action={action} onConfirm={() => {}} onReconsider={() => {}} />,
+    );
+
+    expect(document.body.textContent).toContain('1 delayed consequence will be scheduled.');
+    expect(document.body.textContent).not.toContain(
+      action.effect.delayed?.[0]?.description ?? 'missing description',
+    );
   });
 });
