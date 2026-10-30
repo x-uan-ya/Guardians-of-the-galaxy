@@ -33,6 +33,7 @@ import type {
   MilestoneEntry,
   TimelineConsequence,
 } from './timelineTypes';
+import { EducationalLessonCard } from '../../educational-explanations/EducationalLessonCard';
 
 // ---------------------------------------------------------------------------
 // Icon mapping
@@ -248,6 +249,9 @@ function DecisionCard({ entry }: { entry: DecisionEntry }): ReactElement {
               Delayed consequences that have already resolved are not shown (not yet tracked in save data).
             </p>
           ) : null}
+
+          {/* Feature 5: Educational explanation (only renders if a topic matches) */}
+          <EducationalLessonCard record={entry.record} />
         </div>
       ) : null}
     </div>
