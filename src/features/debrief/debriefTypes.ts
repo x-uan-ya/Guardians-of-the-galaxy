@@ -20,17 +20,12 @@ export interface TimelineEntry {
 }
 
 /**
- * A lightweight, derived "leadership profile" summarising decision patterns.
- * Values are 0..100 descriptive scores, not psychometric claims.
+ * The five-trait leadership profile result produced by the leadership-profile
+ * module. Re-exported here so DebriefSummary stays self-contained for
+ * consumers that only import from debriefTypes.
  */
-export interface LeadershipProfile {
-  /** Share of decisions that followed the advisor (0..100). */
-  advisorTrust: number;
-  /** Tendency toward resource-preserving choices (0..100). */
-  caution: number;
-  /** Tendency toward growth/science-investment choices (0..100). */
-  ambition: number;
-}
+export type { LeadershipProfileResult } from '../leadership-profile/leadershipTypes';
+import type { LeadershipProfileResult } from '../leadership-profile/leadershipTypes';
 
 /** The complete debrief payload rendered by Debrief.tsx. */
 export interface DebriefSummary {
@@ -41,5 +36,6 @@ export interface DebriefSummary {
   /** Net change per resource across the whole mission. */
   netResourceChange: Record<ResourceKey, number>;
   timeline: TimelineEntry[];
-  leadershipProfile: LeadershipProfile;
+  /** Five-trait leadership profile with assigned profile and scores. */
+  leadershipProfile: LeadershipProfileResult;
 }

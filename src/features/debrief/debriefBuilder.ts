@@ -7,9 +7,10 @@
 
 import { addResourceChanges } from '../simulation/resourceCalculations';
 import { RESOURCE_KEYS, type GameState, type ResourceKey } from '../simulation/simulationTypes';
+import { scoreLeadershipProfile } from '../leadership-profile/leadershipScorer';
+import type { LeadershipProfileResult } from '../leadership-profile/leadershipTypes';
 import type {
   DebriefSummary,
-  LeadershipProfile,
   TimelineEntry,
 } from './debriefTypes';
 
@@ -24,34 +25,9 @@ export function buildTimeline(state: GameState): TimelineEntry[] {
   }));
 }
 
-/** Derive a lightweight leadership profile from decision patterns. */
-export function buildLeadershipProfile(state: GameState): LeadershipProfile {
-  const total = state.history.length;
-  if (total === 0) {
-    return { advisorTrust: 0, caution: 0, ambition: 0 };
-  }
-
-  const accepted = state.history.filter(
-    (d) => d.playerChoice === 'accepted-recommendation'
-  ).length;
-
-  // Caution: share of decisions that preserved food/water (positive deltas).
-  const cautiousMoves = state.history.filter((d) => {
-    const f = d.resourceChanges.food ?? 0;
-    const w = d.resourceChanges.water ?? 0;
-    return f > 0 || w > 0;
-  }).length;
-
-  // Ambition: share of decisions that spent power to invest (negative power).
-  const ambitiousMoves = state.history.filter((d) => (d.resourceChanges.power ?? 0) < 0).length;
-
-  const pct = (n: number): number => Math.round((n / total) * 100);
-
-  return {
-    advisorTrust: pct(accepted),
-    caution: pct(cautiousMoves),
-    ambition: pct(ambitiousMoves),
-  };
+/** Derive the five-trait leadership profile from decision patterns. */
+export function buildLeadershipProfile(state: GameState): LeadershipProfileResult {
+  return scoreLeadershipProfile(state);
 }
 
 /** Net resource change across the whole mission (sum of recorded deltas). */

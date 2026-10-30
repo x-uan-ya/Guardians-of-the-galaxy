@@ -9,11 +9,12 @@
 import type { ReactElement } from 'react';
 import { ClipboardList, TrendingUp } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import { buildDebriefSummary } from './debriefBuilder';
 import { DecisionTimeline } from './timeline/DecisionTimeline';
+import { LeadershipProfileCard } from '../leadership-profile/LeadershipProfileCard';
 import { RESOURCE_LABELS } from '../dashboard/labels';
 import { RESOURCE_KEYS, type GameState } from '../simulation/simulationTypes';
+import { OutcomeAnalysis } from '../outcome-analysis/OutcomeAnalysis';
 
 interface DebriefProps {
   state: GameState;
@@ -34,6 +35,9 @@ export function Debrief({ state }: DebriefProps): ReactElement {
           <Stat label="Decisions" value={String(summary.totalDecisions)} />
         </div>
       </section>
+
+      {/* Mission Outcome Analysis (Feature 3) */}
+      <OutcomeAnalysis state={state} />
 
       {/* Net resource change */}
       <section className="panel p-5">
@@ -56,14 +60,7 @@ export function Debrief({ state }: DebriefProps): ReactElement {
       </section>
 
       {/* Leadership profile */}
-      <section className="panel p-5">
-        <SectionHeader title="Leadership Profile" subtitle="Derived from decision patterns (descriptive only)" />
-        <div className="space-y-3">
-          <ProfileBar label="Advisor Trust" value={summary.leadershipProfile.advisorTrust} />
-          <ProfileBar label="Caution" value={summary.leadershipProfile.caution} />
-          <ProfileBar label="Ambition" value={summary.leadershipProfile.ambition} />
-        </div>
-      </section>
+      <LeadershipProfileCard state={state} />
 
       {/* Enhanced decision timeline */}
       <DecisionTimeline state={state} />
@@ -80,14 +77,3 @@ function Stat({ label, value }: { label: string; value: string }): ReactElement 
   );
 }
 
-function ProfileBar({ label, value }: { label: string; value: number }): ReactElement {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-slate-300">{label}</span>
-        <span className="tnum text-slate-400">{Math.round(value)}%</span>
-      </div>
-      <ProgressBar value={value} level="ok" label={label} />
-    </div>
-  );
-}

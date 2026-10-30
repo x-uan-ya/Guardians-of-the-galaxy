@@ -1,0 +1,23 @@
+/**
+ * outcome-analysis.css
+ * ---------------------
+ * Minimal custom styles for the Mission Outcome Analysis feature.
+ * Most styling uses existing Tailwind utilities and the project's design
+ * tokens (space-*, status-*, mars-orange, etc.).
+ */
+
+/* Smooth entry animation for the analysis container */
+.oa-container {
+  animation: oa-fade-in 0.4s ease-out;
+}
+
+@keyframes oa-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
