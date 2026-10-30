@@ -1,0 +1,125 @@
+/* ==========================================================================
+   timeline.css  —  styles for the enhanced Decision Timeline
+   --------------------------------------------------------------------------
+   Prefixed `dtl-` so nothing clashes with teammates' CSS.
+   ========================================================================== */
+
+/* ---- Expand / collapse -------------------------------------------------- */
+
+.dtl-expand-enter {
+  animation: dtl-expand 0.3s ease-out both;
+}
+
+@keyframes dtl-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Timeline connector line -------------------------------------------- */
+
+.dtl-connector {
+  position: absolute;
+  left: 15px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    rgba(43, 43, 58, 0.8),
+    rgba(224, 122, 63, 0.3) 20%,
+    rgba(224, 122, 63, 0.3) 80%,
+    rgba(43, 43, 58, 0.8)
+  );
+}
+
+/* ---- Entry dot on the connector ---------------------------------------- */
+
+.dtl-dot {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+
+.dtl-dot-milestone {
+  border-color: rgba(224, 122, 63, 0.7);
+  background: rgba(224, 122, 63, 0.15);
+}
+
+.dtl-dot-decision {
+  border-color: rgba(74, 144, 217, 0.7);
+  background: rgba(74, 144, 217, 0.15);
+}
+
+.dtl-dot-event {
+  border-color: rgba(217, 169, 63, 0.7);
+  background: rgba(217, 169, 63, 0.15);
+}
+
+/* ---- Clickable entry card ---------------------------------------------- */
+
+.dtl-card {
+  transition: background 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+}
+
+.dtl-card:hover {
+  background: rgba(31, 31, 43, 0.6);
+  border-color: rgba(224, 122, 63, 0.3);
+}
+
+.dtl-card[aria-expanded='true'] {
+  background: rgba(31, 31, 43, 0.8);
+  border-color: rgba(224, 122, 63, 0.4);
+}
+
+/* ---- Consequence chain connector --------------------------------------- */
+
+.dtl-consequence-link {
+  position: relative;
+  padding-left: 16px;
+}
+
+.dtl-consequence-link::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(217, 169, 63, 0.3);
+}
+
+.dtl-consequence-link::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 8px;
+  height: 2px;
+  background: rgba(217, 169, 63, 0.3);
+}
+
+/* ---- Respect reduced motion -------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .dtl-expand-enter {
+    animation: none;
+  }
+}

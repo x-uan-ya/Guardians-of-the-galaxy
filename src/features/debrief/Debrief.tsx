@@ -11,6 +11,7 @@ import { ClipboardList, TrendingUp } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { buildDebriefSummary } from './debriefBuilder';
+import { DecisionTimeline } from './timeline/DecisionTimeline';
 import { RESOURCE_LABELS } from '../dashboard/labels';
 import { RESOURCE_KEYS, type GameState } from '../simulation/simulationTypes';
 
@@ -64,31 +65,8 @@ export function Debrief({ state }: DebriefProps): ReactElement {
         </div>
       </section>
 
-      {/* Decision timeline */}
-      <section className="panel p-5">
-        <SectionHeader title="Decision Timeline" />
-        {summary.timeline.length === 0 ? (
-          <p className="text-sm text-slate-400">No decisions recorded yet. Play a few sols, then return here.</p>
-        ) : (
-          <ol className="relative space-y-3 border-l border-space-600 pl-4">
-            {summary.timeline.map((entry) => (
-              <li key={entry.record.id} className="relative">
-                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-mars-orange" aria-hidden />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-200">{entry.actionLabel}</span>
-                  <span className="tnum text-xs text-slate-400">Sol {entry.day}</span>
-                </div>
-                <p className="text-xs text-slate-400">{entry.explanation}</p>
-                {entry.overrodeAdvisor ? (
-                  <span className="mt-1 inline-block rounded bg-accent-blue/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent-blue">
-                    Overrode advisor
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      {/* Enhanced decision timeline */}
+      <DecisionTimeline state={state} />
     </div>
   );
 }
