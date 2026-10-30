@@ -27,6 +27,7 @@
 /** Every top-level phase of the game. */
 export type GamePhase =
   | 'TITLE'
+  | 'TUTORIAL'
   | 'BRIEFING'
   | 'MISSION_SELECT'
   | 'SETUP'
@@ -39,7 +40,9 @@ export type GamePhase =
 
 /** The intents that drive phase changes. UI dispatches these, never raw phases. */
 export type FlowEvent =
-  | { type: 'START' } //            TITLE -> BRIEFING
+  | { type: 'START' } //            TITLE -> TUTORIAL (first-time)
+  | { type: 'SKIP_TUTORIAL' } //    TITLE -> MISSION_SELECT (returning player)
+  | { type: 'COMPLETE_TUTORIAL' } // TUTORIAL -> MISSION_SELECT
   | { type: 'CONTINUE_BRIEFING' } // BRIEFING -> MISSION_SELECT
   | { type: 'SELECT_MISSION' } //    MISSION_SELECT -> SETUP
   | { type: 'LAUNCH' } //            SETUP -> PLAYING
@@ -64,9 +67,14 @@ export const INITIAL_PHASE: GamePhase = 'TITLE';
  */
 const TRANSITIONS: Record<GamePhase, Partial<Record<FlowEvent['type'], GamePhase>>> = {
   TITLE: {
-    START: 'BRIEFING',
+    START: 'TUTORIAL',
+    SKIP_TUTORIAL: 'MISSION_SELECT',
     RESTORE_RUN: 'PLAYING',
     NEW_RUN: 'MISSION_SELECT',
+  },
+  TUTORIAL: {
+    COMPLETE_TUTORIAL: 'MISSION_SELECT',
+    QUIT_TITLE: 'TITLE',
   },
   BRIEFING: {
     CONTINUE_BRIEFING: 'MISSION_SELECT',
@@ -147,6 +155,7 @@ export interface PhaseMeta {
 
 export const PHASE_META: Record<GamePhase, PhaseMeta> = {
   TITLE: { label: 'Title', inRun: false, terminal: false },
+  TUTORIAL: { label: 'Tutorial', inRun: false, terminal: false },
   BRIEFING: { label: 'Mission Briefing', inRun: false, terminal: false },
   MISSION_SELECT: { label: 'Mission Selection', inRun: false, terminal: false },
   SETUP: { label: 'Occupation Selection', inRun: false, terminal: false },

@@ -32,12 +32,12 @@ describe('initial phase', () => {
 });
 
 describe('happy path', () => {
-  it('walks the briefing and new-run paths through mission selection', () => {
+  it('walks the tutorial, briefing-skip and new-run paths through mission selection', () => {
     const phases: GamePhase[] = [];
     let p: GamePhase = INITIAL_PHASE;
     for (const ev of [
       'START',
-      'CONTINUE_BRIEFING',
+      'COMPLETE_TUTORIAL',
       'SELECT_MISSION',
       'LAUNCH',
       'COMPLETED',
@@ -49,7 +49,7 @@ describe('happy path', () => {
       phases.push(p);
     }
     expect(phases).toEqual([
-      'BRIEFING',
+      'TUTORIAL',
       'MISSION_SELECT',
       'SETUP',
       'PLAYING',

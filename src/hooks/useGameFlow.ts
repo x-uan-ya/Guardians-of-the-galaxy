@@ -29,7 +29,9 @@ export interface UseGameFlow {
   terminal: boolean;
 
   // Intent-level transitions (dispatch a FlowEvent through the machine).
-  start: () => void; //            TITLE -> BRIEFING
+  start: () => void; //            TITLE -> TUTORIAL (first-time)
+  skipTutorial: () => void; //     TITLE -> MISSION_SELECT (returning player)
+  completeTutorial: () => void; //  TUTORIAL -> MISSION_SELECT
   continueBriefing: () => void; //  BRIEFING -> MISSION_SELECT
   selectMission: () => void; //     MISSION_SELECT -> SETUP
   launch: () => void; //            SETUP -> PLAYING
@@ -66,6 +68,8 @@ export function useGameFlow(initial: GamePhase = INITIAL_PHASE): UseGameFlow {
     terminal: PHASE_META[phase].terminal,
 
     start: make({ type: 'START' }),
+    skipTutorial: make({ type: 'SKIP_TUTORIAL' }),
+    completeTutorial: make({ type: 'COMPLETE_TUTORIAL' }),
     continueBriefing: make({ type: 'CONTINUE_BRIEFING' }),
     selectMission: make({ type: 'SELECT_MISSION' }),
     launch: make({ type: 'LAUNCH' }),

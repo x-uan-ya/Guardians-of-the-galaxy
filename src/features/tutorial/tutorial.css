@@ -1,0 +1,188 @@
+/* ==========================================================================
+   tutorial.css  —  styles for the Introductory Tutorial wizard
+   --------------------------------------------------------------------------
+   Prefixed `tut-` so nothing clashes with teammates' CSS.
+   Plain CSS (no Tailwind @apply) for feature-specific animations.
+   ========================================================================== */
+
+/* ---- Portal overlay (rendered on document.body) ------------------------- */
+
+/* The tutorial overlay is portalled to body to escape parent CSS containment.
+   These rules ensure it always covers the full viewport regardless of scroll
+   position or parent transforms/filters. */
+.tut-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+}
+
+/* ---- Step transition ---------------------------------------------------- */
+
+.tut-step-enter {
+  animation: tut-slide-in 0.4s ease-out both;
+}
+
+@keyframes tut-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.tut-step-enter-back {
+  animation: tut-slide-in-back 0.4s ease-out both;
+}
+
+@keyframes tut-slide-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ---- Progress bar pulse on the active dot ------------------------------ */
+
+.tut-dot-active {
+  animation: tut-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes tut-dot-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(224, 122, 63, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(224, 122, 63, 0);
+  }
+}
+
+/* ---- Resource bar fill animation --------------------------------------- */
+
+.tut-bar-fill {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Interactive card hover glow --------------------------------------- */
+
+.tut-card-interactive {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.tut-card-interactive:hover {
+  border-color: rgba(224, 122, 63, 0.5);
+  box-shadow: 0 0 16px rgba(224, 122, 63, 0.2);
+}
+
+/* ---- Choice reveal animation ------------------------------------------- */
+
+.tut-reveal {
+  animation: tut-reveal 0.5s ease-out both;
+}
+
+@keyframes tut-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Consequence timeline marker --------------------------------------- */
+
+.tut-timeline-dot {
+  position: relative;
+}
+
+.tut-timeline-dot::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 24px;
+  background: linear-gradient(to bottom, rgba(224, 122, 63, 0.6), transparent);
+  transform: translateX(-50%);
+}
+
+.tut-timeline-dot:last-child::before {
+  display: none;
+}
+
+/* ---- Typewriter effect for narrative text ------------------------------ */
+
+.tut-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid rgba(224, 122, 63, 0.7);
+  animation: tut-typing 2s steps(40, end), tut-blink-caret 0.6s step-end infinite;
+  width: 0;
+}
+
+.tut-typewriter.tut-typed {
+  width: 100%;
+  white-space: normal;
+  border-right: none;
+  animation: none;
+}
+
+@keyframes tut-typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes tut-blink-caret {
+  from, to { border-color: transparent; }
+  50% { border-color: rgba(224, 122, 63, 0.7); }
+}
+
+/* ---- Attribute bar shimmer --------------------------------------------- */
+
+.tut-attr-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.tut-attr-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: tut-shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes tut-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ---- Respect reduced motion -------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .tut-step-enter,
+  .tut-step-enter-back,
+  .tut-dot-active,
+  .tut-reveal,
+  .tut-attr-bar::after {
+    animation: none;
+  }
+  .tut-bar-fill {
+    transition: none;
+  }
+}
