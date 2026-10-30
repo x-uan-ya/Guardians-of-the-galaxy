@@ -1,0 +1,80 @@
+/**
+ * comparison.css
+ * --------------
+ * Scoped styles for Feature 6 — Compare Decisions (What If?).
+ * All selectors are prefixed with `dc-` to avoid collisions.
+ */
+
+/* ── Side-by-side grid ────────────────────────────────────────────────── */
+
+.dc-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .dc-comparison-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+}
+
+/* ── Card hover & expand transitions ─────────────────────────────────── */
+
+.dc-card {
+  transition: border-color 0.15s ease;
+}
+
+.dc-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dc-card-header {
+  transition: background-color 0.15s ease;
+}
+
+.dc-card-header:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.dc-card-body {
+  animation: dc-expand 0.2s ease-out;
+}
+
+@keyframes dc-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Column styling ──────────────────────────────────────────────────── */
+
+.dc-column {
+  transition: box-shadow 0.15s ease;
+}
+
+.dc-column:hover {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ── Chip styling (extends Tailwind inline styles) ───────────────────── */
+
+.dc-chip {
+  white-space: nowrap;
+}
+
+/* ── Takeaway section ────────────────────────────────────────────────── */
+
+.dc-takeaway {
+  transition: background-color 0.15s ease;
+}
+
+/* ── Provenance badge ────────────────────────────────────────────────── */
+
+.dc-provenance {
+  letter-spacing: 0.08em;
+}

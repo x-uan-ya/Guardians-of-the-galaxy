@@ -15,6 +15,7 @@ import { LeadershipProfileCard } from '../leadership-profile/LeadershipProfileCa
 import { RESOURCE_LABELS } from '../dashboard/labels';
 import { RESOURCE_KEYS, type GameState } from '../simulation/simulationTypes';
 import { OutcomeAnalysis } from '../outcome-analysis/OutcomeAnalysis';
+import { ComparisonPanel } from '../decision-comparison/ComparisonPanel';
 
 interface DebriefProps {
   state: GameState;
@@ -38,6 +39,9 @@ export function Debrief({ state }: DebriefProps): ReactElement {
 
       {/* Mission Outcome Analysis (Feature 3) */}
       <OutcomeAnalysis state={state} />
+
+      {/* What If? Compare Decisions (Feature 6) */}
+      <ComparisonPanel state={state} />
 
       {/* Net resource change */}
       <section className="panel p-5">
