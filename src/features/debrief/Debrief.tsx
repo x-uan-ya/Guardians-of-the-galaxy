@@ -7,7 +7,7 @@
  */
 
 import type { ReactElement } from 'react';
-import { ClipboardList, TrendingUp } from 'lucide-react';
+import { ClipboardList, Rocket, TrendingUp } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { buildDebriefSummary } from './debriefBuilder';
 import { DecisionTimeline } from './timeline/DecisionTimeline';
@@ -19,9 +19,11 @@ import { ComparisonPanel } from '../decision-comparison/ComparisonPanel';
 
 interface DebriefProps {
   state: GameState;
+  /** When provided, a "Play Again" CTA is shown at the bottom of the debrief. */
+  onPlayAgain?: () => void;
 }
 
-export function Debrief({ state }: DebriefProps): ReactElement {
+export function Debrief({ state, onPlayAgain }: DebriefProps): ReactElement {
   const summary = buildDebriefSummary(state);
 
   return (
@@ -68,6 +70,19 @@ export function Debrief({ state }: DebriefProps): ReactElement {
 
       {/* Enhanced decision timeline */}
       <DecisionTimeline state={state} />
+
+      {/* Play Again CTA — only rendered when the mission has ended */}
+      {onPlayAgain ? (
+        <section className="panel p-6 text-center">
+          <p className="mb-4 text-sm text-slate-300">
+            Ready to take on Mars again? Choose a new occupation and start a fresh mission.
+          </p>
+          <button type="button" className="btn-primary" onClick={onPlayAgain}>
+            <Rocket className="h-4 w-4" aria-hidden />
+            Play Again
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

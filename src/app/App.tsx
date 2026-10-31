@@ -320,9 +320,12 @@ export function App(): ReactElement {
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
-      {/* DEBRIEF takes over the main panel; otherwise show the sub-view. */}
-      {flow.phase === 'DEBRIEF' ? (
-        <Debrief state={game.state} />
+      {/* DEBRIEF phase or sub-view: show debrief content, otherwise the sub-view. */}
+      {flow.phase === 'DEBRIEF' || subView === 'debrief' ? (
+        <Debrief
+          state={game.state}
+          onPlayAgain={status === 'failed' || status === 'completed' ? goToNewRun : undefined}
+        />
       ) : (
         <>
           {subView === 'dashboard' ? (
@@ -335,7 +338,6 @@ export function App(): ReactElement {
               onNavigate={handleNavigate}
             />
           ) : null}
-          {subView === 'debrief' ? <Debrief state={game.state} /> : null}
           {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
           {subView === 'leaderboard' ? <Leaderboard highlightId={lastLeaderboardId} /> : null}
           {subView === 'how-to-play' ? <HowToPlay onReplayTutorial={handleReplayTutorial} /> : null}
@@ -365,21 +367,21 @@ export function App(): ReactElement {
         <PauseScreen onResume={flow.resume} onNewRun={goToNewRun} />
       ) : null}
 
-      {/* GAME_OVER overlay. */}
-      {flow.phase === 'GAME_OVER' ? (
+      {/* GAME_OVER overlay — only shown when viewing the dashboard. */}
+      {flow.phase === 'GAME_OVER' && subView === 'dashboard' ? (
         <GameOver
           state={game.state}
           onRestartSame={handleRestartSame}
           onNewRun={goToNewRun}
-          onViewDebrief={flow.viewDebrief}
+          onViewDebrief={() => setSubView('debrief')}
         />
       ) : null}
 
-      {/* MISSION_COMPLETE overlay. */}
-      {flow.phase === 'MISSION_COMPLETE' ? (
+      {/* MISSION_COMPLETE overlay — only shown when viewing the dashboard. */}
+      {flow.phase === 'MISSION_COMPLETE' && subView === 'dashboard' ? (
         <MissionComplete
           state={game.state}
-          onViewDebrief={flow.viewDebrief}
+          onViewDebrief={() => setSubView('debrief')}
           onNewRun={goToNewRun}
         />
       ) : null}
