@@ -112,6 +112,32 @@ it('prioritizes shielding when crew radiation exposure is high', () => {
   expect(recommendation?.actionId).toBe(
     'solar-storm--activate-shielding'
   );
+
+  expect(recommendation?.rationale).toContain(
+    'Potential benefit: power generation +8 after 2 days'
+  );
+});
+
+it('explains delayed risks in its recommendation', () => {
+  const baseState = freshGame();
+  const stressedState = {
+    ...baseState,
+    crew: {
+      ...baseState.crew,
+      radiationExposure: 35,
+    },
+  };
+
+  const state = withActiveEvent(stressedState, 'solar-storm');
+
+  const recommendation = ruleBasedAdvisor.recommend({
+    state,
+    eventId: 'solar-storm',
+  });
+
+  expect(recommendation?.actionId).toBe('solar-storm--shutdown-systems');
+  expect(recommendation?.rationale).toContain('Potential risk: food production -5 after 3 days');
+  expect(recommendation?.rationale).toContain('Potential risk: health -8 after 1 days');
 });
 
 it('prioritizes oxygen recovery when oxygen is critically low', () => {

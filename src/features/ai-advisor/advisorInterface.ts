@@ -133,6 +133,98 @@ function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
   return immediate + delayed;
 }
 
+function describeActionEffects(effect: ActionEffect): string {
+  const benefits: string[] = [];
+  const tradeoffs: string[] = [];
+  const delayedEffects: string[] = [];
+
+  const collectChanges = (
+    changes: object | undefined,
+    group: MetricGroup
+  ) => {
+    if (!changes) return;
+
+    for (const [key, delta] of Object.entries(changes)) {
+      if (typeof delta !== 'number' || delta === 0) continue;
+
+      const higherIsBetter =
+        !(group === 'crew' && key === 'radiationExposure');
+
+      const isBenefit = higherIsBetter ? delta > 0 : delta < 0;
+
+      const description =
+        `${key.replace(/([A-Z])/g, ' $1').toLowerCase()} ` +
+        `${delta > 0 ? '+' : ''}${delta}`;
+
+      if (isBenefit) {
+        benefits.push(description);
+      } else {
+        tradeoffs.push(description);
+      }
+    }
+  };
+
+  collectChanges(effect.immediateResources, 'resource');
+  collectChanges(effect.immediateCrew, 'crew');
+  collectChanges(effect.immediateSystems, 'system');
+
+  for (const item of effect.delayed ?? []) {
+    const parameters = item.parameters;
+
+    if (parameters.kind === 'status') {
+      const statusLabel =
+        parameters.status === 'failed' || parameters.status === 'critical'
+          ? 'Potential risk'
+          : parameters.status === 'completed'
+            ? 'Potential benefit'
+            : 'Status update';
+
+      delayedEffects.push(
+        `${statusLabel}: mission becomes ${parameters.status} after ${item.delayInDays} days`
+      );
+      continue;
+    }
+
+    const group = parameters.kind as MetricGroup;
+
+    for (const [key, delta] of Object.entries(parameters.changes)) {
+      if (typeof delta !== 'number' || delta === 0) continue;
+
+      const higherIsBetter =
+        !(group === 'crew' && key === 'radiationExposure');
+
+      const isBenefit = higherIsBetter ? delta > 0 : delta < 0;
+
+      const description =
+        `${key.replace(/([A-Z])/g, ' $1').toLowerCase()} ` +
+        `${delta > 0 ? '+' : ''}${delta} ` +
+        `after ${item.delayInDays} days`;
+
+      delayedEffects.push(
+        `${isBenefit ? 'Potential benefit' : 'Potential risk'}: ${description}`
+      );
+    }
+  }
+  const parts: string[] = [];
+
+  if (benefits.length > 0) {
+    parts.push(`Benefits: ${benefits.join(', ')}.`);
+  }
+
+  if (tradeoffs.length > 0) {
+    parts.push(`Trade-offs: ${tradeoffs.join(', ')}.`);
+  }
+
+  if (delayedEffects.length > 0) {
+    parts.push(`Delayed effects: ${delayedEffects.join('; ')}.`);
+  }
+
+  if (parts.length === 0) {
+    return 'No measurable resource, crew, or system changes are defined for this action.';
+  }
+
+  return parts.join(' ');
+}
 
 function recommendForEvent(context: AdvisorContext): Recommendation | null {
   const { state, eventId } = context;
@@ -153,17 +245,29 @@ function recommendForEvent(context: AdvisorContext): Recommendation | null {
   if (!best) return null;
 
   const margin = best.score - (ranked[1]?.score ?? best.score);
-  const confidence = margin >= 5 ? 'high' : margin >= 1.5 ? 'medium' : 'low';
+
+  let confidence: 'low' | 'medium' | 'high' = 'low';
+
+  if (ranked.length === 1) {
+    confidence = 'medium';
+  } else if (best.score > 0 && margin >= 5) {
+    confidence = 'high';
+  } else if (best.score > 0 && margin >= 1.5) {
+    confidence = 'medium';
+  }
+
+  const effectExplanation = describeActionEffects(best.action.effect);
 
   return {
     actionId: best.action.id,
     eventId,
     confidence,
     rationale:
-      `Rule-based: "${best.action.label}" has the strongest weighted balance ` +
-      `of immediate effects and delayed consequences for the current state ` +
-      `(estimated score ${best.score.toFixed(1)}). ` +
-      `This is a heuristic, not a guarantee of the best outcome.`,
+      `Recommended: "${best.action.label}". ` +
+      `${effectExplanation} ` +
+      `Estimated decision score: ${best.score.toFixed(1)}. ` +
+      `Confidence reflects the score difference from the next-best action. ` +
+      `This is a rule-based heuristic, not a guarantee of the best outcome.`,
   };
 }
 
