@@ -33,6 +33,7 @@ import { EmergencyPanel } from './EmergencyPanel';
 import { FacilityTab } from './FacilityTab';
 import { TOTAL_DAYS, type FacilityId } from './facilities';
 import type { StateDelta } from './useStateDelta';
+import type { ActionPreview } from './actionPreview';
 
 export type TabKey = 'mission' | 'room' | 'log' | 'profile';
 
@@ -68,6 +69,7 @@ interface MissionTabletProps {
   alertFacility: FacilityId | null;
   emergency: GameEvent | null;
   plannedActionId: string | null;
+  preview: ActionPreview | null;
   onPlanAction: (actionId: string | null) => void;
   /** Perform the planned action (if any) and advance to the next day. */
   onEndDay: (choice: PlayerChoice) => void;
@@ -133,6 +135,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
               emergency={emergency}
               alertFacility={props.alertFacility}
               plannedActionId={props.plannedActionId}
+              preview={props.preview}
               disabled={terminal}
               onPlanAction={props.onPlanAction}
               onGoToMission={() => onTabChange('mission')}
@@ -501,6 +504,7 @@ function EndDayFooter(props: MissionTabletProps & { terminal: boolean }): ReactE
       >
         {label}
       </button>
+      {props.preview ? <p className="bunker-preview-notice" role="status">Previewing immediate effects: {props.preview.label}.</p> : null}
       <p className="mt-1 text-center text-[10px] text-slate-500">{hint}</p>
     </div>
   );
