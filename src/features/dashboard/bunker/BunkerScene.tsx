@@ -194,7 +194,12 @@ export function BunkerScene({
               }
             }}
             onPointerCancel={() => setTouched(null)}
-            onFocus={() => { setFocused(id); setDismissed(false); }}
+            onFocus={() => {
+              setHovered(null);
+              setTouched(null);
+              setFocused(id);
+              setDismissed(false);
+            }}
             onBlur={() => {
               setFocused((current) => current === id ? null : current);
               setTouched(null);

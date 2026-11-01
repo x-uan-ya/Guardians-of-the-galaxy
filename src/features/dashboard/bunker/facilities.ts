@@ -22,22 +22,13 @@ import { worstLevel } from '../../simulation/simulationSelectors';
 import { METRIC_MIN, METRIC_MAX } from '../../simulation/simulationTypes';
 
 /** Display an existing metric, never an invented aggregate facility health. */
-export function facilityCondition(def: FacilityDef, state: GameState): { value: number | null; label: string } {
-  const labels: Record<keyof SystemState, string> = {
-    foodProduction: 'Food production efficiency',
-    lifeSupportEfficiency: 'Life support efficiency',
-    powerGeneration: 'Power generation efficiency',
-    shieldingIntegrity: 'Shielding integrity',
-  };
+export function facilityCondition(def: FacilityDef, state: GameState): { value: number | null } {
   const value = def.system ? state.systems[def.system]
     : def.resource ? state.resources[def.resource]
     : def.vitals ? state.crew.health : undefined;
-  const label = def.system ? labels[def.system]
-    : def.resource ? `${def.short} reserves` : def.vitals ? 'Crew health' : 'Condition';
   return {
     value: typeof value === 'number' && Number.isFinite(value) && value >= METRIC_MIN && value <= METRIC_MAX
       ? value : null,
-    label,
   };
 }
 

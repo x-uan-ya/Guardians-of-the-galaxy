@@ -72,6 +72,27 @@ describe('bunker facility tooltips', () => {
     expect(tooltip.dataset.visible).toBe('false');
   });
 
+  it('follows keyboard focus despite a stationary mouse, then supports Escape and renewed hover', () => {
+    const { button, tooltip, onSelect } = mount();
+    const oxygen = container!.querySelectorAll('button')[0]!;
+    pointer(button, 'pointerover');
+    expect(tooltip.textContent).toContain('Greenhouse');
+    act(() => oxygen.focus());
+    expect(tooltip.textContent).toContain('Oxygen Generator');
+    expect(oxygen.getAttribute('aria-describedby')).toBe(tooltip.id);
+    expect(button.hasAttribute('aria-describedby')).toBe(false);
+    expect(onSelect).not.toHaveBeenCalled();
+    act(() => oxygen.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(tooltip.dataset.visible).toBe('false');
+    pointer(button, 'pointerout');
+    pointer(button, 'pointerover');
+    expect(tooltip.dataset.visible).toBe('true');
+    expect(tooltip.textContent).toContain('Greenhouse');
+    act(() => button.click());
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith('greenhouse');
+  });
+
   it('shows on touch while allowing the same tap to select, then dismisses outside', () => {
     const { button, tooltip, onSelect } = mount();
     pointer(button, 'pointerdown', 'touch');
@@ -123,4 +144,3 @@ describe('bunker facility tooltips', () => {
     expect(tooltip.textContent).not.toContain('NaN');
   });
 });
-

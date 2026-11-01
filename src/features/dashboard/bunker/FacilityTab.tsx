@@ -126,7 +126,7 @@ export function FacilityTab({
 
       {/* Live readouts */}
       <div className="space-y-2 rounded-md border border-space-600 bg-space-800/60 p-2.5">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{preview ? 'Current → projected · immediate effects only' : 'Live readouts'}</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{preview ? 'Projected readouts · immediate effects only' : 'Live readouts'}</div>
         {rows.length === 0 ? (
           <p className="text-xs text-slate-400">
             Overall outpost status:{' '}

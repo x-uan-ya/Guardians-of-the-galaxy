@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { actionPreview } from '../features/dashboard/bunker/actionPreview';
+import { actionPreview, type MetricPreview } from '../features/dashboard/bunker/actionPreview';
 import { BunkerGame } from '../features/dashboard/bunker/BunkerGame';
 import { PreviewMetric } from '../features/dashboard/bunker/PreviewMetric';
 import { getFreeActions, applyPlayerDecision, advanceSimulationDay } from '../features/simulation/simulationEngine';
@@ -26,6 +26,16 @@ afterEach(() => {
 });
 const ration = getFreeActions().find((action) => action.id === 'ration-supplies')!;
 const maintenance = getFreeActions().find((action) => action.id === 'maintenance-shift')!;
+
+function expectProjectedMetrics<K extends string>(
+  projected: Partial<Record<K, MetricPreview>>,
+  committed: Record<K, number>,
+) {
+  for (const key in projected) {
+    const metric = projected[key];
+    if (metric) expect(metric.projected).toBe(committed[key]);
+  }
+}
 
 function setup() {
   container = document.createElement('div');
@@ -68,11 +78,9 @@ describe('immediate action projection', () => {
       const state = freshGame();
       const projected = actionPreview(state, action)!;
       const committed = applyPlayerDecision(state, { actionId: action.id, playerChoice: 'self-directed' });
-      for (const group of ['resources', 'crew', 'systems'] as const) {
-        for (const [key, metric] of Object.entries(projected[group])) {
-          expect(metric.projected).toBe((committed[group] as unknown as Record<string, number>)[key]);
-        }
-      }
+      expectProjectedMetrics(projected.resources, committed.resources);
+      expectProjectedMetrics(projected.crew, committed.crew);
+      expectProjectedMetrics(projected.systems, committed.systems);
     }
   });
 
