@@ -70,24 +70,55 @@ if (!changes) return 0;
   return score;
 }
 
+
 function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
   const { state } = context;
 
+  // Calculate the immediate impact first.
   const immediate =
     scoreChanges(effect.immediateResources, state.resources, 'resource') +
     scoreChanges(effect.immediateCrew, state.crew, 'crew') +
     scoreChanges(effect.immediateSystems, state.systems, 'system');
 
+  // Project the state after immediate changes.
+  const projectedResources = {
+    ...state.resources,
+    ...(effect.immediateResources ?? {}),
+  };
+
+  const projectedCrew = {
+    ...state.crew,
+    ...(effect.immediateCrew ?? {}),
+  };
+
+  const projectedSystems = {
+    ...state.systems,
+    ...(effect.immediateSystems ?? {}),
+  };
+
+  // Evaluate delayed consequences against the projected state.
   const delayed = (effect.delayed ?? []).reduce((total, item) => {
     const parameters = item.parameters;
     let futureScore = 0;
 
     if (parameters.kind === 'resource') {
-      futureScore = scoreChanges(parameters.changes, state.resources, 'resource');
+      futureScore = scoreChanges(
+        parameters.changes,
+        projectedResources,
+        'resource'
+      );
     } else if (parameters.kind === 'crew') {
-      futureScore = scoreChanges(parameters.changes, state.crew, 'crew');
+      futureScore = scoreChanges(
+        parameters.changes,
+        projectedCrew,
+        'crew'
+      );
     } else if (parameters.kind === 'system') {
-      futureScore = scoreChanges(parameters.changes, state.systems, 'system');
+      futureScore = scoreChanges(
+        parameters.changes,
+        projectedSystems,
+        'system'
+      );
     } else if (parameters.kind === 'status') {
       if (parameters.status === 'failed') futureScore = -100;
       else if (parameters.status === 'critical') futureScore = -30;
@@ -95,11 +126,13 @@ function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
     }
 
     const timeDiscount = 0.7 / (1 + item.delayInDays * 0.1);
+
     return total + futureScore * timeDiscount;
   }, 0);
 
   return immediate + delayed;
 }
+
 
 function recommendForEvent(context: AdvisorContext): Recommendation | null {
   const { state, eventId } = context;
