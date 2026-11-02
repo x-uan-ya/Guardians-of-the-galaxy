@@ -257,6 +257,9 @@ function recommendForEvent(context: AdvisorContext): Recommendation | null {
   }
 
   const effectExplanation = describeActionEffects(best.action.effect);
+  const missionContext = state.crew.radiationExposure >= 60
+    ? 'Mission context: crew radiation exposure is high (' + state.crew.radiationExposure.toFixed(0) + '/100). '
+    : '';
 
   return {
     actionId: best.action.id,
@@ -264,7 +267,7 @@ function recommendForEvent(context: AdvisorContext): Recommendation | null {
     confidence,
     rationale:
       `Recommended: "${best.action.label}". ` +
-      `${effectExplanation} ` +
+      `${missionContext}${effectExplanation} ` +
       `Estimated decision score: ${best.score.toFixed(1)}. ` +
       `Confidence reflects the score difference from the next-best action. ` +
       `This is a rule-based heuristic, not a guarantee of the best outcome.`,
