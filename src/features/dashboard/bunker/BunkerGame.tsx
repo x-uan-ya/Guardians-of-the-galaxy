@@ -113,7 +113,8 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
   };
 
   return (
-    <section aria-label="Mars bunker" className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_350px]">
+    <section aria-label="Mars bunker" className="bunker-layout">
+      <div className="bunker-layout-grid">
       {/* Left: the picture, the survival numbers, and a quick room list. */}
       <div className="min-w-0 space-y-3">
         <BunkerScene
@@ -127,19 +128,22 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
           onRespond={handleRespond}
         />
         <ResourceHud derived={derived} delta={delta} preview={preview} />
-        <FacilityStrip
-          derived={derived}
-          selected={selected}
-          alertFacility={alertFacility}
-          onSelect={handleSelectFacility}
-        />
+        <details className="bunker-quick-access">
+          <summary>Facility Quick Access</summary>
+          <FacilityStrip
+            derived={derived}
+            selected={selected}
+            alertFacility={alertFacility}
+            onSelect={handleSelectFacility}
+          />
+        </details>
         <p className="px-1 text-center font-mono text-[11px] tracking-wide text-slate-500">
           Click a room to inspect it. Plan one action, then end the sol.
         </p>
       </div>
 
       {/* Right: the mission tablet. */}
-      <div ref={tabletRef} className="lg:sticky lg:top-20">
+      <div ref={tabletRef} className="bunker-tablet-column">
         <MissionTablet
           state={state}
           derived={derived}
@@ -156,6 +160,7 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
           onEndDay={handleEndDay}
           onResolveEvent={handleResolveEvent}
         />
+      </div>
       </div>
     </section>
   );

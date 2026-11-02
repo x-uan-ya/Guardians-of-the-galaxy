@@ -67,7 +67,7 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:pl-56">
+      <div className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col md:flex-row ${activeView === 'dashboard' ? '' : 'max-w-7xl'} ${sidebarOpen ? 'md:pl-56' : ''}`}>
         {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
         {sidebarOpen && (
           <button
@@ -101,7 +101,7 @@ export function AppShell({
 
         <main 
           key={activeView} 
-          className={`flex-1 animate-fade-in-up p-4 sm:p-6 transition-all`}
+          className={`min-w-0 flex-1 animate-fade-in-up p-4 sm:p-6 transition-all ${activeView === 'dashboard' ? 'mx-auto w-full max-w-[120rem]' : ''}`}
         >
           {children}
         </main>
