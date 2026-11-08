@@ -162,27 +162,17 @@ export function App(): ReactElement {
     flow.newRun();
   };
 
-  // "New Mission" (top bar) and "Mission Setup" (sidebar): start a new run via
-  // mission selection, then character setup. Confirm first only when there is
-  // an unfinished run with progress that would be thrown away.
+  // "New" (top bar) is the only way back to site and character selection once a
+  // mission is running: your character is locked in for the whole mission. It
+  // always asks first, because starting over throws the current mission away. A
+  // mission that has already ended has nothing left to lose.
   const handleNewMission = (): void => {
-    const runInProgress =
-      status !== 'failed' &&
-      status !== 'completed' &&
-      (game.state.day > 1 || game.state.history.length > 0);
-    if (runInProgress) setConfirm({ kind: 'new-run' });
-    else goToNewRun();
+    if (status === 'failed' || status === 'completed') goToNewRun();
+    else setConfirm({ kind: 'new-run' });
   };
 
-  // Sidebar navigation. "Mission Setup" is not a sub-view any more: setup is a
-  // full-screen phase of the flow, so route it straight to mission selection.
-  // No confirmation here — the sidebar item is a plain navigation, so clicking
-  // it just goes to mission selection (the destructive "New Mission" top-bar
-  // button keeps its confirm).
-  const handleNavigate = (view: ViewKey): void => {
-    if (view === 'mission-setup') goToNewRun();
-    else setSubView(view as SubView);
-  };
+  // Sidebar navigation (Mission Control, Debrief, Badges, Leaderboard, How to Play).
+  const handleNavigate = (view: SubView): void => setSubView(view);
 
   // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
   // (same mission + occupation) — straight back into play, not occupation select.

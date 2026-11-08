@@ -8,6 +8,7 @@
 
 import type { ReactElement } from 'react';
 import { ClipboardList, PartyPopper, Rocket } from 'lucide-react';
+import { ModalPortal } from '../../components/ui/ModalPortal';
 import { getOccupation } from './occupations';
 import type { GameState } from '../simulation/simulationTypes';
 
@@ -24,7 +25,7 @@ export function MissionComplete({
 }: MissionCompleteProps): ReactElement {
   const occupation = getOccupation(state.character.occupation);
 
-  return (
+  const overlay = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
       role="dialog"
@@ -62,6 +63,9 @@ export function MissionComplete({
       </div>
     </div>
   );
+
+  // Render under <body> so the overlay is centred on the screen (see ModalPortal).
+  return <ModalPortal>{overlay}</ModalPortal>;
 }
 
 function Stat({ label, value }: { label: string; value: string }): ReactElement {

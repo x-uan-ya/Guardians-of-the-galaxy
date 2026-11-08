@@ -10,12 +10,16 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { BarChart3, ClipboardList, HelpCircle, LayoutDashboard, Rocket, Trophy } from 'lucide-react';
+import { BarChart3, ClipboardList, HelpCircle, LayoutDashboard, Trophy } from 'lucide-react';
 
-/** All top-level views in the application. */
+/**
+ * All views reachable from the sidebar while a mission is running. Mission and
+ * character selection are NOT here on purpose: they are a one-time step at the
+ * start of a mission (see app/gameFlow.ts). The top bar's "New" button is the
+ * deliberate way to start over.
+ */
 export type ViewKey =
   | 'dashboard'
-  | 'mission-setup'
   | 'debrief'
   | 'achievements'
   | 'leaderboard'
@@ -34,12 +38,6 @@ export const ROUTES: readonly RouteDef[] = [
     label: 'Mission Control',
     icon: LayoutDashboard,
     description: 'Live outpost status and daily operations.',
-  },
-  {
-    key: 'mission-setup',
-    label: 'Mission Setup',
-    icon: Rocket,
-    description: 'Configure and launch a new mission.',
   },
   {
     key: 'debrief',

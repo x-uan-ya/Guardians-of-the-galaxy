@@ -9,6 +9,7 @@
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { ModalPortal } from './ModalPortal';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -51,7 +52,7 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  const overlay = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       role="dialog"
@@ -81,4 +82,7 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  // Render under <body> so the dialog is centred on the screen (see ModalPortal).
+  return <ModalPortal>{overlay}</ModalPortal>;
 }

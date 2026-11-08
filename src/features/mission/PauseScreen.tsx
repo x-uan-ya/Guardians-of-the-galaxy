@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { Pause, Play, Rocket } from 'lucide-react';
+import { ModalPortal } from '../../components/ui/ModalPortal';
 
 interface PauseScreenProps {
   onResume: () => void;
@@ -23,7 +24,7 @@ export function PauseScreen({ onResume, onNewRun }: PauseScreenProps): ReactElem
     return () => window.removeEventListener('keydown', onKey);
   }, [onResume]);
 
-  return (
+  const overlay = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
       role="dialog"
@@ -56,4 +57,7 @@ export function PauseScreen({ onResume, onNewRun }: PauseScreenProps): ReactElem
       </div>
     </div>
   );
+
+  // Render under <body> so the overlay is centred on the screen (see ModalPortal).
+  return <ModalPortal>{overlay}</ModalPortal>;
 }

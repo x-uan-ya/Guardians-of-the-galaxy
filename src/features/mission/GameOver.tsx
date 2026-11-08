@@ -12,6 +12,7 @@
 
 import type { ReactElement } from 'react';
 import { RotateCcw, Rocket, Skull } from 'lucide-react';
+import { ModalPortal } from '../../components/ui/ModalPortal';
 import { getGameOverReason } from '../simulation/simulationEngine';
 import { getOccupation } from './occupations';
 import { OccupationAvatar } from './OccupationAvatar';
@@ -43,7 +44,7 @@ export function GameOver({
   const reason = getGameOverReason(state);
   const occupation = getOccupation(state.character.occupation);
 
-  return (
+  const overlay = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
       role="dialog"
@@ -91,6 +92,9 @@ export function GameOver({
       </div>
     </div>
   );
+
+  // Render under <body> so the overlay is centred on the screen (see ModalPortal).
+  return <ModalPortal>{overlay}</ModalPortal>;
 }
 
 function Stat({ label, value }: { label: string; value: string }): ReactElement {

@@ -75,9 +75,10 @@ export function HowToPlay(): ReactElement {
       <Section icon={ListChecks} title="Your first Sol, step by step">
         <ol className="list-decimal space-y-2 pl-5">
           <li>
-            Open <strong className="text-slate-100">Mission Setup</strong> in the sidebar, choose a role
-            (see below), and press <strong className="text-slate-100">Launch Run</strong>. The other
-            settings are fine on their defaults.
+            When the game starts, choose a mission site, then choose a role (see below), and press{' '}
+            <strong className="text-slate-100">Launch Run</strong>. The other settings are fine on their
+            defaults. Your role is locked in for the whole mission. To start over with a different one,
+            press <strong className="text-slate-100">New</strong> at the top.
           </li>
           <li>
             Go to <strong className="text-slate-100">Mission Control</strong>. Look at{' '}
