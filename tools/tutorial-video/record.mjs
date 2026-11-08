@@ -217,26 +217,48 @@ try {
     await sleep(holdMs);
   };
 
-  // Is an emergency waiting for an answer in the Mission Tablet?
+  // The "Accept recommendation" button of an emergency waiting in the Mission Tablet, if any.
   const emergencyButton = async () => {
     const handle = await page.evaluateHandle(() => {
-      const heading = [...document.querySelectorAll('body *')].find(
-        (e) => e.children.length === 0 && /choose your response/i.test(e.textContent || '')
+      const panel = document.querySelector('.bunker-emergency');
+      if (!panel) return null;
+      return (
+        [...panel.querySelectorAll('button')].find(
+          (b) => !b.disabled && /accept recommendation/i.test(b.innerText)
+        ) ?? null
       );
-      if (!heading) return null;
-      let node = heading.parentElement;
-      while (node && node !== document.body) {
-        const btn = [...node.querySelectorAll('button')].find(
-          (b) => !b.disabled && !/accept recommendation|respond to the emergency/i.test(b.innerText)
-        );
-        if (btn) return btn;
-        node = node.parentElement;
-      }
-      return null;
     });
     return handle.asElement();
   };
 
+  // Outline an element inside the Mission Tablet (scrolls it into view first and
+  // clips the outline to the tablet's visible area).
+  const ringSelector = async (selector, nth = 0) => {
+    await page.evaluate(
+      (s, n) => document.querySelectorAll(s)[n]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }),
+      selector,
+      nth
+    );
+    await sleep(800);
+    const rect = await page.evaluate(
+      (s, n) => {
+        const el = document.querySelectorAll(s)[n];
+        const body = document.querySelector('.bunker-tablet-body');
+        if (!el || !body) return null;
+        const r = el.getBoundingClientRect();
+        const v = body.getBoundingClientRect();
+        const x = Math.max(r.left, v.left + 4);
+        const y = Math.max(r.top, v.top + 4);
+        const right = Math.min(r.right, v.right - 4);
+        const bottom = Math.min(r.bottom, v.bottom - 4);
+        return right > x && bottom > y ? { x, y, w: right - x, h: bottom - y } : null;
+      },
+      selector,
+      nth
+    );
+    await ring(rect);
+    return rect;
+  };
   const say = async (step, text, pos = 'bottom') => {
     await page.evaluate((s, t, p) => window.__tut.caption(s, t, p), step, text, pos);
   };
@@ -314,25 +336,33 @@ try {
   await sleep(4200);
   await ring(null);
 
-  // 5. Emergencies
+  // 5. Emergencies and the Mission Controller
   chapter('Emergencies');
-  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end. Mission Controller recommends a response.', 'top');
-  await ringText(['NOTIFICATION', 'Accept recommendation']);
+  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end. Mission Controller gives advice.', 'top');
+  await ringSelector('.bunker-emergency');
   await sleep(3200);
   await ring(null);
-  await say('Step 5 · Emergencies', 'Mission Controller advises and explains the risks, but you make the final call.', 'top');
-  await sleep(4600);
-  await click('Inspect Essential Systems', { startsWith: true, ms: 900 });
-  await sleep(1400);
+  await say('Step 5 · Emergencies', 'It recommends a response and explains why, what could go wrong, and what to expect.', 'top');
+  await ringSelector('.bunker-tablet [data-role="recommended"]');
+  await sleep(5200);
+  await ring(null);
+  await say('Step 5 · Emergencies', 'It only advises. You decide: accept the recommendation, or override it with another option.', 'top');
+  await ringSelector('.bunker-tablet [data-role="alternative"]');
+  await sleep(4800);
+  await ring(null);
+  await say('Step 5 · Emergencies', 'Here we accept the recommendation.', 'top');
+  await click('Accept recommendation', { ms: 900 });
+  await sleep(1600);
 
   // 6. Plan a Sol
   chapter('Plan your Sol');
-  await say('Step 6 · Plan your Sol', 'Pick one routine action. Mission Controller shows a recommended, an alternative and a risky option. Then press End Sol.', 'top');
-  await ringText(['Routine operations', 'Ration supplies', 'Maintenance shift']);
-  await sleep(3300);
+  await say('Step 6 · Plan your Sol', 'Each Sol you plan one action. Mission Controller shows a recommended, an alternative and sometimes a risky option.', 'top');
+  await ringSelector('.bunker-tablet [data-role="recommended"]');
+  await sleep(5200);
   await ring(null);
-  await click('Routine operations', { startsWith: true, ms: 900 });
-  await sleep(900);
+  await say('Step 6 · Plan your Sol', 'Press Override to choose a different option instead. Then press End Sol.', 'top');
+  await click('Override: choose', { startsWith: true, ms: 900 });
+  await sleep(2200);
   await click('end Sol', { ms: 800 });
   await say('Step 6 · Plan your Sol', 'The Sol ends and the next one begins. Your supplies change every Sol.', 'top');
   await sleep(2800);
@@ -346,7 +376,6 @@ try {
   await say('Step 6 · Plan your Sol', 'Open the Log to see what happened and why.', 'top');
   await click('Log', { exact: true, ms: 700 });
   await sleep(3300);
-
   // 7. Badges (make sure no emergency pop-up can cover the page first)
   for (let i = 0; i < 3; i += 1) {
     await click('Mission', { exact: true, ms: 600 });

@@ -31,36 +31,36 @@ export const TUTORIAL_CHAPTERS: readonly TutorialChapter[] = [
   },
   {
     title: 'Pick your role',
-    start: 16.9,
+    start: 16.2,
     summary:
       'Every role has its own special ability. Point at a character to watch it move, click one to choose it, then press Launch Run.',
   },
   {
     title: 'Your outpost',
-    start: 43.1,
+    start: 41.7,
     summary: 'This is your outpost. Each room holds one of your supplies. Click a room to inspect it.',
   },
   {
     title: 'Your supplies',
-    start: 55,
+    start: 53.5,
     summary:
       'Oxygen, Power, Food and Water are your supplies. Green is safe, so keep every bar out of the red. Health, Morale and Radiation show how you are doing. For Radiation, lower is better.',
   },
   {
     title: 'Emergencies',
-    start: 63.3,
+    start: 61.7,
     summary:
-      'Emergencies must be answered before the day can end. Mission Controller recommends a response and explains the risks, but you make the final call: accept it or override it.',
+      'Emergencies must be answered before the day can end. Mission Controller recommends a response and explains why, what could go wrong and what to expect. It only advises: you accept the recommendation or override it.',
   },
   {
     title: 'Plan your Sol',
-    start: 78.8,
+    start: 82.1,
     summary:
-      'Pick one routine action. Mission Controller shows a recommended, an alternative and a risky option. Accept the advice or override it, then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
+      'Plan one action each Sol. Mission Controller shows a recommended, an alternative and sometimes a risky option. Accept the advice or press Override to choose another, then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
   },
   {
     title: 'Earn badges',
-    start: 107.6,
+    start: 114.6,
     summary:
       'Play well to earn XP, climb ranks and unlock badges. They stay with you across missions.',
   },
