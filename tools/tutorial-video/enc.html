@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>encoder</title>
+<script src="/webm-muxer.js"></script>
+<script>
+  // Turns the recorded screencast frames into a constant-frame-rate WebM.
+  window.encode = async function encode(cfg) {
+    const { frames, t0, t1, fps, bitrate } = cfg;
+    const { Muxer, ArrayBufferTarget } = WebMMuxer;
+
+    const first = await createImageBitmap(await (await fetch('/frames/' + frames[0].file)).blob());
+    const width = first.width - (first.width % 2);
+    const height = first.height - (first.height % 2);
+    first.close();
+
+    let codec = { webm: 'V_VP9', vc: 'vp09.00.40.08' };
+    let support = await VideoEncoder.isConfigSupported({ codec: codec.vc, width, height, bitrate, framerate: fps });
+    if (!support.supported) {
+      codec = { webm: 'V_VP8', vc: 'vp8' };
+      support = await VideoEncoder.isConfigSupported({ codec: codec.vc, width, height, bitrate, framerate: fps });
+      if (!support.supported) throw new Error('No supported WebM video encoder (VP9/VP8) in this browser');
+    }
+
+    const target = new ArrayBufferTarget();
+    const muxer = new Muxer({
+      target,
+      video: { codec: codec.webm, width, height, frameRate: fps },
+      firstTimestampBehavior: 'offset',
+    });
+    let failure = null;
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: (e) => { failure = e; },
+    });
+    encoder.configure({ codec: codec.vc, width, height, bitrate, framerate: fps, bitrateMode: 'variable' });
+
+    const total = Math.floor((t1 - t0) * fps);
+    let idx = 0;
+    let current = -1;
+    let bitmap = null;
+    for (let i = 0; i < total; i += 1) {
+      if (failure) throw failure;
+      const t = t0 + i / fps;
+      while (idx + 1 < frames.length && frames[idx + 1].t <= t) idx += 1;
+      if (idx !== current) {
+        if (bitmap) bitmap.close();
+        bitmap = await createImageBitmap(await (await fetch('/frames/' + frames[idx].file)).blob());
+        current = idx;
+      }
+      const frame = new VideoFrame(bitmap, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) });
+      encoder.encode(frame, { keyFrame: i % (fps * 6) === 0 });
+      frame.close();
+      while (encoder.encodeQueueSize > 12) await new Promise((r) => setTimeout(r, 4));
+    }
+    await encoder.flush();
+    muxer.finalize();
+    if (failure) throw failure;
+
+    const blob = new Blob([target.buffer], { type: 'video/webm' });
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    return { base64: dataUrl.split(',')[1], codec: codec.vc, width, height, frames: total };
+  };
+</script>

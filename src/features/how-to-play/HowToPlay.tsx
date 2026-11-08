@@ -7,6 +7,7 @@
  */
 
 import type { ReactElement, ReactNode } from 'react';
+import { TutorialVideo } from './TutorialVideo';
 import {
   AlertTriangle,
   Award,
@@ -57,6 +58,8 @@ export function HowToPlay(): ReactElement {
           action, and move on to the next Sol. No experience needed.
         </p>
       </header>
+
+      <TutorialVideo />
 
       <Section icon={Target} title="The goal">
         <p>

@@ -1,0 +1,15 @@
+{
+  "name": "tutorial-video-tools",
+  "private": true,
+  "type": "module",
+  "description": "Records and encodes the How to Play video from the running game. Not part of the app build.",
+  "scripts": {
+    "record": "node record.mjs",
+    "encode": "node encode.mjs",
+    "verify": "node verify.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "25.16.0",
+    "webm-muxer": "5.1.4"
+  }
+}

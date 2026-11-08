@@ -297,8 +297,13 @@ export function App(): ReactElement {
         <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
       ) : null}
 
-      {/* The dashboard handles emergencies inline; other views keep the overlay. */}
-      {flow.phase === 'CRISIS' && subView !== 'dashboard' && game.state.activeEvents[0] ? (
+      {/* The dashboard handles emergencies inline; other views keep the overlay.
+          How to Play is exempt so a new player can watch the tutorial and read
+          the guide before answering the opening emergency. */}
+      {flow.phase === 'CRISIS' &&
+      subView !== 'dashboard' &&
+      subView !== 'how-to-play' &&
+      game.state.activeEvents[0] ? (
         <CrisisModal
           event={game.state.activeEvents[0]}
           onChoose={(actionId, choice) => {
