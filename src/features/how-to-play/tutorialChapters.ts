@@ -12,7 +12,7 @@ export const TUTORIAL_VIDEO = {
   src: '/tutorial/how-to-play.webm',
   poster: '/tutorial/poster.jpg',
   /** Shown to players, e.g. "About 2 minutes". */
-  lengthLabel: 'About 2 minutes',
+  lengthLabel: 'About 2 and a half minutes',
 } as const;
 
 export interface TutorialChapter {
@@ -31,7 +31,7 @@ export const TUTORIAL_CHAPTERS: readonly TutorialChapter[] = [
   },
   {
     title: 'Pick your role',
-    start: 16.2,
+    start: 16.1,
     summary:
       'Every role has its own special ability. Point at a character to watch it move, click one to choose it, then press Launch Run.',
   },
@@ -42,25 +42,25 @@ export const TUTORIAL_CHAPTERS: readonly TutorialChapter[] = [
   },
   {
     title: 'Your supplies',
-    start: 53.5,
+    start: 53.4,
     summary:
       'Oxygen, Power, Food and Water are your supplies. Green is safe, so keep every bar out of the red. Health, Morale and Radiation show how you are doing. For Radiation, lower is better.',
   },
   {
     title: 'Emergencies',
-    start: 61.7,
+    start: 61.6,
     summary:
-      'Emergencies must be answered before the day can end. Mission Controller recommends a response and explains why, what could go wrong and what to expect. It only advises: you accept the recommendation or override it.',
+      'Emergencies must be answered before the day can end. Not sure what to do? Ask Mission Controller. Advice only appears when you ask. It recommends a response and explains why, what could go wrong and what to expect. It only advises: you accept the recommendation or override it.',
   },
   {
     title: 'Plan your Sol',
-    start: 82.1,
+    start: 90.1,
     summary:
-      'Plan one action each Sol. Mission Controller shows a recommended, an alternative and sometimes a risky option. Accept the advice or press Override to choose another, then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
+      'Plan one action each Sol. If you want advice, press Ask Mission Controller. It shows a recommended, an alternative and sometimes a risky option. Accept the advice or press Override to choose another, then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
   },
   {
     title: 'Earn badges',
-    start: 114.6,
+    start: 130.3,
     summary:
       'Play well to earn XP, climb ranks and unlock badges. They stay with you across missions.',
   },

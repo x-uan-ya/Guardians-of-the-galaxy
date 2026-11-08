@@ -14,13 +14,14 @@
  * connects to the existing useGameState handlers.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { ClipboardList, Clock, MapPin, Package, ScrollText, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { useAdvice } from '../../../hooks/useAdvice';
 import type { ActivityEntry } from '../../../hooks/useGameState';
+import { AdviceAskButton } from '../../ai-advisor/AdviceAskButton';
 import { AdvicePanel } from '../../ai-advisor/AdvicePanel';
 import { decisionWithAdvice } from '../../ai-advisor/adviceSnapshot';
 import type { Advice } from '../../ai-advisor/advisorTypes';
@@ -89,8 +90,18 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
   // Advice for the day's free actions. Asked once here so the plan list and the
   // End Sol button always agree. Not used while an emergency is showing (the
   // emergency panel asks about its own event).
-  const dayAdvice = useAdvice(state, undefined, { enabled: !terminal && !emergency });
-  const adviceProps = { advice: dayAdvice.advice, adviceLoading: dayAdvice.loading };
+  // Advice is optional: it appears only after the player asks, and the question
+  // resets every Sol.
+  const solKey = `${state.gameId}|${state.day}`;
+  const [askedSol, setAskedSol] = useState<string | null>(null);
+  const asked = askedSol === solKey;
+  const dayAdvice = useAdvice(state, undefined, { enabled: asked && !terminal && !emergency });
+  const adviceProps = {
+    advice: dayAdvice.advice,
+    adviceLoading: dayAdvice.loading,
+    adviceAsked: asked,
+    onAskAdvice: () => setAskedSol(solKey),
+  };
 
   return (
     <div className="bunker-tablet" data-alert={emergency ? 'true' : 'false'}>
@@ -171,6 +182,8 @@ function MissionTab(
     terminal: boolean;
     advice: Advice | null;
     adviceLoading: boolean;
+    adviceAsked: boolean;
+    onAskAdvice: () => void;
   }
 ): ReactElement {
   const {
@@ -183,6 +196,8 @@ function MissionTab(
     terminal,
     advice,
     adviceLoading,
+    adviceAsked,
+    onAskAdvice,
   } = props;
   const actions = getFreeActions();
 
@@ -301,6 +316,7 @@ function MissionTab(
             </div>
           ) : (
             <div className="space-y-2">
+              {!adviceAsked ? <AdviceAskButton onAsk={onAskAdvice} disabled={terminal} /> : null}
               {actions.map((action) => {
                 const planned = plannedActionId === action.id;
                 return (

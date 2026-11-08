@@ -38,7 +38,7 @@ import { AchievementsPage } from '../features/progression/AchievementsPage';
 import { Leaderboard } from '../features/leaderboard/Leaderboard';
 import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
-import { CrisisModal } from '../features/events/CrisisModal';
+import { EmergencyNotice } from '../features/events/EmergencyNotice';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
@@ -258,6 +258,15 @@ export function App(): ReactElement {
     >
       <PersistenceBanner notice={game.notice} onDismiss={game.dismissNotice} />
 
+      {/* The dashboard answers emergencies inline. On other pages a waiting emergency
+          is only a reminder, so the page stays readable and Reset / New stay usable. */}
+      {flow.phase === 'CRISIS' && subView !== 'dashboard' && game.state.activeEvents[0] ? (
+        <EmergencyNotice
+          event={game.state.activeEvents[0]}
+          waiting={game.state.activeEvents.length - 1}
+          onRespond={() => setSubView('dashboard')}
+        />
+      ) : null}
       {/* DEBRIEF takes over the main panel; otherwise show the sub-view. */}
       {flow.phase === 'DEBRIEF' ? (
         <Debrief state={game.state} />
@@ -285,23 +294,6 @@ export function App(): ReactElement {
       {/* Resupply pop-up (Sol 15 drop). */}
       {game.resupplyDeliveredOnDay !== null && !game.state.mission.modifiers.noResupply ? (
         <ResupplyModal day={game.resupplyDeliveredOnDay} onClose={game.dismissResupply} />
-      ) : null}
-
-      {/* The dashboard handles emergencies inline; other views keep the overlay.
-          How to Play is exempt so a new player can watch the tutorial and read
-          the guide before answering the opening emergency. */}
-      {flow.phase === 'CRISIS' &&
-      subView !== 'dashboard' &&
-      subView !== 'how-to-play' &&
-      game.state.activeEvents[0] ? (
-        <CrisisModal
-          event={game.state.activeEvents[0]}
-          state={game.state}
-          onChoose={(actionId, choice, advice) => {
-            const event = game.state.activeEvents[0];
-            if (event) game.resolveActiveEvent(event.id, actionId, choice, advice);
-          }}
-        />
       ) : null}
 
       {/* PAUSED overlay. */}

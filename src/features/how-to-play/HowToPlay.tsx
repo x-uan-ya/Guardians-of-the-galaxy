@@ -89,7 +89,7 @@ export function HowToPlay(): ReactElement {
             and <strong className="text-slate-100">Systems</strong>.
           </li>
           <li>
-            In <strong className="text-slate-100">Operations</strong>, read the Mission Controller's advice,
+            In <strong className="text-slate-100">Operations</strong>, ask the Mission Controller for advice if you want it,
             then pick one <strong className="text-slate-100">Routine Action</strong>. Hover over a button to
             see what it does.
           </li>
@@ -185,7 +185,9 @@ export function HowToPlay(): ReactElement {
 
       <Section icon={Lightbulb} title="The Mission Controller's advice">
         <p>
-          The Mission Controller recommends and explains. For each decision it shows a
+          Advice is optional. Press <strong className="text-slate-100">Ask Mission Controller for advice</strong>{' '}
+          when you want it, and ignore the button when you don&apos;t. Once you ask, the Mission Controller
+          recommends and explains. For each decision it shows a
           <strong className="text-slate-100"> Recommended</strong> option, an
           <strong className="text-slate-100"> Alternative</strong> and, when one really carries risk, a
           <strong className="text-slate-100"> Risky</strong> one. Each option tells you why it helps, what

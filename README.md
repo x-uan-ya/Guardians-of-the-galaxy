@@ -238,6 +238,8 @@ interfaces each teammate must use.
 
 The Mission Controller **recommends; the player decides.** It never acts on its own.
 
+- **Optional:** advice appears only when the player presses *Ask Mission Controller for advice*
+  (nothing is computed or sent to an AI service before that). It resets for every decision.
 - **What it shows:** a headline, the reason, the risk and the expected consequence, plus up to three
   options labelled Recommended / Alternative / Risky. The player presses *Accept recommendation* or
   *Override*. Code: `src/features/ai-advisor/` (`adviceBuilder.ts` builds the advice, `AdvicePanel.tsx`

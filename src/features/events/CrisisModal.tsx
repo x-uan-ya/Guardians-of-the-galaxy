@@ -5,11 +5,12 @@
  * Creates urgency and impact for major decision moments.
  */
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { EventAction, GameEvent } from './eventTypes';
 import type { AdviceSnapshot, PlayerChoice } from '../decisions/decisionTypes';
 import { useAdvice } from '../../hooks/useAdvice';
+import { AdviceAskButton } from '../ai-advisor/AdviceAskButton';
 import { AdvicePanel } from '../ai-advisor/AdvicePanel';
 import { decisionWithAdvice } from '../ai-advisor/adviceSnapshot';
 import type { GameState } from '../simulation/simulationTypes';
@@ -110,13 +111,27 @@ export function CrisisModal({ event, state, onChoose, onDismiss }: CrisisModalPr
   const style = SEVERITY_STYLES[event.severity];
 
   // Advice is read-only. The player still confirms every choice below.
-  const { advice, loading } = useAdvice(state, event.id);
+  const [asked, setAsked] = useState(false);
+  const { advice, loading } = useAdvice(state, event.id, { enabled: asked });
 
   // Two-phase flow: pick an action, then review a short consequence summary
   // before it is committed to the simulation. `chosen` holds the pending action.
   const [chosen, setChosen] = useState<EventAction | null>(null);
 
   const stakes = useMemo(() => affectedMetrics(event), [event]);
+
+  // Keep the top bar (Save / New / Reset / Logout) usable while an emergency is
+  // open: the pop-up covers only the area below it, so the player is never stuck.
+  const [topOffset, setTopOffset] = useState(0);
+  useLayoutEffect(() => {
+    const measure = (): void => {
+      const header = document.querySelector('header');
+      setTopOffset(header ? Math.max(0, Math.round(header.getBoundingClientRect().bottom)) : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
   // Lock body scroll when modal is open.
   useEffect(() => {
@@ -141,19 +156,22 @@ export function CrisisModal({ event, state, onChoose, onDismiss }: CrisisModalPr
 
   // Render outside the animated app layout so its transform cannot trap the fixed overlay.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 px-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto">
+    <div
+      className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/60 animate-fadeIn overflow-y-auto"
+      style={{ top: topOffset }}
+    >
       {/* Crisis Container - Fits within viewport with scroll */}
       <div
         className={`
-          relative w-full max-w-5xl
+          relative flex w-full max-w-5xl flex-col
+          max-h-full
           ${style.bg} ${style.border} border-2 rounded-lg
           shadow-2xl ${style.glow}
           ${style.pulse ? 'animate-pulse-slow' : ''}
-          overflow-visible mb-6
         `}
       >
         {/* Scrollable content wrapper - wider padding for tooltip space */}
-        <div className="overflow-y-auto overflow-x-visible max-h-[70vh]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Header */}
           <div className={`sticky top-0 z-10 ${style.bg} border-b border-current/20 px-8 py-4 overflow-visible`}>
             <div className="flex items-start justify-between gap-4">
@@ -254,6 +272,8 @@ export function CrisisModal({ event, state, onChoose, onDismiss }: CrisisModalPr
                 onAccept={() => handleAction(advice.actionId)}
                 onOverride={handleAction}
               />
+            ) : state && !asked ? (
+              <AdviceAskButton onAsk={() => setAsked(true)} />
             ) : null}
 
             <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">

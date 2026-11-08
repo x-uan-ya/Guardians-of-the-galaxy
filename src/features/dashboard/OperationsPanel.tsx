@@ -11,10 +11,12 @@
  * component never mutates state directly.
  */
 
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Wrench } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { useAdvice } from '../../hooks/useAdvice';
+import { AdviceAskButton } from '../ai-advisor/AdviceAskButton';
 import { AdvicePanel } from '../ai-advisor/AdvicePanel';
 import { decisionWithAdvice } from '../ai-advisor/adviceSnapshot';
 import { getFreeActions } from '../simulation/simulationEngine';
@@ -33,7 +35,13 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
   const eventBlocking = state.activeEvents.length > 0;
 
   // The advisor's current suggestion for free actions (only when no event is waiting).
-  const { advice, loading } = useAdvice(state, undefined, { enabled: !terminal && !eventBlocking });
+  // Advice is optional: shown only after the player asks, and reset every Sol.
+  const solKey = `${state.gameId}|${state.day}`;
+  const [askedSol, setAskedSol] = useState<string | null>(null);
+  const asked = askedSol === solKey;
+  const { advice, loading } = useAdvice(state, undefined, {
+    enabled: asked && !terminal && !eventBlocking,
+  });
 
   const decideFree = (actionId: string): void => {
     const decision = decisionWithAdvice(advice, actionId);
@@ -48,7 +56,7 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
     <section className="panel p-4">
       <SectionHeader title="Operations" icon={Wrench} subtitle="Daily actions and event responses" />
 
-      {/* Mission Controller advice */}
+      {/* Mission Controller advice (only when asked) */}
       {advice ? (
         <div className="mb-4">
           <AdvicePanel
@@ -58,6 +66,10 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
             onAccept={() => decideFree(advice.actionId)}
             onOverride={decideFree}
           />
+        </div>
+      ) : !asked && !terminal && !eventBlocking ? (
+        <div className="mb-4">
+          <AdviceAskButton onAsk={() => setAskedSol(solKey)} />
         </div>
       ) : null}
 
@@ -126,7 +138,8 @@ function EventItem({
   terminal: boolean;
   onDecide: (input: DecisionInput) => void;
 }): ReactElement {
-  const { advice, loading } = useAdvice(state, event.id, { enabled: !terminal });
+  const [asked, setAsked] = useState(false);
+  const { advice, loading } = useAdvice(state, event.id, { enabled: asked && !terminal });
 
   const choose = (actionId: string): void => {
     const decision = decisionWithAdvice(advice, actionId);
@@ -155,6 +168,10 @@ function EventItem({
             onAccept={() => choose(advice.actionId)}
             onOverride={choose}
           />
+        </div>
+      ) : !asked && !terminal ? (
+        <div className="mb-2">
+          <AdviceAskButton onAsk={() => setAsked(true)} />
         </div>
       ) : null}
 

@@ -217,20 +217,15 @@ try {
     await sleep(holdMs);
   };
 
-  // The "Accept recommendation" button of an emergency waiting in the Mission Tablet, if any.
+  // A response button of an emergency waiting in the Mission Tablet, if any.
   const emergencyButton = async () => {
     const handle = await page.evaluateHandle(() => {
       const panel = document.querySelector('.bunker-emergency');
       if (!panel) return null;
-      return (
-        [...panel.querySelectorAll('button')].find(
-          (b) => !b.disabled && /accept recommendation/i.test(b.innerText)
-        ) ?? null
-      );
+      return [...panel.querySelectorAll('button.bunker-action')].find((b) => !b.disabled) ?? null;
     });
     return handle.asElement();
   };
-
   // Outline an element inside the Mission Tablet (scrolls it into view first and
   // clips the outline to the tablet's visible area).
   const ringSelector = async (selector, nth = 0) => {
@@ -338,10 +333,16 @@ try {
 
   // 5. Emergencies and the Mission Controller
   chapter('Emergencies');
-  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end. Mission Controller gives advice.', 'top');
+  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end.', 'top');
   await ringSelector('.bunker-emergency');
   await sleep(3200);
   await ring(null);
+  await say('Step 5 · Emergencies', 'Not sure what to do? Ask Mission Controller. Advice only appears when you ask for it.', 'top');
+  await ringText(['Ask Mission Controller for advice']);
+  await sleep(4200);
+  await ring(null);
+  await click('Ask Mission Controller for advice', { ms: 900 });
+  await sleep(900);
   await say('Step 5 · Emergencies', 'It recommends a response and explains why, what could go wrong, and what to expect.', 'top');
   await ringSelector('.bunker-tablet [data-role="recommended"]');
   await sleep(5200);
@@ -356,7 +357,13 @@ try {
 
   // 6. Plan a Sol
   chapter('Plan your Sol');
-  await say('Step 6 · Plan your Sol', 'Each Sol you plan one action. Mission Controller shows a recommended, an alternative and sometimes a risky option.', 'top');
+  await say('Step 6 · Plan your Sol', 'Each Sol you plan one action. Press Ask Mission Controller if you would like advice.', 'top');
+  await ringText(['Ask Mission Controller for advice']);
+  await sleep(4200);
+  await ring(null);
+  await click('Ask Mission Controller for advice', { ms: 900 });
+  await sleep(900);
+  await say('Step 6 · Plan your Sol', 'It shows a recommended, an alternative and sometimes a risky option.', 'top');
   await ringSelector('.bunker-tablet [data-role="recommended"]');
   await sleep(5200);
   await ring(null);
@@ -368,7 +375,7 @@ try {
   await sleep(2800);
   const next = await emergencyButton();
   if (next) {
-    await say('Step 6 · Plan your Sol', 'A new Sol can bring a new emergency. Answer it the same way.', 'top');
+    await say('Step 6 · Plan your Sol', 'A new Sol can bring a new emergency. You can answer it with or without advice.', 'top');
     await sleep(2600);
     await clickEl(next, { ms: 900 });
     await sleep(1200);

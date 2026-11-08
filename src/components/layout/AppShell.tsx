@@ -67,7 +67,14 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row md:pl-56">
+      {/* The outer box reserves room for the fixed sidebar only while it is open, so a closed
+          sidebar leaves the content centred on the whole screen. The inner box centres it. */}
+      <div
+        className={`relative flex w-full flex-1 flex-col transition-[padding] duration-300 ease-out motion-reduce:transition-none ${
+          sidebarOpen ? 'md:pl-56' : ''
+        }`}
+      >
+      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
         {sidebarOpen && (
           <button
@@ -105,6 +112,7 @@ export function AppShell({
         >
           {children}
         </main>
+      </div>
       </div>
     </div>
   );

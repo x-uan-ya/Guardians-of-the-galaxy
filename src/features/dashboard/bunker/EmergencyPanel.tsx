@@ -16,8 +16,10 @@
  *     we show where it would go instead of faking a game-state change.
  */
 
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { AdviceAskButton } from '../../ai-advisor/AdviceAskButton';
 import { AdvicePanel } from '../../ai-advisor/AdvicePanel';
 import { decisionWithAdvice } from '../../ai-advisor/adviceSnapshot';
 import { useAdvice } from '../../../hooks/useAdvice';
@@ -50,9 +52,11 @@ export function EmergencyPanel({
   disabled,
   onChoose,
 }: EmergencyPanelProps): ReactElement {
-  // Read-only advice for this event. The advisor never mutates state and never
-  // chooses for the player: every response below is the player's own click.
-  const { advice, loading } = useAdvice(state, event.id);
+  // Advice is optional: nothing is shown (or asked of an AI service) until the
+  // player asks. The advisor never mutates state and never chooses for the
+  // player: every response below is the player's own click.
+  const [asked, setAsked] = useState(false);
+  const { advice, loading } = useAdvice(state, event.id, { enabled: asked });
 
   // The history records what the advisor said and whether it was followed.
   const choose = (actionId: string): void => {
@@ -89,17 +93,21 @@ export function EmergencyPanel({
 
       {/* Mission Controller: recommends, explains the risk, and the player decides. */}
       <div className="mb-3">
-        <AdvicePanel
-          advice={advice}
-          loading={loading}
-          disabled={disabled}
-          onAccept={() => advice && choose(advice.actionId)}
-          onOverride={choose}
-          renderExtra={(actionId) => {
-            const action = actionById(actionId);
-            return action ? <EffectChips action={action} /> : null;
-          }}
-        />
+        {asked ? (
+          <AdvicePanel
+            advice={advice}
+            loading={loading}
+            disabled={disabled}
+            onAccept={() => advice && choose(advice.actionId)}
+            onOverride={choose}
+            renderExtra={(actionId) => {
+              const action = actionById(actionId);
+              return action ? <EffectChips action={action} /> : null;
+            }}
+          />
+        ) : (
+          <AdviceAskButton onAsk={() => setAsked(true)} disabled={disabled} />
+        )}
       </div>
 
       {!advice || remaining.length > 0 ? (
