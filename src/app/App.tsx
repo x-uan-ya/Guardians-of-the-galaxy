@@ -47,7 +47,8 @@ import { useProgression } from '../hooks/useProgression';
 import type { MissionConfig, MissionType } from '../features/mission/missionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
-import { getCurrentSession, isAuthenticated, logout } from '../features/auth/authService';
+import { getCurrentSession, logout } from '../features/auth/authService';
+import type { User } from '../features/auth/authTypes';
 
 /** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
 type SubView = Extract<
@@ -55,15 +56,18 @@ type SubView = Extract<
   'dashboard' | 'debrief' | 'achievements' | 'leaderboard' | 'how-to-play'
 >;
 
-export function App(): ReactElement {
+/**
+ * The signed-in player's game. It is mounted with key={user.id} (see App), so
+ * signing out and in as someone else throws all of this away and starts fresh
+ * from THAT account's own saved game. Nothing can carry over between accounts.
+ */
+function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   const game = useGameState();
   // Flow starts at MISSION_SELECT: entering the site goes straight to mission
   // selection, then occupation selection, then the dashboard. (No title/briefing.)
   const flow = useGameFlow('MISSION_SELECT');
   const { progression, dismissNotifications } = useProgression(game.state);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Secondary navigation WITHIN the PLAYING phase (dashboard is the default).
   const [subView, setSubView] = useState<SubView>('dashboard');
@@ -72,11 +76,6 @@ export function App(): ReactElement {
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
   // The leaderboard entry id for the run just submitted (for highlighting).
   const [lastLeaderboardId, setLastLeaderboardId] = useState<string | undefined>(undefined);
-
-  // --- Auth -----------------------------------------------------------------
-  useEffect(() => {
-    setIsLoggedIn(isAuthenticated());
-  }, []);
 
   // --- Engine <-> flow synchronisation --------------------------------------
 
@@ -186,9 +185,11 @@ export function App(): ReactElement {
   };
 
   const handleLogout = (): void => {
+    // The log-out prompt promises "Your game progress will be saved", so do it.
+    // This runs before the session is removed, so it saves to THIS account.
+    game.save();
     logout();
-    setIsLoggedIn(false);
-    flow.quitToTitle();
+    onLogout();
   };
 
   const handleToggleSidebar = (): void => setSidebarOpen((v) => !v);
@@ -197,21 +198,6 @@ export function App(): ReactElement {
   const handleLogoClick = (): void => {
     if (flow.inRun) setSubView('dashboard');
   };
-
-  // --- Auth screens ---------------------------------------------------------
-  if (!isLoggedIn) {
-    return authView === 'login' ? (
-      <Login
-        onLoginSuccess={() => setIsLoggedIn(true)}
-        onSwitchToSignup={() => setAuthView('signup')}
-      />
-    ) : (
-      <Signup
-        onSignupSuccess={() => setIsLoggedIn(true)}
-        onSwitchToLogin={() => setAuthView('login')}
-      />
-    );
-  }
 
   // --- BRIEFING -------------------------------------------------------------
   if (flow.phase === 'BRIEFING') {
@@ -343,3 +329,24 @@ export function App(): ReactElement {
 
 // Re-export the default mission config location for discoverability.
 export { DEFAULT_MISSION_CONFIG };
+
+/**
+ * Sign-in gate. While nobody is signed in only the login / sign-up screens exist,
+ * so there is no game in memory that another account could see.
+ */
+export function App(): ReactElement {
+  const [user, setUser] = useState<User | null>(() => getCurrentSession());
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+
+  if (!user) {
+    // A successful login or sign-up has already stored the session.
+    const onSignedIn = (): void => setUser(getCurrentSession());
+    return authView === 'login' ? (
+      <Login onLoginSuccess={onSignedIn} onSwitchToSignup={() => setAuthView('signup')} />
+    ) : (
+      <Signup onSignupSuccess={onSignedIn} onSwitchToLogin={() => setAuthView('login')} />
+    );
+  }
+
+  return <GameApp key={user.id} onLogout={() => setUser(null)} />;
+}

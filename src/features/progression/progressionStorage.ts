@@ -10,6 +10,9 @@
 
 import { runHasProgress, type RunProgression } from './progressionEngine';
 
+import { scopedKey } from '../../lib/userScope';
+
+/** Base key. Each account gets its own progress (see lib/userScope). */
 const STORAGE_KEY = 'mars-run-progression-v2';
 const MAX_RUNS = 5;
 
@@ -17,7 +20,7 @@ type RunMap = Record<string, RunProgression>;
 
 function readAll(): RunMap {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(scopedKey(STORAGE_KEY));
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') return parsed as RunMap;
@@ -58,7 +61,7 @@ export function saveRun(run: RunProgression): void {
       .slice(0, MAX_RUNS);
     const pruned: RunMap = {};
     for (const r of newest) pruned[r.gameId] = r;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(pruned));
   } catch {
     // Storage unavailable or full: progress just will not persist.
   }

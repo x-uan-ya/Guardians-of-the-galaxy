@@ -13,9 +13,10 @@
 
 import { validateGameState } from '../features/simulation/simulationEngine';
 import type { GameState } from '../features/simulation/simulationTypes';
+import { scopedKey } from './userScope';
 import { parseGameState, serializeGameState } from './validation';
 
-/** The localStorage key under which the single active game is stored. */
+/** Base localStorage key for a saved game. Each account gets its own copy (see userScope). */
 export const STORAGE_KEY = 'mars-outpost-zero:save:v1';
 
 /** Result of a load attempt. */
@@ -64,7 +65,7 @@ export function loadGame(): LoadResult {
   const storage = getStorage();
   if (!storage) return { status: 'unavailable' };
 
-  const raw = storage.getItem(STORAGE_KEY);
+  const raw = storage.getItem(scopedKey(STORAGE_KEY));
   if (raw === null) return { status: 'empty' };
 
   const parsed = parseGameState(raw);
@@ -91,7 +92,7 @@ export function saveGame(state: GameState): SaveResult {
   if (!storage) return { status: 'unavailable' };
 
   try {
-    storage.setItem(STORAGE_KEY, serializeGameState(state));
+    storage.setItem(scopedKey(STORAGE_KEY), serializeGameState(state));
     return { status: 'saved' };
   } catch {
     // Quota exceeded or similar — treat as unavailable rather than crashing.
@@ -104,7 +105,7 @@ export function clearGame(): void {
   const storage = getStorage();
   if (!storage) return;
   try {
-    storage.removeItem(STORAGE_KEY);
+    storage.removeItem(scopedKey(STORAGE_KEY));
   } catch {
     // Ignore — nothing we can do, and there is no state to corrupt.
   }

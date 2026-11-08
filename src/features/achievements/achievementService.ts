@@ -12,6 +12,9 @@ import {
   type AchievementId,
 } from './achievementData';
 
+import { scopedKey } from '../../lib/userScope';
+
+/** Base key. Each account gets its own badges (see lib/userScope). */
 const STORAGE_KEY = 'mars-achievements-v2';
 
 /** Earned badges: id -> the Sol it was earned on. */
@@ -25,7 +28,7 @@ export function emptyAchievements(): AchievementStore {
 
 export function loadAchievements(): AchievementStore {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(scopedKey(STORAGE_KEY));
     if (!raw) return emptyAchievements();
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && 'unlocked' in parsed) {
@@ -46,7 +49,7 @@ export function loadAchievements(): AchievementStore {
 
 function saveAchievements(store: AchievementStore): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(store));
   } catch {
     // Storage unavailable: badges just will not persist.
   }
