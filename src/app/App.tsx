@@ -296,9 +296,10 @@ export function App(): ReactElement {
       game.state.activeEvents[0] ? (
         <CrisisModal
           event={game.state.activeEvents[0]}
-          onChoose={(actionId, choice) => {
+          state={game.state}
+          onChoose={(actionId, choice, advice) => {
             const event = game.state.activeEvents[0];
-            if (event) game.resolveActiveEvent(event.id, actionId, choice);
+            if (event) game.resolveActiveEvent(event.id, actionId, choice, advice);
           }}
         />
       ) : null}

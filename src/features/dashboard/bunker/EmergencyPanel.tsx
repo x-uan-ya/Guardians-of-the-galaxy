@@ -7,8 +7,8 @@
  * What is REAL (wired to the existing game):
  *   - the event title / description / severity   <- GameEvent from the catalog
  *   - every response button                      <- event.availableActions
- *   - "Ask Mission Controller"                   <- defaultAdvisor.recommend(...)
- *     (the project's rule-based advisor; it only READS state)
+ *   - the Mission Controller advice panel         <- useAdvice (read-only)
+ *     "Accept recommendation" / "Override" are the player's own clicks
  *   - choosing a response calls onChoose -> useGameState().resolveActiveEvent
  *
  * What is a PLACEHOLDER (clearly labelled, does nothing):
@@ -16,13 +16,14 @@
  *     we show where it would go instead of faking a game-state change.
  */
 
-import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
-import { AlertTriangle, Radio } from 'lucide-react';
-import { defaultAdvisor } from '../../ai-advisor/advisorInterface';
+import { AlertTriangle } from 'lucide-react';
+import { AdvicePanel } from '../../ai-advisor/AdvicePanel';
+import { decisionWithAdvice } from '../../ai-advisor/adviceSnapshot';
+import { useAdvice } from '../../../hooks/useAdvice';
 import { EventDescription } from '../../events/EventDescription';
 import type { GameEvent } from '../../events/eventTypes';
-import type { PlayerChoice } from '../../decisions/decisionTypes';
+import type { AdviceSnapshot, PlayerChoice } from '../../decisions/decisionTypes';
 import type { GameState } from '../../simulation/simulationTypes';
 import { EffectChips } from './EffectChips';
 
@@ -32,7 +33,7 @@ interface EmergencyPanelProps {
   /** How many OTHER unresolved events are waiting behind this one. */
   waiting: number;
   disabled: boolean;
-  onChoose: (actionId: string, choice: PlayerChoice) => void;
+  onChoose: (actionId: string, choice: PlayerChoice, advice?: AdviceSnapshot) => void;
 }
 
 const SEVERITY_LABEL: Record<GameEvent['severity'], string> = {
@@ -49,20 +50,21 @@ export function EmergencyPanel({
   disabled,
   onChoose,
 }: EmergencyPanelProps): ReactElement {
-  // Has the player asked the Mission Controller yet? (UI-only memory.)
-  const [advised, setAdvised] = useState(false);
+  // Read-only advice for this event. The advisor never mutates state and never
+  // chooses for the player: every response below is the player's own click.
+  const { advice, loading } = useAdvice(state, event.id);
 
-  // Read-only call into the existing advisor. It never mutates state.
-  const recommendation = useMemo(
-    () => defaultAdvisor.recommend({ state, eventId: event.id }),
-    [state, event.id]
-  );
-
-  // Be honest in the history: did the player follow, ignore, or not ask?
-  const choiceFor = (actionId: string): PlayerChoice => {
-    if (!advised || !recommendation) return 'self-directed';
-    return recommendation.actionId === actionId ? 'accepted-recommendation' : 'overrode-recommendation';
+  // The history records what the advisor said and whether it was followed.
+  const choose = (actionId: string): void => {
+    const decision = decisionWithAdvice(advice, actionId);
+    onChoose(actionId, decision.playerChoice, decision.advice);
   };
+
+  const actionById = (actionId: string) => event.availableActions.find((a) => a.id === actionId);
+
+  // Responses already shown inside the advice panel are not repeated below.
+  const adviceIds = new Set(advice?.options.map((o) => o.actionId) ?? []);
+  const remaining = event.availableActions.filter((a) => !adviceIds.has(a.id));
 
   const urgent = event.severity === 'critical' || event.severity === 'major';
 
@@ -85,60 +87,43 @@ export function EmergencyPanel({
         <EventDescription eventId={event.id} description={event.description} />
       </p>
 
-      {/* Mission Controller (the project's rule-based advisor, NOT a real AI yet). */}
-      {advised ? (
-        <div className="mb-3 rounded-md border border-accent-blue/40 bg-accent-blue/10 p-2">
-          <div className="mb-0.5 flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent-blue">
-            <Radio className="h-3 w-3" aria-hidden />
-            Mission Controller (rule-based)
-            {recommendation ? ` · ${recommendation.confidence} confidence` : ''}
-          </div>
-          <p className="text-xs text-slate-200">
-            {recommendation
-              ? recommendation.rationale
-              : 'Mission Controller has no recommendation for this event.'}
-          </p>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdvised(true)}
+      {/* Mission Controller: recommends, explains the risk, and the player decides. */}
+      <div className="mb-3">
+        <AdvicePanel
+          advice={advice}
+          loading={loading}
           disabled={disabled}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-md border border-accent-blue/50 bg-accent-blue/10 px-3 py-1.5 text-xs font-semibold text-accent-blue hover:bg-accent-blue/20 disabled:opacity-50"
-        >
-          <Radio className="h-3.5 w-3.5" aria-hidden />
-          Ask Mission Controller for advice
-        </button>
-      )}
-
-      <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-widest text-slate-400">
-        CHOOSE YOUR RESPONSE
+          onAccept={() => advice && choose(advice.actionId)}
+          onOverride={choose}
+          renderExtra={(actionId) => {
+            const action = actionById(actionId);
+            return action ? <EffectChips action={action} /> : null;
+          }}
+        />
       </div>
 
+      {!advice || remaining.length > 0 ? (
+        <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-widest text-slate-400">
+          {advice ? 'MORE RESPONSES' : 'CHOOSE YOUR RESPONSE'}
+        </div>
+      ) : null}
+
       <div className="space-y-2">
-        {event.availableActions.map((action) => {
-          const recommended = advised && recommendation?.actionId === action.id;
-          return (
-            <button
-              key={action.id}
-              type="button"
-              className="bunker-action"
-              disabled={disabled}
-              onClick={() => onChoose(action.id, choiceFor(action.id))}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-white">{action.label}</span>
-                {recommended ? (
-                  <span className="shrink-0 rounded bg-accent-blue/20 px-1.5 py-px font-mono text-[10px] text-accent-blue">
-                    ★ ADVISED
-                  </span>
-                ) : null}
-              </div>
-              <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
-              <EffectChips action={action} />
-            </button>
-          );
-        })}
+        {(advice ? remaining : event.availableActions).map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            className="bunker-action"
+            disabled={disabled}
+            onClick={() => choose(action.id)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-semibold text-white">{action.label}</span>
+            </div>
+            <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
+            <EffectChips action={action} />
+          </button>
+        ))}
 
         {/* Clearly-labelled PROTOTYPE placeholder: not connected to the engine. */}
         {urgent ? (

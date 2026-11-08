@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ActivityEntry } from '../../../hooks/useGameState';
-import type { DecisionInput, PlayerChoice } from '../../decisions/decisionTypes';
+import type { AdviceSnapshot, DecisionInput, PlayerChoice } from '../../decisions/decisionTypes';
 import { calculateDerivedStatus } from '../../simulation/simulationEngine';
 import type { GameState } from '../../simulation/simulationTypes';
 import { BunkerScene } from './BunkerScene';
@@ -97,13 +97,18 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
 
   // End of the sol: do the planned action (if any), THEN advance the day.
   // Both calls go through useGameState, which routes them through the engine.
-  const handleEndDay = (choice: PlayerChoice): void => {
-    if (planned) onDecide({ actionId: planned, playerChoice: choice });
+  const handleEndDay = (choice: PlayerChoice, advice?: AdviceSnapshot): void => {
+    if (planned) onDecide({ actionId: planned, playerChoice: choice, ...(advice ? { advice } : {}) });
     onAdvanceDay();
   };
 
-  const handleResolveEvent = (eventId: string, actionId: string, choice: PlayerChoice): void => {
-    onDecide({ eventId, actionId, playerChoice: choice });
+  const handleResolveEvent = (
+    eventId: string,
+    actionId: string,
+    choice: PlayerChoice,
+    advice?: AdviceSnapshot
+  ): void => {
+    onDecide({ eventId, actionId, playerChoice: choice, ...(advice ? { advice } : {}) });
   };
 
   return (

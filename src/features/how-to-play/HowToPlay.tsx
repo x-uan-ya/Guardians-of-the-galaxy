@@ -185,9 +185,18 @@ export function HowToPlay(): ReactElement {
 
       <Section icon={Lightbulb} title="The Mission Controller's advice">
         <p>
-          At the top of Operations, the Mission Controller suggests a Routine Action and says why. The
-          suggested button gets a star (★). It is a simple rule-based helper, so treat it as a hint, not an
-          order. Following it or choosing something else are both allowed, and both count towards badges.
+          The Mission Controller recommends and explains. For each decision it shows a
+          <strong className="text-slate-100"> Recommended</strong> option, an
+          <strong className="text-slate-100"> Alternative</strong> and, when one really carries risk, a
+          <strong className="text-slate-100"> Risky</strong> one. Each option tells you why it helps, what
+          could go wrong, and what to expect.
+        </p>
+        <p>
+          <strong className="text-slate-100">You decide.</strong> Press Accept recommendation to follow the
+          advice, or Override to choose another option. The advisor never acts on its own. It is a
+          rule-based helper (not a real AI), so treat it as a hint. If an optional AI service is ever
+          unavailable, the game switches to the Mission Safety Protocol, a set of simple safety rules, and
+          keeps working. The Debrief lists what it recommended, what you chose and what happened.
         </p>
       </Section>
 

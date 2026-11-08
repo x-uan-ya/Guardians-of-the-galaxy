@@ -2,23 +2,25 @@
  * OperationsPanel.tsx
  * -------------------
  * The interactive controls for day-to-day operations:
+ *  - The Mission Controller's advice (recommended / alternative / risky), which
+ *    the player can accept or override. The advisor only recommends.
  *  - Free actions (routine ops, ration, maintenance) as real buttons.
- *  - Any active events with their available actions.
- *  - The rule-based advisor's current recommendation (clearly labelled), which
- *    the player can follow or ignore. The engine validates either way.
+ *  - Any active events with their available actions and their own advice.
  *
  * Every button dispatches through the useGameState handlers passed in — this
  * component never mutates state directly.
  */
 
-import { useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Lightbulb, Wrench } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { defaultAdvisor } from '../ai-advisor/advisorInterface';
+import { useAdvice } from '../../hooks/useAdvice';
+import { AdvicePanel } from '../ai-advisor/AdvicePanel';
+import { decisionWithAdvice } from '../ai-advisor/adviceSnapshot';
 import { getFreeActions } from '../simulation/simulationEngine';
+import type { GameEvent } from '../events/eventTypes';
 import type { GameState } from '../simulation/simulationTypes';
-import type { DecisionInput, PlayerChoice } from '../decisions/decisionTypes';
+import type { DecisionInput } from '../decisions/decisionTypes';
 
 interface OperationsPanelProps {
   state: GameState;
@@ -28,34 +30,34 @@ interface OperationsPanelProps {
 export function OperationsPanel({ state, onDecide }: OperationsPanelProps): ReactElement {
   const freeActions = getFreeActions();
   const terminal = state.mission.status === 'failed' || state.mission.status === 'completed';
+  const eventBlocking = state.activeEvents.length > 0;
 
-  // The advisor's current suggestion for free actions (no event selected).
-  const recommendation = useMemo(
-    () => (terminal ? null : defaultAdvisor.recommend({ state })),
-    [state, terminal]
-  );
+  // The advisor's current suggestion for free actions (only when no event is waiting).
+  const { advice, loading } = useAdvice(state, undefined, { enabled: !terminal && !eventBlocking });
 
-  const choiceFor = (actionId: string): PlayerChoice => {
-    if (!recommendation) return 'self-directed';
-    return recommendation.actionId === actionId
-      ? 'accepted-recommendation'
-      : 'overrode-recommendation';
+  const decideFree = (actionId: string): void => {
+    const decision = decisionWithAdvice(advice, actionId);
+    onDecide({
+      actionId,
+      playerChoice: decision.playerChoice,
+      ...(decision.advice ? { advice: decision.advice } : {}),
+    });
   };
 
   return (
     <section className="panel p-4">
       <SectionHeader title="Operations" icon={Wrench} subtitle="Daily actions and event responses" />
 
-      {/* Advisor recommendation */}
-      {recommendation ? (
-        <div className="mb-4 rounded-md border border-accent-blue/30 bg-accent-blue/10 p-3">
-          <div className="mb-1 flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-accent-blue" aria-hidden />
-            <span className="text-xs font-semibold uppercase tracking-wide text-accent-blue">
-              Mission Controller (rule-based) · {recommendation.confidence} confidence
-            </span>
-          </div>
-          <p className="text-xs text-slate-300">{recommendation.rationale}</p>
+      {/* Mission Controller advice */}
+      {advice ? (
+        <div className="mb-4">
+          <AdvicePanel
+            advice={advice}
+            loading={loading}
+            disabled={terminal}
+            onAccept={() => decideFree(advice.actionId)}
+            onOverride={decideFree}
+          />
         </div>
       ) : null}
 
@@ -66,18 +68,16 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
         </h3>
         <div className="flex flex-wrap gap-2">
           {freeActions.map((action) => {
-            const recommended = recommendation?.actionId === action.id;
+            const recommended = advice?.actionId === action.id;
             return (
               <button
                 key={action.id}
                 type="button"
-                disabled={terminal || state.activeEvents.length > 0}
-                onClick={() =>
-                  onDecide({ actionId: action.id, playerChoice: choiceFor(action.id) })
-                }
+                disabled={terminal || eventBlocking}
+                onClick={() => decideFree(action.id)}
                 className={`btn-secondary ${recommended ? 'ring-1 ring-accent-blue/60' : ''}`}
                 title={
-                  state.activeEvents.length > 0
+                  eventBlocking
                     ? 'Resolve the active event before taking a routine action.'
                     : action.description
                 }
@@ -100,39 +100,79 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
         ) : (
           <ul className="space-y-3">
             {state.activeEvents.map((event) => (
-              <li key={event.id} className="rounded-md border border-space-600 bg-space-700/50 p-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-slate-100">{event.title}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-mars-orange">
-                    {event.severity}
-                  </span>
-                </div>
-                <p className="mb-2 text-xs text-slate-400">{event.description}</p>
-                <div className="flex flex-wrap gap-2">
-                  {event.availableActions.map((action) => (
-                    <button
-                      key={action.id}
-                      type="button"
-                      disabled={terminal}
-                      onClick={() =>
-                        onDecide({
-                          eventId: event.id,
-                          actionId: action.id,
-                          playerChoice: 'self-directed',
-                        })
-                      }
-                      className="btn-secondary"
-                      title={action.description}
-                    >
-                      {action.label}
-                    </button>
-                  ))}
-                </div>
-              </li>
+              <EventItem
+                key={event.id}
+                state={state}
+                event={event}
+                terminal={terminal}
+                onDecide={onDecide}
+              />
             ))}
           </ul>
         )}
       </div>
     </section>
+  );
+}
+
+function EventItem({
+  state,
+  event,
+  terminal,
+  onDecide,
+}: {
+  state: GameState;
+  event: GameEvent;
+  terminal: boolean;
+  onDecide: (input: DecisionInput) => void;
+}): ReactElement {
+  const { advice, loading } = useAdvice(state, event.id, { enabled: !terminal });
+
+  const choose = (actionId: string): void => {
+    const decision = decisionWithAdvice(advice, actionId);
+    onDecide({
+      eventId: event.id,
+      actionId,
+      playerChoice: decision.playerChoice,
+      ...(decision.advice ? { advice: decision.advice } : {}),
+    });
+  };
+
+  return (
+    <li className="rounded-md border border-space-600 bg-space-700/50 p-3">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-sm font-semibold text-slate-100">{event.title}</span>
+        <span className="text-[10px] uppercase tracking-wide text-mars-orange">{event.severity}</span>
+      </div>
+      <p className="mb-2 text-xs text-slate-400">{event.description}</p>
+
+      {advice ? (
+        <div className="mb-2">
+          <AdvicePanel
+            advice={advice}
+            loading={loading}
+            disabled={terminal}
+            onAccept={() => choose(advice.actionId)}
+            onOverride={choose}
+          />
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        {event.availableActions.map((action) => (
+          <button
+            key={action.id}
+            type="button"
+            disabled={terminal}
+            onClick={() => choose(action.id)}
+            className="btn-secondary"
+            title={action.description}
+          >
+            {action.label}
+            {advice?.actionId === action.id ? <span className="text-accent-blue">★</span> : null}
+          </button>
+        ))}
+      </div>
+    </li>
   );
 }

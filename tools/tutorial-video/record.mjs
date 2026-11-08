@@ -227,7 +227,7 @@ try {
       let node = heading.parentElement;
       while (node && node !== document.body) {
         const btn = [...node.querySelectorAll('button')].find(
-          (b) => !b.disabled && !/ask mission controller|respond to the emergency/i.test(b.innerText)
+          (b) => !b.disabled && !/accept recommendation|respond to the emergency/i.test(b.innerText)
         );
         if (btn) return btn;
         node = node.parentElement;
@@ -316,11 +316,10 @@ try {
 
   // 5. Emergencies
   chapter('Emergencies');
-  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end. Not sure? Ask Mission Controller.', 'top');
-  await ringText(['NOTIFICATION', 'Ask Mission Controller']);
+  await say('Step 5 · Emergencies', 'Emergencies must be answered before the day can end. Mission Controller recommends a response.', 'top');
+  await ringText(['NOTIFICATION', 'Accept recommendation']);
   await sleep(3200);
   await ring(null);
-  await click('Ask Mission Controller', { ms: 900 });
   await say('Step 5 · Emergencies', 'Mission Controller advises and explains the risks, but you make the final call.', 'top');
   await sleep(4600);
   await click('Inspect Essential Systems', { startsWith: true, ms: 900 });
@@ -328,7 +327,7 @@ try {
 
   // 6. Plan a Sol
   chapter('Plan your Sol');
-  await say('Step 6 · Plan your Sol', 'Pick one routine action. The starred action is the one Mission Controller suggests. Then press End Sol.', 'top');
+  await say('Step 6 · Plan your Sol', 'Pick one routine action. Mission Controller shows a recommended, an alternative and a risky option. Then press End Sol.', 'top');
   await ringText(['Routine operations', 'Ration supplies', 'Maintenance shift']);
   await sleep(3300);
   await ring(null);

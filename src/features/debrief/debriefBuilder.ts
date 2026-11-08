@@ -5,6 +5,7 @@
  * DebriefSummary. READ-ONLY: never rewrites history or mutates state.
  */
 
+import { advisorHistory, advisorStats } from '../decisions/decisionHistory';
 import { addResourceChanges } from '../simulation/resourceCalculations';
 import { RESOURCE_KEYS, type GameState, type ResourceKey } from '../simulation/simulationTypes';
 import type {
@@ -77,5 +78,9 @@ export function buildDebriefSummary(state: GameState): DebriefSummary {
     netResourceChange: netResourceChange(state),
     timeline: buildTimeline(state),
     leadershipProfile: buildLeadershipProfile(state),
+    advisor: {
+      stats: advisorStats(state),
+      entries: advisorHistory(state),
+    },
   };
 }

@@ -233,3 +233,24 @@ npm run build     # type-check + production build (must succeed)
 
 See [`docs/INTEGRATION_CONTRACT.md`](docs/INTEGRATION_CONTRACT.md) for the exact
 interfaces each teammate must use.
+
+## AI Mission Advisor
+
+The Mission Controller **recommends; the player decides.** It never acts on its own.
+
+- **What it shows:** a headline, the reason, the risk and the expected consequence, plus up to three
+  options labelled Recommended / Alternative / Risky. The player presses *Accept recommendation* or
+  *Override*. Code: `src/features/ai-advisor/` (`adviceBuilder.ts` builds the advice, `AdvicePanel.tsx`
+  shows it, `adviceService.ts` handles the optional AI provider and the fallback).
+- **No AI model is bundled.** Advice comes from deterministic rules (the *Mission Safety Protocol*), for
+  example "IF power < 20% → reduce non-essential systems".
+- **Optional AI provider:** set `VITE_ADVISOR_ENDPOINT` (an `http(s)` URL you control) in `.env`. The game
+  POSTs a compact summary (`adviceContext.ts`) and expects JSON
+  `{ actionId, confidence: "low"|"medium"|"high", reason, risk, expectedConsequence }`. Never put API keys
+  in the browser; point the endpoint at your own server, which calls the model.
+- **Fallback:** if the provider is unreachable, slow (4 s), or answers with anything invalid (including an
+  action that is not on offer), the game shows *"AI unavailable — switching to Mission Safety Protocol."*
+  and keeps working. To see this without a server, open the game with `?advisor=outage`.
+- **History for the debrief:** every decision stores the advice shown, the player's choice and the outcome
+  (`DecisionRecord.advice` / `.outcome`). Selectors are in `decisions/decisionHistory.ts`
+  (`advisorHistory`, `advisorStats`); the Debrief page shows them.

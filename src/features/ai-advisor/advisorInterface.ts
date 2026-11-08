@@ -1,8 +1,16 @@
 
 import type { EventAction, ActionEffect } from '../events/eventTypes';
+import { METRIC_THRESHOLDS } from '../mission/missionDefaults';
 import { calculateDerivedStatus } from '../simulation/simulationSelectors';
 import { RESOURCE_KEYS } from '../simulation/simulationTypes';
 import type { Advisor, AdvisorContext, Recommendation } from './advisorTypes';
+
+/** Mission Safety Protocol: power below this triggers "reduce non-essential systems". */
+export const LOW_POWER_LIMIT = 20;
+/** Mission Safety Protocol: health at or below this triggers "avoid extra strain". */
+const LOW_HEALTH_LIMIT = 25;
+/** A maintenance shift costs power, so only suggest it with some reserve. */
+const MAINTENANCE_MIN_POWER = 30;
 
 type MetricGroup = 'resource' | 'crew' | 'system';
 
@@ -71,7 +79,7 @@ if (!changes) return 0;
 }
 
 
-function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
+export function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
   const { state } = context;
 
   // Calculate the immediate impact first.
@@ -133,7 +141,7 @@ function scoreEffect(effect: ActionEffect, context: AdvisorContext): number {
   return immediate + delayed;
 }
 
-function describeActionEffects(effect: ActionEffect): string {
+export function describeActionEffects(effect: ActionEffect): string {
   const benefits: string[] = [];
   const tradeoffs: string[] = [];
   const delayedEffects: string[] = [];
@@ -288,44 +296,101 @@ export const ruleBasedAdvisor: Advisor = {
       return recommendForEvent(context);
     }
 
-    const derived = calculateDerivedStatus(state);
-
-    const lowestResource = RESOURCE_KEYS.reduce((lowest, key) =>
-      state.resources[key] < state.resources[lowest] ? key : lowest
-    );
-
-    if (
-      (lowestResource === 'food' || lowestResource === 'water') &&
-      derived.resources[lowestResource].level !== 'ok'
-    ) {
-      return {
-        actionId: 'ration-supplies',
-        confidence:
-          derived.resources[lowestResource].level === 'critical' ? 'high' : 'medium',
-        rationale:
-          `Rule-based: ${lowestResource} is the tightest resource ` +
-          `(${state.resources[lowestResource].toFixed(0)}%). Rationing preserves it, ` +
-          `at a morale cost.`,
-      };
-    }
-
-    if (derived.systems.lifeSupportEfficiency.level !== 'ok') {
-      return {
-        actionId: 'maintenance-shift',
-        confidence: 'medium',
-        rationale:
-          'Rule-based: life-support efficiency is below target. A maintenance shift ' +
-          'restores some efficiency, spending a little power.',
-      };
-    }
-
+    const rule = freeActionProtocol(state);
     return {
-      actionId: 'routine-operations',
-      confidence: 'low',
-      rationale:
-        'Rule-based: key metrics are within tolerance. Routine operations are reasonable.',
+      actionId: rule.actionId,
+      confidence: rule.confidence,
+      rationale: rule.rationale,
     };
   },
 };
+
+/** The result of the Mission Safety Protocol for a day with no event. */
+export interface ProtocolRule {
+  actionId: string;
+  confidence: 'low' | 'medium' | 'high';
+  /** Short title, e.g. "Reduce non-essential systems". */
+  headline: string;
+  rationale: string;
+}
+
+/**
+ * The Mission Safety Protocol: simple, readable IF/THEN rules for a normal day
+ * (no event). First matching rule wins. These rules are also what the game
+ * falls back to when an optional remote AI advisor is unavailable.
+ *
+ *  1. IF power < 20%           -> run routine operations (skip power-hungry work)
+ *  2. IF food/water is tightest and below target -> ration supplies
+ *  3. IF crew health <= 25     -> routine operations (avoid extra strain)
+ *  4. IF life support is below target (and power >= 30%) -> maintenance shift
+ *  5. OTHERWISE                -> routine operations
+ */
+export function freeActionProtocol(state: AdvisorContext['state']): ProtocolRule {
+  const derived = calculateDerivedStatus(state);
+
+  if (state.resources.power < LOW_POWER_LIMIT) {
+    return {
+      actionId: 'routine-operations',
+      confidence: state.resources.power <= METRIC_THRESHOLDS.critical ? 'high' : 'medium',
+      headline: 'Reduce non-essential systems',
+      rationale:
+        `Mission Safety Protocol: power is at ${state.resources.power.toFixed(0)}%, below ` +
+        `${LOW_POWER_LIMIT}%. Reduce non-essential systems: run routine operations and ` +
+        `avoid power-hungry work such as a maintenance shift.`,
+    };
+  }
+
+  const lowestResource = RESOURCE_KEYS.reduce((lowest, key) =>
+    state.resources[key] < state.resources[lowest] ? key : lowest
+  );
+
+  if (
+    (lowestResource === 'food' || lowestResource === 'water') &&
+    derived.resources[lowestResource].level !== 'ok'
+  ) {
+    return {
+      actionId: 'ration-supplies',
+      confidence: derived.resources[lowestResource].level === 'critical' ? 'high' : 'medium',
+      headline: `Protect ${lowestResource}`,
+      rationale:
+        `Rule-based: ${lowestResource} is the tightest resource ` +
+        `(${state.resources[lowestResource].toFixed(0)}%). Rationing preserves it, ` +
+        `at a morale cost.`,
+    };
+  }
+
+  if (state.crew.health <= LOW_HEALTH_LIMIT) {
+    return {
+      actionId: 'routine-operations',
+      confidence: 'medium',
+      headline: 'Avoid extra strain',
+      rationale:
+        `Mission Safety Protocol: crew health is ${state.crew.health.toFixed(0)}%. ` +
+        `Run routine operations and avoid extra strain until health recovers.`,
+    };
+  }
+
+  if (
+    derived.systems.lifeSupportEfficiency.level !== 'ok' &&
+    state.resources.power >= MAINTENANCE_MIN_POWER
+  ) {
+    return {
+      actionId: 'maintenance-shift',
+      confidence: 'medium',
+      headline: 'Prioritise life support',
+      rationale:
+        'Rule-based: life-support efficiency is below target. A maintenance shift ' +
+        'restores some efficiency, spending a little power.',
+    };
+  }
+
+  return {
+    actionId: 'routine-operations',
+    confidence: 'low',
+    headline: 'Hold steady with routine operations',
+    rationale:
+      'Rule-based: key metrics are within tolerance. Routine operations are reasonable.',
+  };
+}
 
 export const defaultAdvisor: Advisor = ruleBasedAdvisor;

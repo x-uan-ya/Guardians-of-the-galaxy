@@ -24,7 +24,7 @@ import {
   withTimestamp,
 } from '../features/simulation/simulationEngine';
 import type { GameState } from '../features/simulation/simulationTypes';
-import type { DecisionInput, PlayerChoice } from '../features/decisions/decisionTypes';
+import type { AdviceSnapshot, DecisionInput, PlayerChoice } from '../features/decisions/decisionTypes';
 import type { MissionConfig } from '../features/mission/missionTypes';
 import { clearGame, isStorageAvailable, loadGame, saveGame } from '../lib/storage';
 
@@ -73,7 +73,12 @@ export interface UseGameState {
   /** Apply a validated player decision; surfaces errors via the activity feed. */
   decide: (input: DecisionInput) => void;
   /** Resolve an active event by action id. */
-  resolveActiveEvent: (eventId: string, actionId: string, choice?: PlayerChoice) => void;
+  resolveActiveEvent: (
+    eventId: string,
+    actionId: string,
+    choice?: PlayerChoice,
+    advice?: AdviceSnapshot
+  ) => void;
   /** Start a brand-new mission from config (discards current in-memory game). */
   startNewMission: (config: MissionConfig) => void;
   /** Persist the current game to localStorage. */
@@ -217,8 +222,13 @@ export function useGameState(): UseGameState {
   );
 
   const resolveActiveEvent = useCallback(
-    (eventId: string, actionId: string, choice: PlayerChoice = 'self-directed') => {
-      decide({ eventId, actionId, playerChoice: choice });
+    (
+      eventId: string,
+      actionId: string,
+      choice: PlayerChoice = 'self-directed',
+      advice?: AdviceSnapshot
+    ) => {
+      decide({ eventId, actionId, playerChoice: choice, ...(advice ? { advice } : {}) });
     },
     [decide]
   );

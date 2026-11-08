@@ -15,7 +15,7 @@ setup, the dashboard (bunker, supplies, Mission Tablet), emergencies, routine
 actions, the Log tab or the Badges page.
 
 The script finds buttons by their visible text (for example "Confirm Mission",
-"Launch Run", "Ask Mission Controller", "End Sol", "Badges"). If you rename one,
+"Launch Run", "Accept recommendation", "End Sol", "Badges"). If you rename one,
 update the matching text in `record.mjs`.
 
 ## Steps

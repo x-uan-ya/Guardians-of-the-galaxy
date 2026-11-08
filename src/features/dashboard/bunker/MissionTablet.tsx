@@ -19,10 +19,13 @@ import type { ReactElement } from 'react';
 import { ClipboardList, Clock, MapPin, Package, ScrollText, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { useAdvice } from '../../../hooks/useAdvice';
 import type { ActivityEntry } from '../../../hooks/useGameState';
-import { defaultAdvisor } from '../../ai-advisor/advisorInterface';
+import { AdvicePanel } from '../../ai-advisor/AdvicePanel';
+import { decisionWithAdvice } from '../../ai-advisor/adviceSnapshot';
+import type { Advice } from '../../ai-advisor/advisorTypes';
 import { recentDecisions, sourceDecisionFor, upcomingEffects } from '../../decisions/decisionHistory';
-import type { PlayerChoice } from '../../decisions/decisionTypes';
+import type { AdviceSnapshot, PlayerChoice } from '../../decisions/decisionTypes';
 import type { GameEvent } from '../../events/eventTypes';
 import { getFreeActions, resupplyDay } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, MissionStatus } from '../../simulation/simulationTypes';
@@ -70,13 +73,24 @@ interface MissionTabletProps {
   plannedActionId: string | null;
   onPlanAction: (actionId: string | null) => void;
   /** Perform the planned action (if any) and advance to the next day. */
-  onEndDay: (choice: PlayerChoice) => void;
-  onResolveEvent: (eventId: string, actionId: string, choice: PlayerChoice) => void;
+  onEndDay: (choice: PlayerChoice, advice?: AdviceSnapshot) => void;
+  onResolveEvent: (
+    eventId: string,
+    actionId: string,
+    choice: PlayerChoice,
+    advice?: AdviceSnapshot
+  ) => void;
 }
 
 export function MissionTablet(props: MissionTabletProps): ReactElement {
   const { state, derived, tab, onTabChange, emergency } = props;
   const terminal = state.mission.status === 'failed' || state.mission.status === 'completed';
+
+  // Advice for the day's free actions. Asked once here so the plan list and the
+  // End Sol button always agree. Not used while an emergency is showing (the
+  // emergency panel asks about its own event).
+  const dayAdvice = useAdvice(state, undefined, { enabled: !terminal && !emergency });
+  const adviceProps = { advice: dayAdvice.advice, adviceLoading: dayAdvice.loading };
 
   return (
     <div className="bunker-tablet" data-alert={emergency ? 'true' : 'false'}>
@@ -124,7 +138,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
 
         {/* Body */}
         <div className="bunker-tablet-body" role="tabpanel">
-          {tab === 'mission' ? <MissionTab {...props} terminal={terminal} /> : null}
+          {tab === 'mission' ? <MissionTab {...props} {...adviceProps} terminal={terminal} /> : null}
           {tab === 'room' ? (
             <FacilityTab
               state={state}
@@ -142,7 +156,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
           {tab === 'profile' ? <AstronautProfile state={state} derived={derived} /> : null}
         </div>
 
-        <EndDayFooter {...props} terminal={terminal} />
+        <EndDayFooter {...props} advice={dayAdvice.advice} terminal={terminal} />
       </div>
     </div>
   );
@@ -152,15 +166,25 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
 /* MISSION TAB                                                                */
 /* ========================================================================== */
 
-function MissionTab(props: MissionTabletProps & { terminal: boolean }): ReactElement {
-  const { state, delta, emergency, plannedActionId, onPlanAction, onResolveEvent, terminal } = props;
+function MissionTab(
+  props: MissionTabletProps & {
+    terminal: boolean;
+    advice: Advice | null;
+    adviceLoading: boolean;
+  }
+): ReactElement {
+  const {
+    state,
+    delta,
+    emergency,
+    plannedActionId,
+    onPlanAction,
+    onResolveEvent,
+    terminal,
+    advice,
+    adviceLoading,
+  } = props;
   const actions = getFreeActions();
-
-  // Free-action advice (read-only). Not used while an emergency is showing.
-  const recommendation = useMemo(
-    () => (terminal || emergency ? null : defaultAdvisor.recommend({ state })),
-    [state, terminal, emergency]
-  );
 
   const daysLeft = Math.max(0, TOTAL_DAYS - state.day);
   const lastDecision = recentDecisions(state, 1)[0];
@@ -193,7 +217,9 @@ function MissionTab(props: MissionTabletProps & { terminal: boolean }): ReactEle
           event={emergency}
           waiting={state.activeEvents.length - 1}
           disabled={terminal}
-          onChoose={(actionId, choice) => onResolveEvent(emergency.id, actionId, choice)}
+          onChoose={(actionId, choice, advice) =>
+            onResolveEvent(emergency.id, actionId, choice, advice)
+          }
         />
       ) : null}
 
@@ -249,49 +275,58 @@ function MissionTab(props: MissionTabletProps & { terminal: boolean }): ReactEle
             <span className="text-[10px] text-slate-500">pick one, then end the sol</span>
           </div>
 
-          {recommendation ? (
-            <div className="mb-2 rounded-md border border-accent-blue/30 bg-accent-blue/10 p-2">
-              <div className="mb-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-accent-blue">
-                Mission Controller (rule-based) · {recommendation.confidence} confidence
-              </div>
-              <p className="text-[11px] text-slate-200">{recommendation.rationale}</p>
-            </div>
-          ) : null}
-
-          <div className="space-y-2">
-            {actions.map((action) => {
-              const planned = plannedActionId === action.id;
-              const recommended = recommendation?.actionId === action.id;
-              return (
+          {advice ? (
+            <div className="space-y-2">
+              <AdvicePanel
+                advice={advice}
+                loading={adviceLoading}
+                disabled={terminal}
+                pickedActionId={plannedActionId}
+                onAccept={() => onPlanAction(advice.actionId)}
+                onOverride={(actionId) => onPlanAction(actionId)}
+                renderExtra={(actionId) => {
+                  const action = actions.find((a) => a.id === actionId);
+                  return action ? <EffectChips action={action} /> : null;
+                }}
+              />
+              {plannedActionId ? (
                 <button
-                  key={action.id}
                   type="button"
-                  className="bunker-action"
-                  aria-pressed={planned}
-                  disabled={terminal}
-                  onClick={() => onPlanAction(planned ? null : action.id)}
+                  className="btn-ghost w-full !py-1 text-[11px]"
+                  onClick={() => onPlanAction(null)}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-semibold text-white">{action.label}</span>
-                    <span className="flex shrink-0 gap-1">
-                      {recommended ? (
-                        <span className="rounded bg-accent-blue/20 px-1.5 py-px font-mono text-[10px] text-accent-blue">
-                          ★ ADVISED
-                        </span>
-                      ) : null}
+                  Clear my plan
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {actions.map((action) => {
+                const planned = plannedActionId === action.id;
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className="bunker-action"
+                    aria-pressed={planned}
+                    disabled={terminal}
+                    onClick={() => onPlanAction(planned ? null : action.id)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-semibold text-white">{action.label}</span>
                       {planned ? (
                         <span className="rounded bg-accent-cyan/20 px-1.5 py-px font-mono text-[10px] text-accent-cyan">
                           PLANNED
                         </span>
                       ) : null}
-                    </span>
-                  </div>
-                  <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
-                  <EffectChips action={action} />
-                </button>
-              );
-            })}
-          </div>
+                    </div>
+                    <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
+                    <EffectChips action={action} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
       ) : null}
     </div>
@@ -463,18 +498,21 @@ function LogTab({ state, activity }: { state: GameState; activity: ActivityEntry
 /* FOOTER: the big "End Sol" button                                           */
 /* ========================================================================== */
 
-function EndDayFooter(props: MissionTabletProps & { terminal: boolean }): ReactElement {
-  const { state, emergency, plannedActionId, onEndDay, terminal } = props;
+function EndDayFooter(
+  props: MissionTabletProps & { terminal: boolean; advice: Advice | null }
+): ReactElement {
+  const { state, emergency, plannedActionId, onEndDay, terminal, advice } = props;
   const planned = plannedActionId ? getFreeActions().find((a) => a.id === plannedActionId) : undefined;
 
-  // Same "accepted / overrode / self-directed" bookkeeping the classic panel uses.
-  const choice = useMemo<PlayerChoice>(() => {
-    if (!plannedActionId || terminal || emergency) return 'self-directed';
-    const rec = defaultAdvisor.recommend({ state });
-    if (!rec) return 'self-directed';
-    return rec.actionId === plannedActionId ? 'accepted-recommendation' : 'overrode-recommendation';
-  }, [state, plannedActionId, terminal, emergency]);
-
+  // What the advisor said, and whether the player followed or overrode it.
+  // Recorded with the decision so the debrief can show it.
+  const decision = useMemo(() => {
+    if (!plannedActionId || terminal || emergency) {
+      return { playerChoice: 'self-directed' as PlayerChoice, advice: undefined };
+    }
+    return decisionWithAdvice(advice, plannedActionId);
+  }, [plannedActionId, terminal, emergency, advice]);
+  const choice = decision.playerChoice;
   let label: string;
   let hint: string;
   if (terminal) {
@@ -497,7 +535,7 @@ function EndDayFooter(props: MissionTabletProps & { terminal: boolean }): ReactE
         type="button"
         className="btn-primary w-full"
         disabled={terminal || emergency !== null}
-        onClick={() => onEndDay(choice)}
+        onClick={() => onEndDay(choice, decision.advice)}
       >
         {label}
       </button>

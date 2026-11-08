@@ -6,6 +6,7 @@
  * decisions — everything here is derived, read-only output.
  */
 
+import type { AdvisorHistoryEntry, AdvisorStats } from '../decisions/decisionHistory';
 import type { DecisionRecord } from '../decisions/decisionTypes';
 import type { MissionStatus, ResourceKey } from '../simulation/simulationTypes';
 
@@ -42,4 +43,9 @@ export interface DebriefSummary {
   netResourceChange: Record<ResourceKey, number>;
   timeline: TimelineEntry[];
   leadershipProfile: LeadershipProfile;
+  /** How the player used the AI advisor: counts plus recommendation / decision / outcome per sol. */
+  advisor: {
+    stats: AdvisorStats;
+    entries: AdvisorHistoryEntry[];
+  };
 }

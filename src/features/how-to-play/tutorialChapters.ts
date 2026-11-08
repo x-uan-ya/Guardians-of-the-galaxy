@@ -50,13 +50,13 @@ export const TUTORIAL_CHAPTERS: readonly TutorialChapter[] = [
     title: 'Emergencies',
     start: 63.3,
     summary:
-      'Emergencies must be answered before the day can end. Not sure? Ask Mission Controller. It advises and explains the risks, but you make the final call.',
+      'Emergencies must be answered before the day can end. Mission Controller recommends a response and explains the risks, but you make the final call: accept it or override it.',
   },
   {
     title: 'Plan your Sol',
     start: 78.8,
     summary:
-      'Pick one routine action. The starred action is the one Mission Controller suggests. Then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
+      'Pick one routine action. Mission Controller shows a recommended, an alternative and a risky option. Accept the advice or override it, then press End Sol. Your supplies change every Sol, and the Log shows what happened and why.',
   },
   {
     title: 'Earn badges',

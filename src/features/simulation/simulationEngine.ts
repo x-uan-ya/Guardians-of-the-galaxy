@@ -50,6 +50,7 @@ import {
   initialCrewForCharacter,
 } from './occupationEffects';
 import type { DecisionInput, DecisionRecord, PlayerChoice } from '../decisions/decisionTypes';
+import { buildDecisionOutcome, sanitizeAdviceSnapshot } from '../decisions/decisionOutcome';
 import {
   processDueEffects,
   scheduleDelayedEffects,
@@ -490,16 +491,27 @@ export function applyPlayerDecision(state: GameState, input: DecisionInput): Gam
     counterBase
   );
 
+  // Advisor snapshot (optional). When the player saw advice, the engine decides
+  // whether it was followed from the action actually taken, so the history can
+  // never claim "accepted" for a different action than the one recommended.
+  const advice = sanitizeAdviceSnapshot(input.advice);
+  const playerChoice: PlayerChoice = advice
+    ? advice.recommendedActionId === action.id
+      ? 'accepted-recommendation'
+      : 'overrode-recommendation'
+    : input.playerChoice;
+
   const record: DecisionRecord = {
     id: decisionId,
     day: state.day,
     ...(input.eventId !== undefined ? { eventId: input.eventId } : {}),
     actionId: action.id,
     actionLabel: action.label,
-    playerChoice: input.playerChoice,
+    playerChoice,
     resourceChanges: immediateResources,
     explanation: action.description,
     timestamp: state.updatedAt,
+    ...(advice ? { advice } : {}),
   };
 
   // Resolving an event removes it from the active list.
@@ -519,7 +531,21 @@ export function applyPlayerDecision(state: GameState, input: DecisionInput): Gam
     updatedAt: state.updatedAt,
   };
 
-  return withDerivedMission(next);
+  // Derive status/score, then attach the outcome (the state right after the
+  // decision) to the record that was just appended.
+  const settled = withDerivedMission(next);
+  const outcome = buildDecisionOutcome({
+    resources: immediateResources,
+    crew: action.effect.immediateCrew,
+    systems: action.effect.immediateSystems,
+    resourcesAfter: settled.resources,
+    crewAfter: settled.crew,
+    statusAfter: settled.mission.status,
+  });
+  return {
+    ...settled,
+    history: [...state.history, { ...record, outcome }],
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -8,12 +8,18 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { EventAction, GameEvent } from './eventTypes';
-import type { PlayerChoice } from '../decisions/decisionTypes';
+import type { AdviceSnapshot, PlayerChoice } from '../decisions/decisionTypes';
+import { useAdvice } from '../../hooks/useAdvice';
+import { AdvicePanel } from '../ai-advisor/AdvicePanel';
+import { decisionWithAdvice } from '../ai-advisor/adviceSnapshot';
+import type { GameState } from '../simulation/simulationTypes';
 import { EventDescription } from './EventDescription';
 
 interface CrisisModalProps {
   event: GameEvent;
-  onChoose: (actionId: string, choice: PlayerChoice) => void;
+  /** Current game state. When given, the Mission Controller's advice is shown. */
+  state?: GameState;
+  onChoose: (actionId: string, choice: PlayerChoice, advice?: AdviceSnapshot) => void;
   onDismiss?: () => void;
 }
 
@@ -100,8 +106,11 @@ const SEVERITY_STYLES = {
   },
 };
 
-export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): ReactElement {
+export function CrisisModal({ event, state, onChoose, onDismiss }: CrisisModalProps): ReactElement {
   const style = SEVERITY_STYLES[event.severity];
+
+  // Advice is read-only. The player still confirms every choice below.
+  const { advice, loading } = useAdvice(state, event.id);
 
   // Two-phase flow: pick an action, then review a short consequence summary
   // before it is committed to the simulation. `chosen` holds the pending action.
@@ -125,7 +134,9 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
 
   // Phase 2: confirm → commit the decision to the engine.
   const confirmChoice = (): void => {
-    if (chosen) onChoose(chosen.id, 'self-directed');
+    if (!chosen) return;
+    const decision = decisionWithAdvice(advice, chosen.id);
+    onChoose(chosen.id, decision.playerChoice, decision.advice);
   };
 
   // Render outside the animated app layout so its transform cannot trap the fixed overlay.
@@ -236,8 +247,17 @@ export function CrisisModal({ event, onChoose, onDismiss }: CrisisModalProps): R
           ) : (
           /* Phase 1: action choices. */
           <div className="px-8 py-4 pb-6 space-y-3 overflow-visible">
+            {advice ? (
+              <AdvicePanel
+                advice={advice}
+                loading={loading}
+                onAccept={() => handleAction(advice.actionId)}
+                onOverride={handleAction}
+              />
+            ) : null}
+
             <div className="text-sm font-semibold text-gray-400 tracking-wide mb-3">
-              CHOOSE YOUR RESPONSE:
+              {advice ? 'OR CHOOSE YOUR OWN RESPONSE:' : 'CHOOSE YOUR RESPONSE:'}
             </div>
             
             {event.availableActions.map((action) => (
