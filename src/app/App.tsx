@@ -36,6 +36,8 @@ import { Debrief } from '../features/debrief/Debrief';
 import { HowToPlay } from '../features/how-to-play/HowToPlay';
 import { AchievementsPage } from '../features/progression/AchievementsPage';
 import { Leaderboard } from '../features/leaderboard/Leaderboard';
+import { PlayHistory } from '../features/history/PlayHistory';
+import { recordRun } from '../features/history/historyService';
 import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { EmergencyNotice } from '../features/events/EmergencyNotice';
@@ -53,7 +55,7 @@ import type { User } from '../features/auth/authTypes';
 /** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
 type SubView = Extract<
   ViewKey,
-  'dashboard' | 'debrief' | 'achievements' | 'leaderboard' | 'how-to-play'
+  'dashboard' | 'debrief' | 'history' | 'achievements' | 'leaderboard' | 'how-to-play'
 >;
 
 /**
@@ -119,6 +121,12 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
     });
     setLastLeaderboardId(runId);
   }, [status, game.state, lastLeaderboardId]);
+
+  // Play history: write this account's row once the run has ended. Repeating it
+  // is harmless (a finished run keeps its first result).
+  useEffect(() => {
+    if (status === 'failed' || status === 'completed') recordRun(game.state, status);
+  }, [status, game.state]);
 
   // Crisis: a new active event interrupts PLAYING; clearing it returns to play.
   useEffect(() => {
@@ -269,6 +277,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
             />
           ) : null}
           {subView === 'debrief' ? <Debrief state={game.state} /> : null}
+          {subView === 'history' ? <PlayHistory state={game.state} /> : null}
           {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
           {subView === 'leaderboard' ? <Leaderboard highlightId={lastLeaderboardId} /> : null}
           {subView === 'how-to-play' ? <HowToPlay /> : null}
@@ -318,6 +327,9 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
         onConfirm={() => {
           const kind = confirm?.kind;
           setConfirm(null);
+          // Leaving a run that is still going counts as a played run, so its
+          // score is kept in the history.
+          if (status === 'active' || status === 'critical') recordRun(game.state, 'abandoned');
           if (kind === 'restart') handleRestartSame();
           else goToNewRun();
         }}

@@ -10,7 +10,7 @@
  */
 
 import type { LucideIcon } from 'lucide-react';
-import { BarChart3, ClipboardList, HelpCircle, LayoutDashboard, Trophy } from 'lucide-react';
+import { BarChart3, ClipboardList, HelpCircle, History, LayoutDashboard, Trophy } from 'lucide-react';
 
 /**
  * All views reachable from the sidebar while a mission is running. Mission and
@@ -21,6 +21,7 @@ import { BarChart3, ClipboardList, HelpCircle, LayoutDashboard, Trophy } from 'l
 export type ViewKey =
   | 'dashboard'
   | 'debrief'
+  | 'history'
   | 'achievements'
   | 'leaderboard'
   | 'how-to-play';
@@ -44,6 +45,12 @@ export const ROUTES: readonly RouteDef[] = [
     label: 'Debrief',
     icon: ClipboardList,
     description: 'Decision timeline and leadership profile.',
+  },
+  {
+    key: 'history',
+    label: 'Play History',
+    icon: History,
+    description: 'Your past runs and the score you reached each time.',
   },
   {
     key: 'achievements',
