@@ -67,14 +67,15 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      {/* The outer box reserves room for the fixed sidebar only while it is open, so a closed
-          sidebar leaves the content centred on the whole screen. The inner box centres it. */}
+      {/* One box does both jobs. It reserves room for the fixed sidebar only while the sidebar is
+          open, so closing the sidebar leaves the content centred on the whole screen. The
+          dashboard fills the width (the bunker layout manages its own columns); other pages keep a
+          readable maximum width. */}
       <div
-        className={`relative flex w-full flex-1 flex-col transition-[padding] duration-300 ease-out motion-reduce:transition-none ${
-          sidebarOpen ? 'md:pl-56' : ''
-        }`}
+        className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-out motion-reduce:transition-none md:flex-row ${
+          activeView === 'dashboard' ? '' : 'max-w-7xl'
+        } ${sidebarOpen ? 'md:pl-56' : ''}`}
       >
-      <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
         {sidebarOpen && (
           <button
@@ -108,11 +109,10 @@ export function AppShell({
 
         <main 
           key={activeView} 
-          className={`flex-1 animate-fade-in-up p-4 sm:p-6 transition-all`}
+          className={`min-w-0 flex-1 animate-fade-in-up p-4 sm:p-6 transition-all ${activeView === 'dashboard' ? 'mx-auto w-full max-w-[120rem]' : ''}`}
         >
           {children}
         </main>
-      </div>
       </div>
     </div>
   );

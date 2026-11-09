@@ -38,6 +38,7 @@ import { EmergencyPanel } from './EmergencyPanel';
 import { FacilityTab } from './FacilityTab';
 import { TOTAL_DAYS, type FacilityId } from './facilities';
 import type { StateDelta } from './useStateDelta';
+import type { ActionPreview } from './actionPreview';
 
 export type TabKey = 'mission' | 'room' | 'log' | 'profile';
 
@@ -73,6 +74,7 @@ interface MissionTabletProps {
   alertFacility: FacilityId | null;
   emergency: GameEvent | null;
   plannedActionId: string | null;
+  preview: ActionPreview | null;
   onPlanAction: (actionId: string | null) => void;
   /** Perform the planned action (if any) and advance to the next day. */
   onEndDay: (choice: PlayerChoice, advice?: AdviceSnapshot) => void;
@@ -108,7 +110,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
     <div className="bunker-tablet" data-alert={emergency ? 'true' : 'false'}>
       <div className="bunker-tablet-screen">
         {/* Title bar */}
-        <div className="flex items-center justify-between border-b border-accent-cyan/20 bg-space-900/80 px-3 py-1.5">
+        <div className="bunker-tablet-header flex items-center justify-between border-b border-accent-cyan/20 bg-space-900/80 px-3 py-1.5">
           <div className="flex items-center gap-2 font-mono text-[10px] tracking-widest text-accent-cyan">
             <span
               className={`h-1.5 w-1.5 rounded-full ${emergency ? 'bg-red-500 animate-pulse-soft' : 'bg-status-ok'}`}
@@ -122,7 +124,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
         </div>
 
         {/* Tabs */}
-        <div role="tablist" aria-label="Mission tablet" className="grid grid-cols-4 border-b border-space-600/60 bg-space-850/70">
+        <div role="tablist" aria-label="Mission tablet" className="bunker-tablet-tabs grid grid-cols-4 border-b border-space-600/60 bg-space-850/70">
           {TABS.map(({ key, label, icon: Icon }) => {
             const active = tab === key;
             return (
@@ -159,6 +161,7 @@ export function MissionTablet(props: MissionTabletProps): ReactElement {
               emergency={emergency}
               alertFacility={props.alertFacility}
               plannedActionId={props.plannedActionId}
+              preview={props.preview}
               disabled={terminal}
               onPlanAction={props.onPlanAction}
               onGoToMission={() => onTabChange('mission')}
@@ -560,7 +563,7 @@ function EndDayFooter(
   }
 
   return (
-    <div className="border-t border-accent-cyan/20 bg-space-900/90 p-3">
+    <div className="bunker-tablet-footer border-t border-accent-cyan/20 bg-space-900/90 p-3">
       <button
         type="button"
         className="btn-primary w-full"
@@ -569,6 +572,7 @@ function EndDayFooter(
       >
         {label}
       </button>
+      {props.preview ? <p className="bunker-preview-notice" role="status">Previewing immediate effects: {props.preview.label}.</p> : null}
       <p className="mt-1 text-center text-[10px] text-slate-500">{hint}</p>
     </div>
   );

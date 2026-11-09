@@ -13,7 +13,8 @@
 
 import type { ReactElement } from 'react';
 import { MapPin } from 'lucide-react';
-import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { PreviewBar, PreviewMetric } from './PreviewMetric';
+import type { ActionPreview, MetricPreview } from './actionPreview';
 import { getFreeActions } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, StatusLevel } from '../../simulation/simulationTypes';
 import type { GameEvent } from '../../events/eventTypes';
@@ -29,6 +30,7 @@ interface FacilityTabProps {
   emergency: GameEvent | null;
   alertFacility: FacilityId | null;
   plannedActionId: string | null;
+  preview: ActionPreview | null;
   disabled: boolean;
   onPlanAction: (actionId: string | null) => void;
   onGoToMission: () => void;
@@ -40,6 +42,7 @@ interface Row {
   value: number;
   level: StatusLevel;
   note?: string;
+  preview?: MetricPreview;
 }
 
 const LEVEL_WORD: Record<StatusLevel, string> = { ok: 'Stable', warn: 'Low', critical: 'Critical' };
@@ -51,6 +54,7 @@ export function FacilityTab({
   emergency,
   alertFacility,
   plannedActionId,
+  preview,
   disabled,
   onPlanAction,
   onGoToMission,
@@ -74,22 +78,23 @@ export function FacilityTab({
   const rows: Row[] = [];
   if (def.resource) {
     const m = derived.resources[def.resource];
-    rows.push({ id: `r-${def.resource}`, label: RESOURCE_LABELS[def.resource], value: m.value, level: m.level });
+    rows.push({ id: `r-${def.resource}`, label: RESOURCE_LABELS[def.resource], value: m.value, level: m.level, preview: preview?.resources[def.resource] });
   }
   if (def.system) {
     const m = derived.systems[def.system];
-    rows.push({ id: `s-${def.system}`, label: SYSTEM_LABELS[def.system], value: m.value, level: m.level });
+    rows.push({ id: `s-${def.system}`, label: SYSTEM_LABELS[def.system], value: m.value, level: m.level, preview: preview?.systems[def.system] });
   }
   if (def.vitals) {
     rows.push(
-      { id: 'c-health', label: CREW_LABELS.health.replace('Crew ', ''), value: derived.crew.health.value, level: derived.crew.health.level },
-      { id: 'c-morale', label: CREW_LABELS.morale, value: derived.crew.morale.value, level: derived.crew.morale.level },
+      { id: 'c-health', label: CREW_LABELS.health.replace('Crew ', ''), value: derived.crew.health.value, level: derived.crew.health.level, preview: preview?.crew.health },
+      { id: 'c-morale', label: CREW_LABELS.morale, value: derived.crew.morale.value, level: derived.crew.morale.level, preview: preview?.crew.morale },
       {
         id: 'c-rad',
         label: CREW_LABELS.radiationExposure,
         value: derived.crew.radiationExposure.value,
         level: derived.crew.radiationExposure.level,
         note: 'Higher is more dangerous',
+        preview: preview?.crew.radiationExposure,
       }
     );
   }
@@ -124,7 +129,7 @@ export function FacilityTab({
 
       {/* Live readouts */}
       <div className="space-y-2 rounded-md border border-space-600 bg-space-800/60 p-2.5">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">Live readouts</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{preview ? 'Projected readouts · immediate effects only' : 'Live readouts'}</div>
         {rows.length === 0 ? (
           <p className="text-xs text-slate-400">
             Overall outpost status:{' '}
@@ -135,13 +140,13 @@ export function FacilityTab({
         ) : null}
         {rows.map((row) => (
           <div key={row.id}>
-            <div className="mb-0.5 flex items-center justify-between text-[11px]">
+            <div className="mb-0.5 flex flex-wrap items-center justify-between gap-1 text-[11px]">
               <span className="text-slate-300">{row.label}</span>
               <span className="tnum font-semibold" style={{ color: LEVEL_HEX[row.level] }}>
-                {Math.round(row.value)}% · {LEVEL_WORD[row.level]}
+                <PreviewMetric value={row.value} preview={row.preview} />{!row.preview ? ` · ${LEVEL_WORD[row.level]}` : ''}
               </span>
             </div>
-            <ProgressBar value={row.value} level={row.level} label={row.label} />
+            <PreviewBar value={row.value} level={row.level} label={row.label} preview={row.preview} />
             {row.note ? <p className="mt-0.5 text-[10px] text-slate-500">{row.note}</p> : null}
           </div>
         ))}

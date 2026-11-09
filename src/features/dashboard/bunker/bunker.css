@@ -7,6 +7,43 @@
    animations for players who ask for that.
    ========================================================================== */
 
+/* Use available content width, including the space reclaimed by the sidebar. */
+.bunker-layout {
+  min-width: 0;
+  container: bunker-layout / inline-size;
+}
+
+.bunker-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.bunker-tablet-column { min-width: 0; }
+
+@container bunker-layout (min-width: 60rem) {
+  .bunker-layout-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.bunker-quick-access > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 6px 0;
+}
+
+.bunker-quick-access > summary:focus-visible {
+  outline: 2px solid #5fd0c8;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.bunker-quick-access > nav { margin-top: 8px; }
+
 /* ---- The scene frame ---------------------------------------------------- */
 
 .bunker-scene {
@@ -49,10 +86,49 @@
 }
 
 .bunker-hotspot:hover,
-.bunker-hotspot:focus-visible {
+.bunker-hotspot:focus-visible,
+.bunker-hotspot[data-tooltip-active='true'] {
   background: rgba(95, 208, 200, 0.09);
   border-color: rgba(95, 208, 200, 0.75);
   outline: none;
+  box-shadow: 0 0 12px rgba(95, 208, 200, 0.22), inset 0 0 10px rgba(95, 208, 200, 0.08);
+}
+
+.bunker-tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 8px 10px;
+  border: 1px solid rgba(95, 208, 200, 0.5);
+  border-radius: 6px;
+  background: rgba(7, 11, 16, 0.96);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 140ms ease, visibility 140ms;
+}
+
+.bunker-tooltip[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.bunker-tooltip-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bunker-tooltip { transition: none; }
 }
 
 .bunker-hotspot[aria-pressed='true'] {
@@ -353,6 +429,81 @@
 
 /* ---- Resource HUD ------------------------------------------------------- */
 
+.bunker-preview-notice {
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.bunker-hud-preview-slot {
+  height: 24px;
+}
+
+.bunker-hud-preview-label {
+  display: inline-block;
+  border: 1px solid rgba(95, 208, 200, 0.4);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #5fd0c8;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.bunker-metric-number {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bunker-inline-metric { flex: none; white-space: nowrap; }
+.bunker-inline-metric > svg,
+.bunker-resource-label > svg { flex-shrink: 0; }
+.bunker-resource-heading { min-height: 24px; white-space: nowrap; }
+.bunker-resource-label { min-width: 0; }
+
+@media (max-width: 400px) {
+  .bunker-resource-heading { gap: 2px; }
+  .bunker-resource-label { gap: 3px; font-size: 10px; }
+  .bunker-resource-heading > .tnum { font-size: 14px; }
+}
+
+.bunker-preview-number[data-preview-tone='good'] { color: #4caf72; text-shadow: 0 0 8px rgba(76, 175, 114, 0.2); }
+.bunker-preview-number[data-preview-tone='bad'] { color: #d9533f; text-shadow: 0 0 8px rgba(217, 83, 63, 0.2); }
+.bunker-preview-number[data-preview-tone='neutral'] { color: #94a3b8; }
+
+.bunker-preview-card { transition: box-shadow 300ms ease; }
+.bunker-preview-card[data-preview-tone='good'] { box-shadow: inset 0 0 12px rgba(76, 175, 114, 0.16); }
+.bunker-preview-card[data-preview-tone='bad'] { box-shadow: inset 0 0 12px rgba(217, 83, 63, 0.16); }
+
+.bunker-preview-bar { position: relative; }
+.bunker-preview-bar [role='progressbar'] > div { transition-duration: 300ms; }
+.bunker-preview-bar[data-preview-tone='good'] [role='progressbar'] > div {
+  background: #4caf72;
+  box-shadow: 0 0 6px rgba(76, 175, 114, 0.25);
+}
+.bunker-preview-bar[data-preview-tone='bad'] [role='progressbar'] > div {
+  background: #d9533f;
+  box-shadow: 0 0 6px rgba(217, 83, 63, 0.25);
+}
+.bunker-preview-marker {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #e2e8f0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bunker-preview-card,
+  .bunker-preview-bar [role='progressbar'] > div { transition: none; }
+}
+
 .bunker-delta {
   font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   font-size: 11px;
@@ -412,8 +563,8 @@
   border: 1px solid rgba(95, 208, 200, 0.25);
   display: flex;
   flex-direction: column;
-  height: min(780px, calc(100vh - 120px));
-  min-height: 540px;
+  height: auto;
+  min-height: 0;
 }
 
 /* Faint CRT scanlines over the screen. */
@@ -429,10 +580,28 @@
 
 .bunker-tablet-body {
   flex: 1;
+  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   padding: 12px;
   scrollbar-width: thin;
   scrollbar-color: #3a3a4d transparent;
+  overflow-wrap: anywhere;
+}
+
+.bunker-tablet-header,
+.bunker-tablet-tabs,
+.bunker-tablet-footer { flex-shrink: 0; }
+
+.bunker-tablet-footer { overflow-wrap: anywhere; }
+
+/* Stack naturally on narrow/short screens; bound only the wide-screen reader. */
+@media (min-height: 48rem) {
+  @container bunker-layout (min-width: 60rem) {
+    .bunker-tablet-screen {
+      height: min(52rem, calc(100dvh - 12rem));
+    }
+  }
 }
 
 .bunker-emergency {

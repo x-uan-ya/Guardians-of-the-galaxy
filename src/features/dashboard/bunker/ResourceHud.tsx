@@ -13,7 +13,8 @@
 import type { ReactElement } from 'react';
 import { Cpu, Droplets, HeartPulse, Leaf, Radiation, Shield, Smile, UtensilsCrossed, Wind, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { PreviewBar, PreviewMetric } from './PreviewMetric';
+import { previewNotice, type ActionPreview } from './actionPreview';
 import type {
   CrewState,
   DerivedStatus,
@@ -28,6 +29,7 @@ import type { StateDelta } from './useStateDelta';
 interface ResourceHudProps {
   derived: DerivedStatus;
   delta: StateDelta | null;
+  preview?: ActionPreview | null;
 }
 
 /** The order the player should scan: survival-critical first. */
@@ -75,7 +77,7 @@ function DeltaBadge({
   );
 }
 
-export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement {
+export function ResourceHud({ derived, delta, preview }: ResourceHudProps): ReactElement {
   const vitals: readonly {
     key: keyof CrewState;
     icon: LucideIcon;
@@ -91,6 +93,11 @@ export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement 
       aria-label="Survival resources"
       className="rounded-xl border border-space-600/60 bg-space-850/80 p-3 backdrop-blur-md"
     >
+      <div className="bunker-hud-preview-slot">
+        {preview ? <span className="bunker-hud-preview-label" role="status" title={previewNotice(preview)}>
+          Preview Mode<span className="sr-only">. {previewNotice(preview)}</span>
+        </span> : null}
+      </div>
       {/* Row 1: the four resources. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {HUD_RESOURCES.map(({ key, icon: Icon }) => {
@@ -98,22 +105,22 @@ export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement 
           return (
             <div
               key={key}
-              className="rounded-lg border bg-space-800/70 px-2.5 py-2"
+              className="bunker-preview-card rounded-lg border bg-space-800/70 px-2.5 py-2"
+              data-preview-tone={preview?.resources[key]?.tone}
               style={{
                 borderColor: m.level === 'ok' ? 'rgba(58,58,77,0.8)' : LEVEL_HEX[m.level],
               }}
             >
-              <div className="mb-1 flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-300">
+              <div className="bunker-resource-heading mb-1 flex items-center justify-between gap-1">
+                <span className="bunker-resource-label flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-300">
                   <Icon className="h-3.5 w-3.5" aria-hidden />
                   {RESOURCE_LABELS[key]}
                 </span>
                 <span className={`tnum text-base font-semibold ${LEVEL_TEXT[m.level]}`}>
-                  {Math.round(m.value)}
-                  <span className="text-[10px] text-slate-400">%</span>
+                  <PreviewMetric value={m.value} preview={preview?.resources[key]} />
                 </span>
               </div>
-              <ProgressBar value={m.value} level={m.level} label={RESOURCE_LABELS[key]} />
+              <PreviewBar value={m.value} level={m.level} label={RESOURCE_LABELS[key]} preview={preview?.resources[key]} />
               <div className="mt-1 flex h-4 items-center justify-between text-[10px] text-slate-500">
                 <span>
                   {m.level === 'critical' ? (
@@ -124,7 +131,7 @@ export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement 
                     'Stable'
                   )}
                 </span>
-                <DeltaBadge value={delta?.resources[key]} stamp={delta?.stamp} />
+                {!preview ? <DeltaBadge value={delta?.resources[key]} stamp={delta?.stamp} /> : null}
               </div>
             </div>
           );
@@ -136,11 +143,11 @@ export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement 
         {vitals.map(({ key, icon: Icon, badWhenUp }) => {
           const m = derived.crew[key];
           return (
-            <span key={key} className="flex items-center gap-1.5" title={CREW_LABELS[key]}>
+            <span key={key} className="bunker-inline-metric flex items-center gap-1.5" title={CREW_LABELS[key]}>
               <Icon className="h-3.5 w-3.5 text-slate-400" aria-hidden />
               <span className="text-slate-400">{CREW_LABELS[key].replace('Crew ', '')}</span>
-              <span className={`tnum font-semibold ${LEVEL_TEXT[m.level]}`}>{Math.round(m.value)}%</span>
-              <DeltaBadge value={delta?.crew[key]} badWhenUp={badWhenUp} stamp={delta?.stamp} />
+              <span className={`tnum font-semibold ${LEVEL_TEXT[m.level]}`}><PreviewMetric value={m.value} preview={preview?.crew[key]} /></span>
+              {!preview ? <DeltaBadge value={delta?.crew[key]} badWhenUp={badWhenUp} stamp={delta?.stamp} /> : null}
             </span>
           );
         })}
@@ -154,13 +161,13 @@ export function ResourceHud({ derived, delta }: ResourceHudProps): ReactElement 
         {HUD_SYSTEMS.map(({ key, icon: Icon, short }) => {
           const m = derived.systems[key];
           return (
-            <span key={key} className="flex items-center gap-1" title={SYSTEM_LABELS[key]}>
+            <span key={key} className="bunker-inline-metric flex items-center gap-1" title={SYSTEM_LABELS[key]}>
               <Icon className="h-3 w-3 text-slate-500" aria-hidden />
               <span className="text-slate-400">{short}</span>
               <span className="tnum font-semibold" style={{ color: LEVEL_HEX[m.level] }}>
-                {Math.round(m.value)}%
+                <PreviewMetric value={m.value} preview={preview?.systems[key]} />
               </span>
-              <DeltaBadge value={delta?.systems[key]} stamp={delta?.stamp} />
+              {!preview ? <DeltaBadge value={delta?.systems[key]} stamp={delta?.stamp} /> : null}
             </span>
           );
         })}

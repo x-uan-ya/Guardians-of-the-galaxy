@@ -26,7 +26,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ActivityEntry } from '../../../hooks/useGameState';
 import type { AdviceSnapshot, DecisionInput, PlayerChoice } from '../../decisions/decisionTypes';
-import { calculateDerivedStatus } from '../../simulation/simulationEngine';
+import { calculateDerivedStatus, getFreeActions } from '../../simulation/simulationEngine';
 import type { GameState } from '../../simulation/simulationTypes';
 import { BunkerScene } from './BunkerScene';
 import { MissionTablet, type TabKey } from './MissionTablet';
@@ -34,6 +34,7 @@ import { FacilityStrip } from './FacilityStrip';
 import { ResourceHud } from './ResourceHud';
 import { facilityForEvent, type FacilityId } from './facilities';
 import { useStateDelta } from './useStateDelta';
+import { actionPreview } from './actionPreview';
 import './bunker.css';
 
 interface BunkerGameProps {
@@ -58,6 +59,11 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
   const emergency = state.activeEvents[0] ?? null;
   const emergencyId = emergency?.id ?? null;
   const alertFacility = emergencyId ? facilityForEvent(emergencyId) : null;
+  const terminal = state.mission.status === 'failed' || state.mission.status === 'completed';
+  const preview = useMemo(
+    () => actionPreview(state, getFreeActions().find((action) => action.id === planned)),
+    [state, planned]
+  );
 
   // A new emergency: jump to the Mission tab and send the astronaut to the
   // room that is in trouble.
@@ -68,10 +74,10 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
     }
   }, [emergencyId]);
 
-  // The plan is for ONE day only: clear it whenever the day (or mission) changes.
+  // Plans cannot carry across days, missions, emergencies or terminal states.
   useEffect(() => {
     setPlanned(null);
-  }, [state.day, state.gameId]);
+  }, [state.day, state.gameId, emergencyId, terminal]);
 
   // Flash "SOL N" when the day advances inside the same mission.
   const lastSeen = useRef<{ day: number; gameId: string } | null>(null);
@@ -112,7 +118,8 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
   };
 
   return (
-    <section aria-label="Mars bunker" className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_350px]">
+    <section aria-label="Mars bunker" className="bunker-layout">
+      <div className="bunker-layout-grid">
       {/* Left: the picture, the survival numbers, and a quick room list. */}
       <div className="min-w-0 space-y-3">
         <BunkerScene
@@ -125,20 +132,23 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
           onSelect={handleSelectFacility}
           onRespond={handleRespond}
         />
-        <ResourceHud derived={derived} delta={delta} />
-        <FacilityStrip
-          derived={derived}
-          selected={selected}
-          alertFacility={alertFacility}
-          onSelect={handleSelectFacility}
-        />
+        <ResourceHud derived={derived} delta={delta} preview={preview} />
+        <details className="bunker-quick-access">
+          <summary>Facility Quick Access</summary>
+          <FacilityStrip
+            derived={derived}
+            selected={selected}
+            alertFacility={alertFacility}
+            onSelect={handleSelectFacility}
+          />
+        </details>
         <p className="px-1 text-center font-mono text-[11px] tracking-wide text-slate-500">
           Click a room to inspect it. Plan one action, then end the sol.
         </p>
       </div>
 
       {/* Right: the mission tablet. */}
-      <div ref={tabletRef} className="lg:sticky lg:top-20">
+      <div ref={tabletRef} className="bunker-tablet-column">
         <MissionTablet
           state={state}
           derived={derived}
@@ -150,10 +160,12 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
           alertFacility={alertFacility}
           emergency={emergency}
           plannedActionId={planned}
+          preview={preview}
           onPlanAction={setPlanned}
           onEndDay={handleEndDay}
           onResolveEvent={handleResolveEvent}
         />
+      </div>
       </div>
     </section>
   );

@@ -13,11 +13,24 @@
 
 import type {
   DerivedStatus,
+  GameState,
   ResourceKey,
   StatusLevel,
   SystemState,
 } from '../../simulation/simulationTypes';
 import { worstLevel } from '../../simulation/simulationSelectors';
+import { METRIC_MIN, METRIC_MAX } from '../../simulation/simulationTypes';
+
+/** Display an existing metric, never an invented aggregate facility health. */
+export function facilityCondition(def: FacilityDef, state: GameState): { value: number | null } {
+  const value = def.system ? state.systems[def.system]
+    : def.resource ? state.resources[def.resource]
+    : def.vitals ? state.crew.health : undefined;
+  return {
+    value: typeof value === 'number' && Number.isFinite(value) && value >= METRIC_MIN && value <= METRIC_MAX
+      ? value : null,
+  };
+}
 
 /** The mission lasts 30 days (matches SURVIVAL_TARGET_DAY in the engine). */
 export const TOTAL_DAYS = 30;
