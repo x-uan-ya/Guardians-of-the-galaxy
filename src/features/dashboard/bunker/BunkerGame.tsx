@@ -121,7 +121,7 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
     <section aria-label="Mars bunker" className="bunker-layout">
       <div className="bunker-layout-grid">
       {/* Left: the picture, the survival numbers, and a quick room list. */}
-      <div className="min-w-0 space-y-3">
+      <div className="bunker-scene-column min-w-0 space-y-3">
         <BunkerScene
           state={state}
           derived={derived}

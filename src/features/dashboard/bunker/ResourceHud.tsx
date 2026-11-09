@@ -99,7 +99,7 @@ export function ResourceHud({ derived, delta, preview }: ResourceHudProps): Reac
         </span> : null}
       </div>
       {/* Row 1: the four resources. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="bunker-resource-grid">
         {HUD_RESOURCES.map(({ key, icon: Icon }) => {
           const m = derived.resources[key];
           return (
