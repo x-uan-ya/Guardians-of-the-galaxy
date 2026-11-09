@@ -4,7 +4,6 @@
  * What the tablet shows after you click a room in the bunker.
  *   - live readouts for that room (resource / system / vitals)
  *   - the REAL free actions that relate to the room (from the event catalog)
- *   - a clearly-labelled PROTOTYPE PLACEHOLDER where the game has no action yet
  *
  * Clicking an action does NOT run it immediately. It "plans" it for today
  * (UI-only memory in BunkerGame); the player then presses "End Sol" on the
@@ -272,19 +271,7 @@ export function FacilityTab({
             );
           })}
 
-          {def.placeholderAction ? (
-            <div className="bunker-placeholder" aria-disabled="true">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-400">{def.placeholderAction.label}</span>
-                <span className="shrink-0 rounded border border-slate-500 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-slate-400">
-                  Prototype placeholder
-                </span>
-              </div>
-              <p className="text-[11px] leading-snug text-slate-500">{def.placeholderAction.description}</p>
-            </div>
-          ) : null}
-
-          {realActions.length === 0 && !def.placeholderAction ? (
+          {realActions.length === 0 ? (
             <p className="text-xs text-slate-400">No actions are linked to this room yet.</p>
           ) : null}
         </div>

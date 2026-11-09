@@ -62,11 +62,6 @@ export interface FacilityDef {
    * make sense to plan from this room. Unknown ids are ignored at runtime.
    */
   actionIds: readonly string[];
-  /**
-   * Shown as a dashed, clearly-labelled PLACEHOLDER when the game has no real
-   * action for this room yet. It never touches game state.
-   */
-  placeholderAction?: { label: string; description: string };
   /** Hotspot rectangle in scene units (the scene is 1000 x 560). */
   box: { x: number; y: number; w: number; h: number };
   /** Where the astronaut stands (scene x, 0..1000). */

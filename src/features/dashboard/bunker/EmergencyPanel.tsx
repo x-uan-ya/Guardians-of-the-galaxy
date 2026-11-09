@@ -11,9 +11,8 @@
  *     "Accept recommendation" / "Override" are the player's own clicks
  *   - choosing a response calls onChoose -> useGameState().resolveActiveEvent
  *
- * What is a PLACEHOLDER (clearly labelled, does nothing):
- *   - the dashed "Conserve resources" card. The game has no such action yet, so
- *     we show where it would go instead of faking a game-state change.
+ * Nothing on this panel is a stand-in: every button is a real response from
+ * the event catalog.
  */
 
 import { useState } from 'react';
@@ -70,8 +69,6 @@ export function EmergencyPanel({
   // Responses already shown inside the advice panel are not repeated below.
   const adviceIds = new Set(advice?.options.map((o) => o.actionId) ?? []);
   const remaining = event.availableActions.filter((a) => !adviceIds.has(a.id));
-
-  const urgent = event.severity === 'critical' || event.severity === 'major';
 
   return (
     <section className="bunker-emergency p-3" role="alert" aria-live="assertive">
@@ -137,21 +134,6 @@ export function EmergencyPanel({
             <EffectChips action={action} />
           </button>
         ))}
-
-        {/* Clearly-labelled PROTOTYPE placeholder: not connected to the engine. */}
-        {urgent ? (
-          <div className="bunker-placeholder" aria-disabled="true">
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-400">Conserve resources</span>
-              <span className="shrink-0 rounded border border-slate-500 px-1.5 py-px font-mono text-[9px] uppercase tracking-wide text-slate-400">
-                Prototype placeholder
-              </span>
-            </div>
-            <p className="text-[11px] leading-snug text-slate-500">
-              Not in the event system yet, so it cannot be chosen. It will not change the game.
-            </p>
-          </div>
-        ) : null}
       </div>
     </section>
   );
