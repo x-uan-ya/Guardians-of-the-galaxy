@@ -5,7 +5,15 @@
  * when hovering over technical terms.
  */
 
-import { type ReactElement, type ReactNode, useRef, useState, useEffect } from 'react';
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+} from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
@@ -15,19 +23,27 @@ interface TooltipProps {
   content: string;
   /** Optional custom class for the trigger element */
   className?: string;
+  /** Let keyboard users Tab to the word. Turn off inside buttons. */
+  focusable?: boolean;
 }
 
-export function Tooltip({ children, content, className = '' }: TooltipProps): ReactElement {
+export function Tooltip({
+  children,
+  content,
+  className = '',
+  focusable = true,
+}: TooltipProps): ReactElement {
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, alignment: 'center' as 'left' | 'center' | 'right' });
   
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     if (!triggerRef.current) return;
     
     const rect = triggerRef.current.getBoundingClientRect();
     const tooltipWidth = 256; // w-64 = 16rem = 256px
-    const tooltipHeight = 80; // approximate height
+    // About 38 characters fit on a line of the w-64 box; each line is ~16px tall.
+    const tooltipHeight = 28 + Math.ceil(content.length / 38) * 16;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const padding = 16;
@@ -57,7 +73,7 @@ export function Tooltip({ children, content, className = '' }: TooltipProps): Re
     }
     
     setPosition({ top, left, alignment });
-  };
+  }, [content]);
   
   const handleMouseEnter = () => {
     setIsVisible(true);
@@ -66,6 +82,11 @@ export function Tooltip({ children, content, className = '' }: TooltipProps): Re
   
   const handleMouseLeave = () => {
     setIsVisible(false);
+  };
+
+  // Keyboard users get the same tip when they tab to the word.
+  const handleKeyDown = (e: KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key === 'Escape') setIsVisible(false);
   };
   
   // Update position on scroll
@@ -78,7 +99,7 @@ export function Tooltip({ children, content, className = '' }: TooltipProps): Re
         window.removeEventListener('resize', updatePosition);
       };
     }
-  }, [isVisible]);
+  }, [isVisible, updatePosition]);
   
   // Arrow offset based on alignment
   const arrowOffset = position.alignment === 'center' 
@@ -94,9 +115,16 @@ export function Tooltip({ children, content, className = '' }: TooltipProps): Re
         className={`group relative inline-block ${className}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+        onKeyDown={handleKeyDown}
       >
         {/* The term/trigger */}
-        <span className="cursor-help border-b border-dotted border-current">
+        <span
+          className="cursor-help border-b border-dotted border-current"
+          tabIndex={focusable ? 0 : undefined}
+          aria-label={typeof children === 'string' ? `${children}: ${content}` : undefined}
+        >
           {children}
         </span>
       </span>

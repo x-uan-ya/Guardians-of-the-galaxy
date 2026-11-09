@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react';
 import { Term } from '../../components/ui/Tooltip';
+import { GlossaryText } from '../glossary/GlossaryText';
 
 interface EventDescriptionProps {
   eventId: string;
@@ -85,6 +86,6 @@ export function EventDescription({ eventId, description }: EventDescriptionProps
       
     default:
       // For other events, return description as-is
-      return <>{description}</>;
+      return <GlossaryText focusable={false}>{description}</GlossaryText>;
   }
 }

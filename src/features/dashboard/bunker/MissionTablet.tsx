@@ -32,6 +32,7 @@ import { getFreeActions, resupplyDay } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, MissionStatus } from '../../simulation/simulationTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
 import { AstronautProfile } from './AstronautProfile';
+import { GlossaryText } from '../../glossary/GlossaryText';
 import { EffectChips } from './EffectChips';
 import { EmergencyPanel } from './EmergencyPanel';
 import { FacilityTab } from './FacilityTab';
@@ -336,7 +337,9 @@ function MissionTab(
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
+                    <p className="text-[11px] leading-snug text-slate-300">
+                      <GlossaryText focusable={false}>{action.description}</GlossaryText>
+                    </p>
                     <EffectChips action={action} />
                   </button>
                 );
@@ -397,7 +400,12 @@ function FeedbackCard({
         <p className="text-[11px] text-slate-300">
           <span className="font-semibold text-slate-100">{decisionLabel}</span>
           {decisionDay !== undefined ? <span className="text-slate-500"> (Sol {decisionDay})</span> : null}
-          {decisionNote ? <span className="text-slate-400"> — {decisionNote}</span> : null}
+          {decisionNote ? (
+            <span className="text-slate-400">
+              {' '}
+              — <GlossaryText>{decisionNote}</GlossaryText>
+            </span>
+          ) : null}
         </p>
       ) : null}
       {chips.length > 0 ? (
@@ -454,7 +462,9 @@ function LogTab({ state, activity }: { state: GameState; activity: ActivityEntry
                       Sol {eff.scheduledDay} {inDays === 0 ? '(now)' : `(in ${inDays})`}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-200">{eff.description}</p>
+                  <p className="text-[11px] text-slate-200">
+                    <GlossaryText>{eff.description}</GlossaryText>
+                  </p>
                   {source ? (
                     <p className="text-[10px] text-slate-500">
                       Caused by: {source.actionLabel} (Sol {source.day})
@@ -481,7 +491,9 @@ function LogTab({ state, activity }: { state: GameState; activity: ActivityEntry
                   <span className="text-xs font-semibold text-slate-100">{d.actionLabel}</span>
                   <span className="tnum font-mono text-[10px] text-slate-500">Sol {d.day}</span>
                 </div>
-                <p className="text-[11px] text-slate-400">{d.explanation}</p>
+                <p className="text-[11px] text-slate-400">
+                  <GlossaryText>{d.explanation}</GlossaryText>
+                </p>
               </li>
             ))}
           </ul>
@@ -498,7 +510,9 @@ function LogTab({ state, activity }: { state: GameState; activity: ActivityEntry
               <li key={entry.id} className="flex items-start gap-2">
                 <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[entry.tone]}`} aria-hidden />
                 <div>
-                  <p className="text-[11px] text-slate-300">{entry.message}</p>
+                  <p className="text-[11px] text-slate-300">
+                    <GlossaryText>{entry.message}</GlossaryText>
+                  </p>
                   <span className="tnum font-mono text-[9px] uppercase text-slate-500">Sol {entry.day}</span>
                 </div>
               </li>

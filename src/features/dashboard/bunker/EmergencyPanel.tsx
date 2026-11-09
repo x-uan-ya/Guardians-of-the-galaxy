@@ -27,6 +27,7 @@ import { EventDescription } from '../../events/EventDescription';
 import type { GameEvent } from '../../events/eventTypes';
 import type { AdviceSnapshot, PlayerChoice } from '../../decisions/decisionTypes';
 import type { GameState } from '../../simulation/simulationTypes';
+import { GlossaryText } from '../../glossary/GlossaryText';
 import { EffectChips } from './EffectChips';
 
 interface EmergencyPanelProps {
@@ -126,9 +127,13 @@ export function EmergencyPanel({
             onClick={() => choose(action.id)}
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-semibold text-white">{action.label}</span>
+              <span className="text-sm font-semibold text-white">
+                <GlossaryText focusable={false}>{action.label}</GlossaryText>
+              </span>
             </div>
-            <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
+            <p className="text-[11px] leading-snug text-slate-300">
+              <GlossaryText focusable={false}>{action.description}</GlossaryText>
+            </p>
             <EffectChips action={action} />
           </button>
         ))}

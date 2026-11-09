@@ -17,6 +17,11 @@ export interface LeaderboardEntry {
   id: string;
   /** Display name of the player. */
   name: string;
+  /**
+   * The account that played the run. The board shows each account once, with its
+   * best run. Older rows and the demo rows do not have one.
+   */
+  userId?: string;
   /** Primary ranking metric: sols survived. Higher is better. */
   daysSurvived: number;
   /** Final mission score (tiebreaker). */

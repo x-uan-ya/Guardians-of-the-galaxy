@@ -27,6 +27,7 @@ import {
   type DerivedStatus,
   type GameState,
 } from '../../simulation/simulationTypes';
+import { GlossaryText } from '../../glossary/GlossaryText';
 import { CREW_LABELS } from '../labels';
 
 interface AstronautProfileProps {
@@ -101,7 +102,9 @@ export function AstronautProfile({ state, derived }: AstronautProfileProps): Rea
             Specialised skill
           </div>
           <div className="text-xs font-semibold text-slate-100">{occ.passive.name}</div>
-          <div className="text-[11px] text-slate-300">{occ.passive.description}</div>
+          <div className="text-[11px] text-slate-300">
+            <GlossaryText>{occ.passive.description}</GlossaryText>
+          </div>
         </div>
       </div>
 

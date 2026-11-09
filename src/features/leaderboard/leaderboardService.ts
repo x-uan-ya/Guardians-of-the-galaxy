@@ -33,15 +33,42 @@ function getStorage(): Storage | null {
   }
 }
 
-/** Pure: rank entries and keep the top N. Does not mutate the input. */
+/** Ordering: more sols first, then higher score, then whoever got there earlier. */
+function compareEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
+  if (b.daysSurvived !== a.daysSurvived) return b.daysSurvived - a.daysSurvived;
+  if (b.score !== a.score) return b.score - a.score;
+  return a.timestamp - b.timestamp; // earlier achiever wins ties
+}
+
+function nameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/**
+ * Pure: keep ONE entry per player, their best. A player is an account (userId).
+ * Older rows saved before accounts were recorded have no userId; they count as
+ * the account with the same name when there is one, and otherwise as a player
+ * identified by that name.
+ */
+export function bestPerPlayer(entries: readonly LeaderboardEntry[]): LeaderboardEntry[] {
+  const accountByName = new Map<string, string>();
+  for (const e of entries) {
+    if (e.userId && !accountByName.has(nameKey(e.name))) accountByName.set(nameKey(e.name), e.userId);
+  }
+
+  const best = new Map<string, LeaderboardEntry>();
+  for (const e of entries) {
+    const owner = e.userId ?? accountByName.get(nameKey(e.name));
+    const key = owner ? `user:${owner}` : `name:${nameKey(e.name)}`;
+    const current = best.get(key);
+    if (!current || compareEntries(e, current) < 0) best.set(key, e);
+  }
+  return [...best.values()];
+}
+
+/** Pure: one row per player (their best), ranked, top N. Does not mutate the input. */
 export function rankEntries(entries: LeaderboardEntry[]): LeaderboardEntry[] {
-  return [...entries]
-    .sort((a, b) => {
-      if (b.daysSurvived !== a.daysSurvived) return b.daysSurvived - a.daysSurvived;
-      if (b.score !== a.score) return b.score - a.score;
-      return a.timestamp - b.timestamp; // earlier achiever wins ties
-    })
-    .slice(0, LEADERBOARD_SIZE);
+  return bestPerPlayer(entries).sort(compareEntries).slice(0, LEADERBOARD_SIZE);
 }
 
 /** Minimal runtime guard that a parsed value looks like a LeaderboardEntry. */
@@ -51,6 +78,7 @@ function isEntry(v: unknown): v is LeaderboardEntry {
   return (
     typeof e.id === 'string' &&
     typeof e.name === 'string' &&
+    (e.userId === undefined || typeof e.userId === 'string') &&
     typeof e.daysSurvived === 'number' &&
     Number.isFinite(e.daysSurvived) &&
     typeof e.score === 'number' &&

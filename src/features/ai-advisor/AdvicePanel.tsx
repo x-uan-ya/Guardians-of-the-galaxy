@@ -15,6 +15,7 @@
 
 import type { ReactElement, ReactNode } from 'react';
 import { AlertTriangle, Check, Hand, Radio, ShieldCheck } from 'lucide-react';
+import { GlossaryText } from '../glossary/GlossaryText';
 import type { Advice, AdviceOption, RiskLevel } from './advisorTypes';
 
 interface AdvicePanelProps {
@@ -112,7 +113,9 @@ export function AdvicePanel({
       {/* Headline */}
       <h4 className="flex items-start gap-1.5 text-sm font-bold leading-snug text-white">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-blue" aria-hidden />
-        <span>Recommendation: {advice.headline}</span>
+        <span>
+          Recommendation: <GlossaryText>{advice.headline}</GlossaryText>
+        </span>
       </h4>
 
       {/* Recommended option */}
@@ -203,20 +206,28 @@ function OptionCard({
           {RISK_LABEL[option.riskLevel]}
         </span>
       </div>
-      <div className="text-sm font-semibold text-white">{option.label}</div>
+      <div className="text-sm font-semibold text-white">
+        <GlossaryText>{option.label}</GlossaryText>
+      </div>
       <dl className="mt-1 space-y-1 text-[11px] leading-snug text-slate-300">
         <div>
           <dt className="inline font-semibold text-slate-100">Why: </dt>
-          <dd className="inline">{option.role === 'recommended' ? advice.reason : option.reason}</dd>
+          <dd className="inline">
+            <GlossaryText>{option.role === 'recommended' ? advice.reason : option.reason}</GlossaryText>
+          </dd>
         </div>
         <div>
           <dt className="inline font-semibold text-slate-100">Risk: </dt>
-          <dd className="inline">{option.role === 'recommended' ? advice.risk : option.risk}</dd>
+          <dd className="inline">
+            <GlossaryText>{option.role === 'recommended' ? advice.risk : option.risk}</GlossaryText>
+          </dd>
         </div>
         <div>
           <dt className="inline font-semibold text-slate-100">Expected: </dt>
           <dd className="inline">
-            {option.role === 'recommended' ? advice.expectedConsequence : option.consequence}
+            <GlossaryText>
+              {option.role === 'recommended' ? advice.expectedConsequence : option.consequence}
+            </GlossaryText>
           </dd>
         </div>
       </dl>

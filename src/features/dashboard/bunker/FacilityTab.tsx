@@ -18,6 +18,7 @@ import { getFreeActions } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, StatusLevel } from '../../simulation/simulationTypes';
 import type { GameEvent } from '../../events/eventTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
+import { GlossaryText } from '../../glossary/GlossaryText';
 import { EffectChips } from './EffectChips';
 import { FACILITIES, LEVEL_HEX, facilityLevel, type FacilityId } from './facilities';
 
@@ -109,7 +110,9 @@ export function FacilityTab({
             {LEVEL_WORD[level]}
           </span>
         </div>
-        <p className="text-xs text-slate-400">{def.blurb}</p>
+        <p className="text-xs text-slate-400">
+          <GlossaryText>{def.blurb}</GlossaryText>
+        </p>
       </div>
 
       {hasEmergencyHere && emergency ? (
@@ -175,7 +178,9 @@ export function FacilityTab({
                     </span>
                   ) : null}
                 </div>
-                <p className="text-[11px] leading-snug text-slate-300">{action.description}</p>
+                <p className="text-[11px] leading-snug text-slate-300">
+                  <GlossaryText focusable={false}>{action.description}</GlossaryText>
+                </p>
                 <EffectChips action={action} />
               </button>
             );

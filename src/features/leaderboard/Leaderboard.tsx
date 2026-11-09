@@ -9,6 +9,7 @@
 import type { ReactElement } from 'react';
 import { Medal, Trophy } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getActiveUserId } from '../../lib/userScope';
 import { getLeaderboard } from './leaderboardService';
 import { getMission } from '../mission/missions';
 import { getOccupation } from '../mission/occupations';
@@ -22,13 +23,14 @@ const RANK_COLOR = ['text-mars-orange', 'text-slate-300', 'text-amber-600'];
 
 export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
   const entries = getLeaderboard();
+  const me = getActiveUserId();
 
   return (
     <section className="panel mx-auto max-w-3xl p-5">
       <SectionHeader
         title="Survival Leaderboard"
         icon={Trophy}
-        subtitle="Top 10 operators, ranked by sols survived"
+        subtitle="Top 10 operators, ranked by sols survived. Each operator appears once, with their best run."
       />
 
       {entries.length === 0 ? (
@@ -47,7 +49,8 @@ export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
             const rank = index + 1;
             const mission = getMission(entry.missionType);
             const occupation = getOccupation(entry.occupation);
-            const highlighted = entry.id === highlightId;
+            // Your own row is marked. Each player appears once, with their best run.
+            const highlighted = entry.id === highlightId || (me !== null && entry.userId === me);
             return (
               <li
                 key={entry.id}

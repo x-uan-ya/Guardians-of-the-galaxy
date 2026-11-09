@@ -116,6 +116,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
 
     submitScore({
       id: runId,
+      ...(session ? { userId: session.id } : {}),
       name,
       daysSurvived: game.state.day,
       score: game.state.mission.score,
