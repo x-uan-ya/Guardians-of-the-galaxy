@@ -54,14 +54,14 @@ export function ConfirmDialog({
 
   const overlay = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
       onClick={onCancel}
     >
       <div
-        className="panel w-full max-w-md p-5 animate-fade-in"
+        className="panel my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto p-5 animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center gap-2">

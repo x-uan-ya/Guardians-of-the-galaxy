@@ -12,6 +12,8 @@ import { EVENT_CATALOG, findEvent } from './eventCatalog';
 import { chapter1EventForMission } from './chapter1Events';
 import { chapter2EventForState } from './chapter2Events';
 import { chapter3EventForState } from './chapter3Events';
+import { chapter4EventForState } from './chapter4Events';
+import { chapter5EventForState } from './chapter5Events';
 import { MISSION_EVENTS_BY_SITE, MISSION_EVENT_IDS, missionEventVariant } from './missionEvents';
 import { seededRandom } from '../../lib/random';
 
@@ -39,6 +41,28 @@ const CHAPTER_3_EVENT_IDS: Record<number, string> = {
   12: 'story-sol-12-medical-radiation-concerns',
   13: 'story-sol-13-emergency-resource-allocation',
   14: 'story-sol-14-midpoint-preparation',
+};
+
+/** Fixed Chapter 4 events, indexed by Sol. */
+const CHAPTER_4_EVENT_IDS: Record<number, string> = {
+  16: 'story-sol-16-recovery-reassessment',
+  17: 'story-sol-17-unusual-sensor-readings',
+  18: 'story-sol-18-unexpected-discovery',
+  19: 'story-sol-19-research-or-recovery',
+  20: 'story-sol-20-hidden-system-vulnerability',
+  21: 'story-sol-21-cost-of-exploration',
+  22: 'story-sol-22-brief-opportunity',
+  23: 'story-sol-23-outpost-secret',
+};
+
+/** Fixed Chapter 5 events, indexed by Sol; Sol 30 is a debrief, not an event. */
+const CHAPTER_5_EVENT_IDS: Record<number, string> = {
+  24: 'story-sol-24-final-mission-assessment',
+  25: 'story-sol-25-system-deterioration',
+  26: 'story-sol-26-dangerous-opportunity',
+  27: 'story-sol-27-last-major-crisis',
+  28: 'story-sol-28-stabilisation-efforts',
+  29: 'story-sol-29-final-preparations',
 };
 
 /**
@@ -91,10 +115,65 @@ export function chapter3EventForDay(day: number, state: GameState): GameEvent | 
   return chapter3EventForState(event, state);
 }
 
+/**
+ * Return the scheduled Chapter 4 event, adapting its description to the
+ * current mission and relevant earlier decisions.
+ */
+export function chapter4EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId = CHAPTER_4_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 4 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter4EventForState(event, state);
+}
+
+/**
+ * Return the scheduled Chapter 5 event with mission-specific and
+ * history-dependent narrative details. Sol 30 is intentionally not scheduled.
+ */
+export function chapter5EventForDay(day: number, state: GameState): GameEvent | undefined {
+  const eventId = CHAPTER_5_EVENT_IDS[day];
+  if (!eventId) return undefined;
+
+  const event = findEvent(eventId);
+  if (!event) {
+    throw new Error(`Scheduled Chapter 5 event "${eventId}" is missing from the event catalogue.`);
+  }
+  return chapter5EventForState(event, state);
+}
+
 /** Probability weight for an event. Higher = more likely. */
 interface EventWeight {
   eventId: string;
   weight: number;
+}
+
+const FORCED_INCIDENT_COOLDOWN_DAYS = 5;
+const FORCED_INCIDENT_IDS = new Set(['catastrophic-system-failure', 'solar-storm']);
+
+function wasIncidentRecentlyResolved(state: GameState, eventId: string): boolean {
+  return state.history.some(
+    (decision) =>
+      decision.eventId === eventId &&
+      state.day - decision.day >= 0 &&
+      state.day - decision.day < FORCED_INCIDENT_COOLDOWN_DAYS
+  );
+}
+
+function selectWeightedIncident(state: GameState, weights: EventWeight[], seed: string): GameEvent | undefined {
+  const totalWeight = weights.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) return undefined;
+
+  const roll = seededRandom(seed) * totalWeight;
+  let cumulative = 0;
+  for (const item of weights) {
+    cumulative += item.weight;
+    if (roll < cumulative) return resolveEventForState(item.eventId, state);
+  }
+  return undefined;
 }
 
 /**
@@ -350,6 +429,57 @@ export function checkForcedEvent(state: GameState): GameEvent | undefined {
 }
 
 /**
+ * Select one optional incident without consulting the scheduled story events.
+ * The helper is pure: it only reads the supplied state and uses gameId/day
+ * seeds so repeated calls for the same state return the same result.
+ */
+export function selectSupplementaryIncident(state: GameState): GameEvent | undefined {
+  if (
+    state.mission.status === 'failed' ||
+    state.mission.status === 'completed' ||
+    state.activeEvents.length > 0 ||
+    state.day < 1 ||
+    state.day > 29
+  ) {
+    return undefined;
+  }
+
+  const { resources, crew, systems } = state;
+  const criticalSystems = [
+    systems.powerGeneration < 20,
+    systems.lifeSupportEfficiency < 20,
+    resources.oxygen < 20,
+    resources.power < 15,
+  ].filter(Boolean).length;
+
+  if (
+    criticalSystems >= 3 &&
+    !wasIncidentRecentlyResolved(state, 'catastrophic-system-failure')
+  ) {
+    return EVENT_CATALOG.find((event) => event.id === 'catastrophic-system-failure');
+  }
+
+  if (
+    crew.radiationExposure > 70 &&
+    systems.shieldingIntegrity < 30 &&
+    !wasIncidentRecentlyResolved(state, 'solar-storm')
+  ) {
+    return EVENT_CATALOG.find((event) => event.id === 'solar-storm');
+  }
+
+  const chance = state.day < 10 ? 0.1 : state.day < 20 ? 0.15 : 0.2;
+  const rollSeed = `${state.gameId}-day-${state.day}-supplementary-incident-roll`;
+  if (seededRandom(rollSeed) >= chance) return undefined;
+
+  const weights = calculateEventWeights(state).filter(
+    ({ eventId }) =>
+      !FORCED_INCIDENT_IDS.has(eventId) || !wasIncidentRecentlyResolved(state, eventId)
+  );
+  const selectionSeed = `${state.gameId}-day-${state.day}-supplementary-incident-select`;
+  return selectWeightedIncident(state, weights, selectionSeed);
+}
+
+/**
  * Main entry point: determine if an event should be added to the game state.
  * Call this during day advance to check for new events.
  */
@@ -370,6 +500,10 @@ export function triggerEvent(state: GameState): GameEvent | undefined {
   if (chapter2Event) return chapter2Event;
   const chapter3Event = chapter3EventForDay(state.day, state);
   if (chapter3Event) return chapter3Event;
+  const chapter4Event = chapter4EventForDay(state.day, state);
+  if (chapter4Event) return chapter4Event;
+  const chapter5Event = chapter5EventForDay(state.day, state);
+  if (chapter5Event) return chapter5Event;
 
   // First check for forced critical events
   const forcedEvent = checkForcedEvent(state);

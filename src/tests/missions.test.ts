@@ -148,4 +148,54 @@ describe('power penalty', () => {
     const lunar = advanceSimulationDay(freshGame({ missionType: 'lunar' })).dailyDelta;
     expect(deep.power ?? 0).toBeLessThan(lunar.power ?? 0);
   });
+
+  it('applies power penalties to gross generation even when net power is negative', () => {
+    const stateFor = (missionType: 'mars' | 'lunar' | 'deep-space') => ({
+      ...freshGame({ missionType, occupation: 'scientist' }),
+      resources: { power: 50, water: 50, food: 50, oxygen: 50 },
+      crew: { health: 90, morale: 100, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 50,
+        lifeSupportEfficiency: 80,
+        foodProduction: 80,
+        shieldingIntegrity: 80,
+      },
+    });
+
+    const mars = advanceSimulationDay(stateFor('mars')).dailyDelta.power;
+    const lunar = advanceSimulationDay(stateFor('lunar')).dailyDelta.power;
+    const deepSpace = advanceSimulationDay(stateFor('deep-space')).dailyDelta.power;
+
+    // Mission factors scale power-system output but not the 9-point drain.
+    expect(mars ?? 0).toBeCloseTo((50 / 100) * 12 * 0.92 - 9);
+    expect(lunar ?? 0).toBeCloseTo((50 / 100) * 12 * 0.85 - 9);
+    expect(deepSpace ?? 0).toBeCloseTo((50 / 100) * 12 * 0.8 * 0.8 - 9);
+    expect(mars ?? 0).toBeLessThan(-3);
+    expect(lunar ?? 0).toBeLessThan(mars ?? 0);
+    expect(deepSpace ?? 0).toBeLessThan(lunar ?? 0);
+  });
+
+  it('applies the mission power factor to occupation production bonuses', () => {
+    const stateFor = (missionType: 'mars' | 'lunar' | 'deep-space') => ({
+      ...freshGame({ missionType, occupation: 'pilot' }),
+      resources: { power: 50, water: 50, food: 50, oxygen: 50 },
+      crew: { health: 90, morale: 100, radiationExposure: 0 },
+      systems: {
+        powerGeneration: 0,
+        lifeSupportEfficiency: 80,
+        foodProduction: 80,
+        shieldingIntegrity: 80,
+      },
+    });
+
+    // Pilot power output is 2.5 points/Sol. It is scaled alongside system
+    // output, while the 9-point baseline consumption remains unchanged.
+    const mars = advanceSimulationDay(stateFor('mars')).dailyDelta.power;
+    const lunar = advanceSimulationDay(stateFor('lunar')).dailyDelta.power;
+    const deepSpace = advanceSimulationDay(stateFor('deep-space')).dailyDelta.power;
+
+    expect(mars ?? 0).toBeCloseTo(2.5 * 0.92 - 9);
+    expect(lunar ?? 0).toBeCloseTo(2.5 * 0.85 - 9);
+    expect(deepSpace ?? 0).toBeCloseTo(2.5 * 0.8 * 0.8 - 9);
+  });
 });

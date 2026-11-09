@@ -6,13 +6,23 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { STORAGE_KEY, clearGame, loadGame, saveGame } from '../lib/storage';
+import {
+  CHAPTER_INTRODUCTIONS_KEY,
+  STORAGE_KEY,
+  clearGame,
+  completeChapterIntroduction,
+  loadCompletedChapterIntroductions,
+  loadGame,
+  saveGame,
+} from '../lib/storage';
 import { parseGameState } from '../lib/validation';
 import { freshGame, withActiveEvent } from './helpers';
 import { chapter2EventForDay, chapter3EventForDay } from '../features/events/eventTriggers';
 import {
   advanceSimulationDay,
+  applyPlayerDecision,
   createInitialGameState,
+  getGameOverReason,
   resolveEvent,
 } from '../features/simulation/simulationEngine';
 import type { MissionType } from '../features/simulation/simulationTypes';
@@ -33,6 +43,61 @@ describe('loadGame / saveGame round trip', () => {
       expect(loaded.state.gameId).toBe(state.gameId);
       expect(loaded.state.day).toBe(state.day);
     }
+  });
+
+  it('preserves a completed mission and its debrief data after restoring', () => {
+    let state = applyPlayerDecision(freshGame(), {
+      actionId: 'routine-operations',
+      playerChoice: 'self-directed',
+    });
+    state = {
+      ...state,
+      day: 29,
+      activeEvents: [],
+      mission: { ...state.mission, status: 'active' },
+    };
+    const completed = advanceSimulationDay(state).state;
+
+    expect(completed.mission.status).toBe('completed');
+    expect(saveGame(completed).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.mission.status).toBe('completed');
+    expect(loaded.state.mission.score).toBe(completed.mission.score);
+    expect(loaded.state.resources).toEqual(completed.resources);
+    expect(loaded.state.history).toEqual(completed.history);
+  });
+
+  it('preserves a failed mission and its debrief data after restoring', () => {
+    const base = freshGame();
+    const withHistory = applyPlayerDecision(base, {
+      actionId: 'routine-operations',
+      playerChoice: 'self-directed',
+    });
+    const atSol29 = {
+      ...withHistory,
+      day: 29,
+      resources: { ...withHistory.resources, oxygen: 0.1 },
+      systems: { ...withHistory.systems, lifeSupportEfficiency: 0 },
+      activeEvents: [],
+      mission: { ...withHistory.mission, status: 'active' as const },
+    };
+    const failed = advanceSimulationDay(atSol29).state;
+
+    expect(failed.mission.status).toBe('failed');
+    expect(getGameOverReason(failed)).toBe('oxygen-depleted');
+    expect(saveGame(failed).status).toBe('saved');
+
+    const loaded = loadGame();
+    expect(loaded.status).toBe('loaded');
+    if (loaded.status !== 'loaded') return;
+    expect(loaded.state.mission.status).toBe('failed');
+    expect(getGameOverReason(loaded.state)).toBe('oxygen-depleted');
+    expect(loaded.state.mission.score).toBe(failed.mission.score);
+    expect(loaded.state.resources).toEqual(failed.resources);
+    expect(loaded.state.history).toEqual(failed.history);
   });
 
   it('restores location-specific active event content and resolves its saved choice', () => {
@@ -161,6 +226,56 @@ describe('loadGame / saveGame round trip', () => {
 
   it('reports empty when nothing is stored', () => {
     expect(loadGame().status).toBe('empty');
+  });
+});
+
+describe('chapter introduction progress', () => {
+  it('persists completed chapters by playthrough and restores them with the saved game', () => {
+    const state = freshGame({ gameId: 'intro-save-restore' });
+    expect(saveGame(state).status).toBe('saved');
+    expect(completeChapterIntroduction(state.gameId, 1)).toBe(true);
+
+    const restored = loadGame();
+    expect(restored.status).toBe('loaded');
+    expect(loadCompletedChapterIntroductions(state.gameId)).toEqual([1]);
+    expect(loadCompletedChapterIntroductions('a-different-run')).toEqual([]);
+  });
+
+  it('allows the same chapter introduction in a restarted run with a new gameId', () => {
+    const original = createInitialGameState({
+      missionType: 'mars',
+      occupation: 'engineer',
+      objective: 'survival',
+      operatingPhilosophy: 'balanced',
+      startingCondition: 'standard',
+      gameId: 'intro-original-run',
+    });
+    const restarted = createInitialGameState({
+      missionType: original.mission.missionType,
+      occupation: original.character.occupation,
+      objective: original.mission.objective,
+      operatingPhilosophy: original.mission.operatingPhilosophy,
+      startingCondition: original.mission.startingCondition,
+      gameId: 'intro-restarted-run',
+    });
+
+    expect(completeChapterIntroduction(original.gameId, 1)).toBe(true);
+    expect(loadCompletedChapterIntroductions(original.gameId)).toEqual([1]);
+    expect(loadCompletedChapterIntroductions(restarted.gameId)).toEqual([]);
+  });
+
+  it('keeps progress separate from the simulation save and safely handles malformed progress', () => {
+    const state = freshGame({ gameId: 'intro-progress-separate' });
+    expect(saveGame(state).status).toBe('saved');
+    completeChapterIntroduction(state.gameId, 3);
+
+    const restored = loadGame();
+    expect(restored.status).toBe('loaded');
+    if (restored.status === 'loaded') expect(restored.state).toEqual(state);
+    expect(loadCompletedChapterIntroductions(state.gameId)).toEqual([3]);
+
+    window.localStorage.setItem(CHAPTER_INTRODUCTIONS_KEY, '{bad-json');
+    expect(loadCompletedChapterIntroductions(state.gameId)).toEqual([]);
   });
 });
 

@@ -28,7 +28,15 @@
 
 import { generateGameId, makeId } from '../../lib/ids';
 import { FREE_ACTIONS } from '../events/eventCatalog';
-import { chapter1EventForDay, triggerEvent } from '../events/eventTriggers';
+import {
+  chapter1EventForDay,
+  chapter2EventForDay,
+  chapter3EventForDay,
+  chapter4EventForDay,
+  chapter5EventForDay,
+  selectSupplementaryIncident,
+  triggerEvent,
+} from '../events/eventTriggers';
 import {
   DEFAULT_CREW,
   DEFAULT_SYSTEMS,
@@ -63,8 +71,10 @@ import {
   clamp,
   computeDailyResourceDelta,
   isValidNumber,
+  lifeSupportProductionFactor,
   round2,
   sanitizeResourceChanges,
+  shortageCrewChanges,
 } from './resourceCalculations';
 import { calculateDerivedStatus } from './simulationSelectors';
 import {
@@ -396,13 +406,8 @@ function recomputeMissionStatus(state: GameState): MissionStatus {
     return current; // terminal — never change
   }
 
-  const { oxygen, water, food, power } = state.resources;
-  const { health, radiationExposure } = state.crew;
-
   // Failure conditions.
-  if (oxygen <= 0 || health <= 0 || radiationExposure >= RADIATION_LETHAL) {
-    return 'failed';
-  }
+  if (hasFatalMissionCondition(state)) return 'failed';
 
   // Completion: reached the survival target day still alive.
   if (state.day >= SURVIVAL_TARGET_DAY) {
@@ -410,12 +415,22 @@ function recomputeMissionStatus(state: GameState): MissionStatus {
   }
 
   // Critical (recoverable) conditions.
+  const { water, food, power, oxygen } = state.resources;
+  const { health, radiationExposure } = state.crew;
   const anyResourceCritical = [oxygen, water, food, power].some((v) => v <= CRITICAL_THRESHOLD);
   if (anyResourceCritical || health <= CRITICAL_THRESHOLD || radiationExposure >= RADIATION_CRITICAL) {
     return 'critical';
   }
 
   return 'active';
+}
+
+function hasFatalMissionCondition(state: GameState): boolean {
+  return (
+    state.resources.oxygen <= 0 ||
+    state.crew.health <= 0 ||
+    state.crew.radiationExposure >= RADIATION_LETHAL
+  );
 }
 
 /**
@@ -443,6 +458,16 @@ function withDerivedMission(state: GameState): GameState {
   const status = recomputeMissionStatus(state);
   const score = recomputeScore({ ...state, mission: { ...state.mission, status } });
   return { ...state, mission: { ...state.mission, status, score } };
+}
+
+function isScheduledStoryEvent(state: GameState, eventId: string): boolean {
+  return [
+    chapter1EventForDay(state.day, state.mission.missionType),
+    chapter2EventForDay(state.day, state),
+    chapter3EventForDay(state.day, state),
+    chapter4EventForDay(state.day, state),
+    chapter5EventForDay(state.day, state),
+  ].some((event) => event?.id === eventId);
 }
 
 // ---------------------------------------------------------------------------
@@ -542,10 +567,20 @@ export function applyPlayerDecision(state: GameState, input: DecisionInput): Gam
     crewAfter: settled.crew,
     statusAfter: settled.mission.status,
   });
-  return {
+  const derived: GameState = {
     ...settled,
     history: [...state.history, { ...record, outcome }],
   };
+
+  // Finishing a scheduled storyline event can bring a supplementary incident.
+  if (input.eventId === undefined || !isScheduledStoryEvent(state, input.eventId)) {
+    return derived;
+  }
+
+  const supplementaryIncident = selectSupplementaryIncident(derived);
+  return supplementaryIncident
+    ? { ...derived, activeEvents: [...derived.activeEvents, supplementaryIncident] }
+    : derived;
 }
 
 // ---------------------------------------------------------------------------
@@ -617,30 +652,43 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   // 1. Occupation daily system upkeep (engineer slows/reverses system wear).
   const systems = clampSystems(applyDailySystemUpkeep(state.systems, state.character));
 
+  const mod = state.mission.modifiers;
+  const powerFactor = mod.powerGenerationFactor * mod.solarFactor;
+  const productionFactors = {
+    power: powerFactor,
+    water: mod.lifeSupportFactor,
+    food: mod.foodProductionFactor,
+    oxygen: mod.lifeSupportFactor,
+  };
+
   // 2. Baseline daily resource delta from the (maintained) systems, plus the
   //    botanist's flat food bonus and the other occupations' flat bonuses
   //    (geologist water, chemist oxygen, pilot power).
   const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
-  const baseDelta = computeDailyResourceDelta(systems, state.crew, consumptionFactor);
+  const powerAvailabilityFactor = lifeSupportProductionFactor(state.resources.power);
+  const baseDelta = computeDailyResourceDelta(
+    systems,
+    state.crew,
+    consumptionFactor,
+    powerAvailabilityFactor,
+    productionFactors
+  );
   const foodBonus = foodProductionBonus(state.character);
   const roleBonus = dailyResourceBonus(state.character);
 
-  // Mission modifiers scale the POSITIVE (production) part of each daily delta
-  // only, so a penalty like "power −20%" reduces generation without perversely
-  // easing consumption. scaleGain(value, factor) = value * factor when value>0.
-  const mod = state.mission.modifiers;
-  const scaleGain = (value: number, factor: number): number =>
-    value > 0 ? round2(value * factor) : value;
-  const powerFactor = mod.powerGenerationFactor * mod.solarFactor;
-
+  // Occupation resource bonuses are production too, so apply the same mission
+  // output factors once to them as to the corresponding system output.
   const dailyDelta: ResourceChanges = {
-    power: scaleGain(round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0)), powerFactor),
-    water: scaleGain(round2((baseDelta.water ?? 0) + (roleBonus.water ?? 0)), mod.lifeSupportFactor),
-    food: scaleGain(
-      round2((baseDelta.food ?? 0) + foodBonus + (roleBonus.food ?? 0)),
-      mod.foodProductionFactor
+    power: round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0) * powerFactor),
+    water: round2(
+      (baseDelta.water ?? 0) +
+        (roleBonus.water ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor
     ),
-    oxygen: scaleGain(round2((baseDelta.oxygen ?? 0) + (roleBonus.oxygen ?? 0)), mod.lifeSupportFactor),
+    food: round2((baseDelta.food ?? 0) + (foodBonus + (roleBonus.food ?? 0)) * mod.foodProductionFactor),
+    oxygen: round2(
+      (baseDelta.oxygen ?? 0) +
+        (roleBonus.oxygen ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor
+    ),
   };
   let resources = applyResourceChanges(state.resources, dailyDelta);
 
@@ -659,13 +707,15 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
     });
   }
 
-  // 3. Daily crew recovery: the medical officer's health (only while not in
-  //    danger) and the commander's morale.
+  // 3. Daily crew recovery, shortage effects, and mission radiation.
   const recovery = dailyHealthRecovery(state.crew, state.character);
   const moraleRecovery = dailyMoraleRecovery(state.character);
+  const shortageChanges = shortageCrewChanges(resources);
   const crewChanges: CrewChanges = {};
-  if (recovery > 0) crewChanges.health = recovery;
-  if (moraleRecovery > 0) crewChanges.morale = moraleRecovery;
+  const healthChange = recovery + (shortageChanges.health ?? 0);
+  const moraleChange = moraleRecovery + (shortageChanges.morale ?? 0);
+  if (healthChange !== 0) crewChanges.health = healthChange;
+  if (moraleChange !== 0) crewChanges.morale = moraleChange;
   // Mission radiation hazard (Mars / deep-space) accrues each day.
   if (mod.radiationPerDay > 0) crewChanges.radiationExposure = mod.radiationPerDay;
   const crew =
@@ -688,7 +738,14 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   // Check terminal status before selecting an event; daily changes or a due
   // delayed effect may have ended the mission on this Sol.
-  const readyForEventCheck = withDerivedMission(afterEffects);
+  // A delayed completion status cannot supersede fatal metrics from this
+  // active-day advance. Existing terminal states are never re-evaluated here:
+  // advanceSimulationDay returns early for them above.
+  const statusCandidate =
+    afterEffects.mission.status === 'completed' && hasFatalMissionCondition(afterEffects)
+      ? { ...afterEffects, mission: { ...afterEffects.mission, status: 'active' as const } }
+      : afterEffects;
+  const readyForEventCheck = withDerivedMission(statusCandidate);
 
   // 4. Trigger a scheduled storyline event, or use the existing crisis system.
   const newEvent = triggerEvent(readyForEventCheck);

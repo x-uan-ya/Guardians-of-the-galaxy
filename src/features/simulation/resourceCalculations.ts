@@ -94,6 +94,39 @@ export function applySystemChanges(
 }
 
 /**
+ * Reduce life-support production according to the power reserve at the start
+ * of the Sol. Consumption is deliberately not scaled.
+ */
+export function lifeSupportProductionFactor(power: number): number {
+  if (!isValidNumber(power)) {
+    throw new RangeError(`Invalid power reserve: ${String(power)}`);
+  }
+  if (power === 0) return 0.5;
+  if (power <= 15) return 0.65;
+  if (power <= 35) return 0.85;
+  return 1;
+}
+
+/**
+ * Calculate daily health and morale changes caused by post-production food
+ * and water reserves. Food and water health damage is capped at 3 per Sol.
+ */
+export function shortageCrewChanges(resources: Readonly<Resources>): CrewChanges {
+  const foodPenalty =
+    resources.food === 0 ? 1 : resources.food <= 15 ? 0.5 : 0;
+  const waterPenalty =
+    resources.water === 0 ? 2 : resources.water <= 15 ? 1 : 0;
+  const healthPenalty = Math.min(3, foodPenalty + waterPenalty);
+  const moralePenalty =
+    resources.food === 0 ? 2 : resources.food <= 15 ? 1 : 0;
+
+  return {
+    ...(healthPenalty > 0 ? { health: -healthPenalty } : {}),
+    ...(moralePenalty > 0 ? { morale: -moralePenalty } : {}),
+  };
+}
+
+/**
  * Compute the net daily resource change from current systems and crew size.
  *
  * GAMEPLAY MODEL (illustrative, not real engineering data):
@@ -108,7 +141,9 @@ export function applySystemChanges(
 export function computeDailyResourceDelta(
   systems: Readonly<SystemState>,
   crew: Readonly<CrewState>,
-  philosophyConsumptionFactor: number
+  philosophyConsumptionFactor: number,
+  lifeSupportProductionMultiplier = 1,
+  productionFactors: Partial<Record<keyof Resources, number>> = {}
 ): ResourceChanges {
   // Baseline daily crew consumption (percentage points per day). Documented
   // gameplay assumption: a healthy crew draws these amounts from stores.
@@ -119,11 +154,20 @@ export function computeDailyResourceDelta(
   const moraleDrag = 1 + (1 - crew.morale / METRIC_MAX) * 0.15;
   const consume = philosophyConsumptionFactor * moraleDrag;
 
-  // Production: efficiency/100 scaled by a per-system max daily output.
-  const powerGen = (systems.powerGeneration / METRIC_MAX) * 12;
-  const oxygenGen = (systems.lifeSupportEfficiency / METRIC_MAX) * 9;
-  const waterGen = (systems.lifeSupportEfficiency / METRIC_MAX) * 7.5;
-  const foodGen = (systems.foodProduction / METRIC_MAX) * 7;
+  // Production: efficiency/100 scaled by a per-system max daily output. Mission
+  // factors apply to output only; they never reduce crew consumption.
+  const powerGen = (systems.powerGeneration / METRIC_MAX) * 12 * (productionFactors.power ?? 1);
+  const oxygenGen =
+    (systems.lifeSupportEfficiency / METRIC_MAX) *
+    9 *
+    lifeSupportProductionMultiplier *
+    (productionFactors.oxygen ?? 1);
+  const waterGen =
+    (systems.lifeSupportEfficiency / METRIC_MAX) *
+    7.5 *
+    lifeSupportProductionMultiplier *
+    (productionFactors.water ?? 1);
+  const foodGen = (systems.foodProduction / METRIC_MAX) * 7 * (productionFactors.food ?? 1);
 
   return {
     power: round2(powerGen - BASE.power * consume),

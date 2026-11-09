@@ -10,8 +10,11 @@ import {
   applyDelta,
   applyResourceChanges,
   clamp,
+  computeDailyResourceDelta,
   isValidNumber,
+  lifeSupportProductionFactor,
   sanitizeResourceChanges,
+  shortageCrewChanges,
 } from '../features/simulation/resourceCalculations';
 
 describe('clamp', () => {
@@ -47,6 +50,78 @@ describe('applyResourceChanges', () => {
     expect(resources.power).toBe(50); // unchanged
     expect(next.power).toBe(60);
     expect(next.food).toBe(45);
+  });
+});
+
+describe('lifeSupportProductionFactor', () => {
+  it.each([
+    [36, 1],
+    [35, 0.85],
+    [16, 0.85],
+    [15, 0.65],
+    [1, 0.65],
+    [0, 0.5],
+  ])('uses the expected factor when power is %s', (power, expected) => {
+    expect(lifeSupportProductionFactor(power)).toBe(expected);
+  });
+
+  it('reduces gross life-support production without scaling consumption', () => {
+    const systems = {
+      powerGeneration: 100,
+      lifeSupportEfficiency: 100,
+      foodProduction: 100,
+      shieldingIntegrity: 100,
+    };
+    const crew = { health: 100, morale: 100, radiationExposure: 0 };
+    const normal = computeDailyResourceDelta(systems, crew, 1);
+    const impaired = computeDailyResourceDelta(systems, crew, 1, 0.5);
+
+    expect(normal.oxygen).toBe(1);
+    expect(normal.water).toBe(0.5);
+    expect(impaired.oxygen).toBe(-3.5);
+    expect(impaired.water).toBe(-3.25);
+  });
+
+  it('applies output factors to gross production in surplus and deficit cases', () => {
+    const systems = {
+      powerGeneration: 100,
+      lifeSupportEfficiency: 100,
+      foodProduction: 100,
+      shieldingIntegrity: 100,
+    };
+    const crew = { health: 100, morale: 100, radiationExposure: 0 };
+    const factors = { power: 0.85, water: 0.8, food: 0.9, oxygen: 0.8 };
+
+    const surplus = computeDailyResourceDelta(systems, crew, 1, 1, factors);
+    expect(surplus.power).toBeCloseTo(10.2 - 9);
+    expect(surplus.oxygen).toBeCloseTo(7.2 - 8);
+    expect(surplus.food).toBeCloseTo(6.3 - 6);
+    expect(surplus.water).toBeCloseTo(6 - 7);
+
+    const deficit = computeDailyResourceDelta(
+      { ...systems, powerGeneration: 50 },
+      crew,
+      1,
+      1,
+      factors
+    );
+    expect(deficit.power).toBeCloseTo(5.1 - 9);
+    expect(deficit.power).toBeLessThan(-3);
+  });
+});
+
+describe('shortageCrewChanges', () => {
+  it.each([
+    [16, 16, {}],
+    [15, 16, { health: -0.5, morale: -1 }],
+    [1, 16, { health: -0.5, morale: -1 }],
+    [0, 16, { health: -1, morale: -2 }],
+    [16, 15, { health: -1 }],
+    [16, 1, { health: -1 }],
+    [16, 0, { health: -2 }],
+    [0, 0, { health: -3, morale: -2 }],
+  ])('calculates shortage effects at food %s and water %s', (food, water, expected) => {
+    expect(shortageCrewChanges({ power: 50, oxygen: 50, food, water })).toEqual(expected);
   });
 });
 
