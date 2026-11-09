@@ -42,6 +42,28 @@
 @container bunker-layout (min-width: 40rem) {
   .bunker-layout-grid {
     grid-template-columns: minmax(0, 1fr) minmax(18.5rem, 22rem);
+    align-items: stretch;
+  }
+
+  /* Side by side, the tablet is exactly as tall as the scene column next to it
+     (never taller), so no empty gap opens up under the scene. Long content scrolls
+     inside the tablet instead of stretching the page. */
+  .bunker-tablet-column {
+    position: relative;
+    min-height: 38rem;
+  }
+
+  .bunker-tablet-column > .bunker-tablet {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bunker-tablet-column > .bunker-tablet > .bunker-tablet-screen {
+    flex: 1;
+    min-height: 0;
+    height: auto;
   }
 }
 
@@ -619,14 +641,8 @@
 
 .bunker-tablet-footer { overflow-wrap: anywhere; }
 
-/* Stack naturally on narrow/short screens; bound only the wide-screen reader. */
-@media (min-height: 48rem) {
-  @container bunker-layout (min-width: 40rem) {
-    .bunker-tablet-screen {
-      height: min(52rem, calc(100dvh - 12rem));
-    }
-  }
-}
+/* When the tablet is stacked under the scene (narrow windows) it keeps its natural height.
+   Side by side, it is sized to the scene column (see the container query above). */
 
 .bunker-emergency {
   border: 2px solid #ff5a47;
