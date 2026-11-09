@@ -11,6 +11,7 @@ import { TutorialVideo } from './TutorialVideo';
 import {
   AlertTriangle,
   Award,
+  BookOpen,
   CheckCircle,
   Gauge,
   Lightbulb,
@@ -48,15 +49,34 @@ function Term({ name, children }: { name: string; children: ReactNode }): ReactE
   );
 }
 
-export function HowToPlay(): ReactElement {
+interface HowToPlayProps {
+  /** Opens the interactive tutorial as an overlay. Passed from App. */
+  onReplayTutorial?: () => void;
+}
+
+export function HowToPlay({ onReplayTutorial }: HowToPlayProps): ReactElement {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <header className="pb-2">
-        <h1 className="mb-1 text-3xl font-bold text-slate-100">How to Play</h1>
-        <p className="max-w-prose text-slate-300">
-          You run a small outpost on Mars. Each Sol (one Martian day) you check how things are, pick an
-          action, and move on to the next Sol. No experience needed.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="mb-1 text-3xl font-bold text-slate-100">How to Play</h1>
+            <p className="max-w-prose text-slate-300">
+              You run a small outpost on Mars. Each Sol (one Martian day) you check how things are, pick an
+              action, and move on to the next Sol. No experience needed.
+            </p>
+          </div>
+          {onReplayTutorial ? (
+            <button
+              type="button"
+              onClick={onReplayTutorial}
+              className="btn-secondary shrink-0"
+            >
+              <BookOpen className="h-4 w-4" aria-hidden />
+              Replay Tutorial
+            </button>
+          ) : null}
+        </div>
       </header>
 
       <TutorialVideo />

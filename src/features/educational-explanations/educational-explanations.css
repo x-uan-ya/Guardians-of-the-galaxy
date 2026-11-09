@@ -1,0 +1,159 @@
+/* ==========================================================================
+   educational-explanations.css — styles for Feature 5
+   --------------------------------------------------------------------------
+   Prefixed `edu-` so nothing clashes with teammates' CSS or the existing
+   `dtl-` timeline styles.
+   ========================================================================== */
+
+/* ---- Learn More toggle button ------------------------------------------ */
+
+.edu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid rgba(99, 179, 237, 0.25);
+  border-radius: 0.375rem;
+  background: rgba(99, 179, 237, 0.06);
+  color: rgba(99, 179, 237, 0.9);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  width: fit-content;
+}
+
+.edu-toggle:hover {
+  background: rgba(99, 179, 237, 0.12);
+  border-color: rgba(99, 179, 237, 0.4);
+  color: rgb(99, 179, 237);
+}
+
+.edu-toggle:focus-visible {
+  outline: 2px solid rgba(99, 179, 237, 0.6);
+  outline-offset: 2px;
+}
+
+.edu-toggle[aria-expanded='true'] {
+  background: rgba(99, 179, 237, 0.1);
+  border-color: rgba(99, 179, 237, 0.35);
+}
+
+/* ---- Lesson card container --------------------------------------------- */
+
+.edu-card {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(99, 179, 237, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(99, 179, 237, 0.04);
+}
+
+/* ---- Expand / collapse animation --------------------------------------- */
+
+.edu-expand-enter {
+  animation: edu-expand 0.3s ease-out both;
+}
+
+@keyframes edu-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Section headers inside the lesson --------------------------------- */
+
+.edu-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(99, 179, 237, 0.85);
+}
+
+/* ---- Section body text ------------------------------------------------- */
+
+.edu-section-body {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: rgb(203, 213, 225); /* slate-300 */
+}
+
+/* ---- Key takeaway highlight box ---------------------------------------- */
+
+.edu-takeaway {
+  border: 1px solid rgba(99, 179, 237, 0.2);
+  border-radius: 0.375rem;
+  background: rgba(99, 179, 237, 0.08);
+  padding: 0.625rem 0.75rem;
+}
+
+.edu-takeaway p {
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgb(226, 232, 240); /* slate-200 */
+}
+
+/* ---- Reference links --------------------------------------------------- */
+
+.edu-ref-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  color: rgba(99, 179, 237, 0.8);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.edu-ref-link:hover {
+  color: rgb(99, 179, 237);
+  text-decoration: underline;
+}
+
+.edu-ref-link:focus-visible {
+  outline: 2px solid rgba(99, 179, 237, 0.6);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Game vs. reality footnote ----------------------------------------- */
+
+.edu-footnote {
+  font-size: 0.75rem;
+  font-style: italic;
+  line-height: 1.6;
+  color: rgb(178, 190, 205); /* between slate-300 and slate-400 */
+  border-top: 1px solid rgba(99, 179, 237, 0.15);
+  padding: 0.625rem 0.75rem;
+  margin-top: 0.75rem;
+  background: rgba(99, 179, 237, 0.03);
+  border-radius: 0.375rem;
+}
+
+/* ---- Dividers between sections ----------------------------------------- */
+
+.edu-divider {
+  border: none;
+  border-top: 1px solid rgba(99, 179, 237, 0.1);
+  margin: 0.625rem 0;
+}
+
+/* ---- Respect reduced motion -------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .edu-expand-enter {
+    animation: none;
+  }
+}

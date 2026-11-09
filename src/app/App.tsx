@@ -20,7 +20,7 @@
  * flow changes route through useGameFlow.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -41,6 +41,9 @@ import { recordRun } from '../features/history/historyService';
 import { submitScore } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { EmergencyNotice } from '../features/events/EmergencyNotice';
+import { Tutorial } from '../features/tutorial/Tutorial';
+import { hasTutorialCompleted, markTutorialComplete } from '../features/tutorial/tutorialService';
+import { TitleScreen } from '../features/title/TitleScreen';
 import { Login } from '../features/auth/Login';
 import { Signup } from '../features/auth/Signup';
 import { DEFAULT_MISSION_CONFIG, useGameState } from '../hooks/useGameState';
@@ -65,9 +68,9 @@ type SubView = Extract<
  */
 function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   const game = useGameState();
-  // Flow starts at MISSION_SELECT: entering the site goes straight to mission
-  // selection, then occupation selection, then the dashboard. (No title/briefing.)
-  const flow = useGameFlow('MISSION_SELECT');
+  // Flow starts at TITLE: the player sees the title screen, then the tutorial,
+  // then mission selection, occupation selection, and finally the dashboard.
+  const flow = useGameFlow('TITLE');
   const { progression, dismissNotifications } = useProgression(game.state);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -78,16 +81,19 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   const [selectedMission, setSelectedMission] = useState<MissionType>('mars');
   // The leaderboard entry id for the run just submitted (for highlighting).
   const [lastLeaderboardId, setLastLeaderboardId] = useState<string | undefined>(undefined);
+  // When true, the Tutorial is shown as an overlay on top of the current game
+  // (triggered from the How to Play page). Mission state is NOT touched.
+  const [tutorialReplayOpen, setTutorialReplayOpen] = useState(false);
 
   // --- Engine <-> flow synchronisation --------------------------------------
 
-  // A restored saved run jumps straight into PLAYING (skipping mission select).
+  // A restored saved run jumps straight into PLAYING (skipping title, tutorial and mission select).
   // This must happen ONCE at start-up. If it ran every time the notice said
   // "restored", pressing New later would bounce straight back into the old run.
   const restoreHandledRef = useRef(false);
   useEffect(() => {
     if (restoreHandledRef.current) return;
-    if (game.notice.kind === 'restored' && flow.phase === 'MISSION_SELECT') {
+    if (game.notice.kind === 'restored' && flow.phase === 'TITLE') {
       restoreHandledRef.current = true;
       flow.restoreRun();
     }
@@ -220,6 +226,53 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
     if (flow.inRun) setSubView('dashboard');
   };
 
+  // --- Start mission handler (tutorial-aware) --------------------------------
+  // On the Title Screen, "Start Mission" checks whether this user has already
+  // completed the tutorial. First-time players see the tutorial; returning
+  // players skip straight to mission selection.
+  const handleStartMission = useCallback((): void => {
+    const session = getCurrentSession();
+    if (session && hasTutorialCompleted(session.id)) {
+      flow.skipTutorial(); // TITLE -> MISSION_SELECT
+    } else {
+      flow.start(); // TITLE -> TUTORIAL
+    }
+  }, [flow]);
+
+  // When the first-run tutorial finishes (completed or skipped), persist the
+  // flag and advance to mission selection.
+  const handleTutorialDone = useCallback((): void => {
+    const session = getCurrentSession();
+    if (session) markTutorialComplete(session.id);
+    flow.completeTutorial(); // TUTORIAL -> MISSION_SELECT
+  }, [flow]);
+
+  // Replay tutorial: open as overlay (no flow change, no game state change).
+  const handleReplayTutorial = useCallback((): void => {
+    setTutorialReplayOpen(true);
+  }, []);
+
+  const handleReplayTutorialClose = useCallback((): void => {
+    setTutorialReplayOpen(false);
+  }, []);
+
+  // (Login / sign-up is handled by the App gate below, before this component exists.)
+
+  // --- TITLE ----------------------------------------------------------------
+  if (flow.phase === 'TITLE') {
+    return (
+      <TitleScreen
+        onStart={handleStartMission}
+        onContinue={flow.restoreRun}
+        canContinue={game.notice.kind === 'restored'}
+      />
+    );
+  }
+
+  // --- TUTORIAL (interactive 5-step introduction for first-time players) ----
+  if (flow.phase === 'TUTORIAL') {
+    return <Tutorial onComplete={handleTutorialDone} />;
+  }
   // --- BRIEFING -------------------------------------------------------------
   if (flow.phase === 'BRIEFING') {
     return <Briefing onContinue={flow.continueBriefing} />;
@@ -274,6 +327,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
           onRespond={() => setSubView('dashboard')}
         />
       ) : null}
+
       {/* The page follows the sidebar. "View mission debrief" on the end screen
           selects the Debrief page (see handleViewDebrief), and every other page
           stays reachable from there. */}
@@ -288,11 +342,16 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
               onNavigate={handleNavigate}
             />
           ) : null}
-          {subView === 'debrief' ? <Debrief state={game.state} /> : null}
+          {subView === 'debrief' ? (
+            <Debrief
+              state={game.state}
+              onPlayAgain={status === 'failed' || status === 'completed' ? goToNewRun : undefined}
+            />
+          ) : null}
           {subView === 'history' ? <PlayHistory state={game.state} /> : null}
           {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
           {subView === 'leaderboard' ? <Leaderboard highlightId={lastLeaderboardId} /> : null}
-          {subView === 'how-to-play' ? <HowToPlay /> : null}
+          {subView === 'how-to-play' ? <HowToPlay onReplayTutorial={handleReplayTutorial} /> : null}
       </>
 
       <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
@@ -307,8 +366,8 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
         <PauseScreen onResume={flow.resume} onNewRun={goToNewRun} />
       ) : null}
 
-      {/* GAME_OVER overlay. */}
-      {flow.phase === 'GAME_OVER' ? (
+      {/* GAME_OVER overlay — only shown when viewing the dashboard. */}
+      {flow.phase === 'GAME_OVER' && subView === 'dashboard' ? (
         <GameOver
           state={game.state}
           onRestartSame={handleRestartSame}
@@ -317,8 +376,8 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
         />
       ) : null}
 
-      {/* MISSION_COMPLETE overlay. */}
-      {flow.phase === 'MISSION_COMPLETE' ? (
+      {/* MISSION_COMPLETE overlay — only shown when viewing the dashboard. */}
+      {flow.phase === 'MISSION_COMPLETE' && subView === 'dashboard' ? (
         <MissionComplete
           state={game.state}
           onViewDebrief={handleViewDebrief}
@@ -346,6 +405,11 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
         }}
         onCancel={() => setConfirm(null)}
       />
+
+      {/* Tutorial replay overlay — shown on top of the game, mission state untouched. */}
+      {tutorialReplayOpen ? (
+        <Tutorial onComplete={handleReplayTutorialClose} />
+      ) : null}
     </AppShell>
   );
 }

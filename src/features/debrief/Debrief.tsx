@@ -7,13 +7,16 @@
  */
 
 import type { ReactElement } from 'react';
-import { ClipboardList, Radio, TrendingUp } from 'lucide-react';
+import { ClipboardList, Radio, Rocket, TrendingUp } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { ProgressBar } from '../../components/ui/ProgressBar';
 import type { AdviceMode, PlayerChoice } from '../decisions/decisionTypes';
 import { buildDebriefSummary } from './debriefBuilder';
+import { DecisionTimeline } from './timeline/DecisionTimeline';
+import { LeadershipProfileCard } from '../leadership-profile/LeadershipProfileCard';
 import { RESOURCE_LABELS } from '../dashboard/labels';
 import { RESOURCE_KEYS, type GameState } from '../simulation/simulationTypes';
+import { OutcomeAnalysis } from '../outcome-analysis/OutcomeAnalysis';
+import { ComparisonPanel } from '../decision-comparison/ComparisonPanel';
 
 const CHOICE_LABEL: Record<PlayerChoice, string> = {
   'accepted-recommendation': 'Accepted the recommendation',
@@ -29,9 +32,11 @@ const MODE_LABEL: Record<AdviceMode, string> = {
 
 interface DebriefProps {
   state: GameState;
+  /** When provided, a "Play Again" CTA is shown at the bottom of the debrief. */
+  onPlayAgain?: () => void;
 }
 
-export function Debrief({ state }: DebriefProps): ReactElement {
+export function Debrief({ state, onPlayAgain }: DebriefProps): ReactElement {
   const summary = buildDebriefSummary(state);
 
   return (
@@ -46,6 +51,12 @@ export function Debrief({ state }: DebriefProps): ReactElement {
           <Stat label="Decisions" value={String(summary.totalDecisions)} />
         </div>
       </section>
+
+      {/* Mission Outcome Analysis (Feature 3) */}
+      <OutcomeAnalysis state={state} />
+
+      {/* What If? Compare Decisions (Feature 6) */}
+      <ComparisonPanel state={state} />
 
       {/* Net resource change */}
       <section className="panel p-5">
@@ -68,14 +79,7 @@ export function Debrief({ state }: DebriefProps): ReactElement {
       </section>
 
       {/* Leadership profile */}
-      <section className="panel p-5">
-        <SectionHeader title="Leadership Profile" subtitle="Derived from decision patterns (descriptive only)" />
-        <div className="space-y-3">
-          <ProfileBar label="Advisor Trust" value={summary.leadershipProfile.advisorTrust} />
-          <ProfileBar label="Caution" value={summary.leadershipProfile.caution} />
-          <ProfileBar label="Ambition" value={summary.leadershipProfile.ambition} />
-        </div>
-      </section>
+      <LeadershipProfileCard state={state} />
 
       {/* AI advisor history: what it recommended, what you decided, what happened. */}
       <section className="panel p-5" aria-label="AI advisor history">
@@ -140,31 +144,21 @@ export function Debrief({ state }: DebriefProps): ReactElement {
         )}
       </section>
 
-      {/* Decision timeline */}
-      <section className="panel p-5">
-        <SectionHeader title="Decision Timeline" />
-        {summary.timeline.length === 0 ? (
-          <p className="text-sm text-slate-400">No decisions recorded yet. Play a few sols, then return here.</p>
-        ) : (
-          <ol className="relative space-y-3 border-l border-space-600 pl-4">
-            {summary.timeline.map((entry) => (
-              <li key={entry.record.id} className="relative">
-                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-mars-orange" aria-hidden />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-200">{entry.actionLabel}</span>
-                  <span className="tnum text-xs text-slate-400">Sol {entry.day}</span>
-                </div>
-                <p className="text-xs text-slate-400">{entry.explanation}</p>
-                {entry.overrodeAdvisor ? (
-                  <span className="mt-1 inline-block rounded bg-accent-blue/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent-blue">
-                    Overrode advisor
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      {/* Enhanced decision timeline */}
+      <DecisionTimeline state={state} />
+
+      {/* Play Again CTA — only rendered when the mission has ended */}
+      {onPlayAgain ? (
+        <section className="panel p-6 text-center">
+          <p className="mb-4 text-sm text-slate-300">
+            Ready to take on Mars again? Choose a new occupation and start a fresh mission.
+          </p>
+          <button type="button" className="btn-primary" onClick={onPlayAgain}>
+            <Rocket className="h-4 w-4" aria-hidden />
+            Play Again
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -178,14 +172,3 @@ function Stat({ label, value }: { label: string; value: string }): ReactElement 
   );
 }
 
-function ProfileBar({ label, value }: { label: string; value: number }): ReactElement {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-slate-300">{label}</span>
-        <span className="tnum text-slate-400">{Math.round(value)}%</span>
-      </div>
-      <ProgressBar value={value} level="ok" label={label} />
-    </div>
-  );
-}
