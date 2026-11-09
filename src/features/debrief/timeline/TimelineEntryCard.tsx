@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Clock,
   Flag,
+  Hourglass,
   Package,
   Rocket,
   Skull,
@@ -30,6 +31,7 @@ import type { ResourceKey } from '../../simulation/simulationTypes';
 import type {
   DecisionEntry,
   EnhancedTimelineEntry,
+  FiredEffectEntry,
   MilestoneEntry,
   TimelineConsequence,
 } from './timelineTypes';
@@ -161,6 +163,36 @@ function MilestoneCard({ entry }: { entry: MilestoneEntry }): ReactElement {
 }
 
 // ---------------------------------------------------------------------------
+// Fired-effect card (a delayed consequence that really happened)
+// ---------------------------------------------------------------------------
+
+function EffectCard({ entry }: { entry: FiredEffectEntry }): ReactElement {
+  return (
+    <div
+      className="relative ml-10 rounded-lg border border-status-warn/25 bg-status-warn/5 p-3"
+      data-testid="timeline-effect"
+    >
+      <div className="dtl-dot dtl-dot-event">
+        <Hourglass className="h-2.5 w-2.5" aria-hidden />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs font-bold text-status-warn">Sol {entry.day}</span>
+        <span className="rounded-full border border-status-warn/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-status-warn">
+          Consequence
+        </span>
+      </div>
+      <p className="mt-0.5 text-sm font-medium text-slate-200">{entry.description}</p>
+      {entry.changes ? <p className="mt-0.5 font-mono text-[11px] text-slate-300">{entry.changes}</p> : null}
+      {entry.cause ? (
+        <p className="mt-0.5 text-xs text-slate-500">
+          Caused by your Sol {entry.cause.day} choice: {entry.cause.actionLabel}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Decision card (expandable)
 // ---------------------------------------------------------------------------
 
@@ -246,7 +278,7 @@ function DecisionCard({ entry }: { entry: DecisionEntry }): ReactElement {
           {/* Note about already-fired effects */}
           {entry.pendingConsequences.length === 0 && entry.eventContext ? (
             <p className="text-[10px] italic text-slate-600">
-              Delayed consequences that have already resolved are not shown (not yet tracked in save data).
+              Consequences that have already happened appear as their own rows on the timeline.
             </p>
           ) : null}
 
@@ -269,6 +301,9 @@ interface TimelineEntryCardProps {
 export function TimelineEntryCard({ entry }: TimelineEntryCardProps): ReactElement {
   if (entry.kind === 'milestone') {
     return <MilestoneCard entry={entry} />;
+  }
+  if (entry.kind === 'effect') {
+    return <EffectCard entry={entry} />;
   }
   return <DecisionCard entry={entry} />;
 }

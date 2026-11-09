@@ -21,6 +21,8 @@ import type { GameEvent } from '../../events/eventTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
 import { GlossaryText } from '../../glossary/GlossaryText';
 import { EffectChips } from './EffectChips';
+import { calculateResourceForecast } from '../../simulation/resourceForecast';
+import { formatPerSol, formatRunway } from './formatFlow';
 import { FACILITIES, LEVEL_HEX, facilityLevel, type FacilityId } from './facilities';
 
 interface FacilityTabProps {
@@ -76,6 +78,9 @@ export function FacilityTab({
   const level = facilityLevel(def, derived);
 
   const rows: Row[] = [];
+  // Per-Sol flow for the room's resource, worked out by the engine.
+  const flowResource = def.resource ?? (def.id === 'greenhouse' ? 'food' : null);
+  const flow = flowResource ? calculateResourceForecast(state)[flowResource] : null;
   if (def.resource) {
     const m = derived.resources[def.resource];
     rows.push({ id: `r-${def.resource}`, label: RESOURCE_LABELS[def.resource], value: m.value, level: m.level, preview: preview?.resources[def.resource] });
@@ -150,6 +155,36 @@ export function FacilityTab({
             {row.note ? <p className="mt-0.5 text-[10px] text-slate-500">{row.note}</p> : null}
           </div>
         ))}
+        {flow ? (
+          <div className="border-t border-space-600/60 pt-2" data-testid="facility-flow">
+            <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+              Per Sol, at today&apos;s rate
+            </div>
+            <dl className="bunker-flow-table tnum">
+              <dt>Produced</dt>
+              <dd>+{flow.production.toFixed(1)}</dd>
+              <dt>Used by crew</dt>
+              <dd>{'\u2212'}{flow.consumption.toFixed(1)}</dd>
+              <dt>Net change</dt>
+              <dd style={{ color: flow.net < 0 ? LEVEL_HEX.warn : undefined }}>{formatPerSol(flow.net)}</dd>
+              <dt>In store now</dt>
+              <dd>{flow.available.toFixed(0)}</dd>
+              <dt>Will last</dt>
+              <dd style={{ color: LEVEL_HEX[flow.level] }}>
+                {flow.daysRemaining === null ? 'Not running down' : formatRunway(flow.daysRemaining, flow.lastsToRescue)}
+              </dd>
+            </dl>
+            {flow.warning ? (
+              <p
+                className="mt-1.5 text-[11px] font-semibold"
+                style={{ color: LEVEL_HEX[flow.level] }}
+                role="status"
+              >
+                {flow.warning}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {def.id === 'computer' ? (
           <p className="text-[11px] text-slate-400">
             Mission status: <span className="font-semibold text-slate-200">{state.mission.status.toUpperCase()}</span>{' '}

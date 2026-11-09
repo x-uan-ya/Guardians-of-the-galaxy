@@ -13,6 +13,7 @@
 import { applyCrewChanges, applyResourceChanges, applySystemChanges } from './resourceCalculations';
 import type {
   DelayedEffect,
+  FiredEffect,
   GameState,
   MissionStatus,
 } from './simulationTypes';
@@ -114,6 +115,8 @@ export function processDueEffects(state: GameState): ProcessEffectsResult {
     // The due effects are consumed; only future effects remain. This is what
     // guarantees an effect never fires twice.
     pendingEffects: remaining,
+    // Keep a permanent record of what fired and when, for the decision timeline.
+    firedEffects: [...(state.firedEffects ?? []), ...due.map((effect): FiredEffect => ({ ...effect, firedDay: state.day }))],
   };
 
   return { state: nextState, applied: due };

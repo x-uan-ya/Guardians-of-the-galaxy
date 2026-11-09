@@ -7,7 +7,8 @@
  * The timeline displays three kinds of entries:
  *  - milestones: synthetic markers for mission start, resupply, outcome
  *  - decisions: one per DecisionRecord in state.history
- *  - (future) fired-effects: blocked until Person 2 adds a firedEffects log
+ *  - effects: one per consequence that has already fired (state.firedEffects),
+ *    linked back to the decision that caused it
  */
 
 import type { DecisionRecord } from '../../decisions/decisionTypes';
@@ -87,5 +88,26 @@ export interface EventContext {
 // The union
 // ---------------------------------------------------------------------------
 
+/**
+ * A delayed consequence that has fired, e.g. "Sol 12: Power shortage".
+ * Built from state.firedEffects, so it only appears for effects the engine
+ * really applied.
+ */
+export interface FiredEffectEntry {
+  kind: 'effect';
+  id: string;
+  /** The Sol the effect was applied on. */
+  day: number;
+  /** Sort tiebreaker: effects land at the start of a Sol, before that Sol's decisions. */
+  sortOrder: number;
+  /** Effect description from the event definition. */
+  description: string;
+  effectType: DelayedEffect['type'];
+  /** Plain-English summary of what changed, e.g. "Power −8, Morale −3". */
+  changes: string;
+  /** The decision that set this consequence in motion (null if no longer in history). */
+  cause: { decisionId: string; actionLabel: string; day: number } | null;
+}
+
 /** Any entry that appears on the enhanced timeline. */
-export type EnhancedTimelineEntry = MilestoneEntry | DecisionEntry;
+export type EnhancedTimelineEntry = MilestoneEntry | DecisionEntry | FiredEffectEntry;

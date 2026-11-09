@@ -14,7 +14,7 @@
  * connects to the existing useGameState handlers.
  */
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { ClipboardList, Clock, MapPin, Package, ScrollText, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -27,6 +27,7 @@ import { decisionWithAdvice } from '../../ai-advisor/adviceSnapshot';
 import type { Advice } from '../../ai-advisor/advisorTypes';
 import { recentDecisions, sourceDecisionFor, upcomingEffects } from '../../decisions/decisionHistory';
 import type { AdviceSnapshot, PlayerChoice } from '../../decisions/decisionTypes';
+import { ALLOCATION_ACTION_IDS } from '../../events/allocationActions';
 import type { GameEvent } from '../../events/eventTypes';
 import { getFreeActions, resupplyDay } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, MissionStatus } from '../../simulation/simulationTypes';
@@ -321,11 +322,19 @@ function MissionTab(
           ) : (
             <div className="space-y-2">
               {!adviceAsked ? <AdviceAskButton onAsk={onAskAdvice} disabled={terminal} /> : null}
-              {actions.map((action) => {
+              {actions.map((action, index) => {
                 const planned = plannedActionId === action.id;
+                const startsAllocation =
+                  ALLOCATION_ACTION_IDS.has(action.id) &&
+                  !ALLOCATION_ACTION_IDS.has(actions[index - 1]?.id ?? '');
                 return (
+                  <Fragment key={action.id}>
+                  {startsAllocation ? (
+                    <div className="pt-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                      Resource allocation
+                    </div>
+                  ) : null}
                   <button
-                    key={action.id}
                     type="button"
                     className="bunker-action"
                     aria-pressed={planned}
@@ -345,6 +354,7 @@ function MissionTab(
                     </p>
                     <EffectChips action={action} />
                   </button>
+                  </Fragment>
                 );
               })}
             </div>

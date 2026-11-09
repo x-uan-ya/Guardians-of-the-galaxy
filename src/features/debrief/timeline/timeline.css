@@ -42,7 +42,8 @@
 
 .dtl-dot {
   position: absolute;
-  left: 8px;
+  /* Cards sit 40px right of the connector line (16px), so pull the dot back onto it. */
+  left: -32px;
   top: 6px;
   width: 16px;
   height: 16px;

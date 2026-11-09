@@ -28,11 +28,13 @@ import { findEvent } from '../../events/eventCatalog';
 import { getOccupation } from '../../mission/occupations';
 import { getMission } from '../../mission/missions';
 import { upcomingEffects } from '../../decisions/decisionHistory';
+import { summariseChanges } from '../../decisions/decisionOutcome';
 import type { GameState } from '../../simulation/simulationTypes';
 import type {
   DecisionEntry,
   EnhancedTimelineEntry,
   EventContext,
+  FiredEffectEntry,
   MilestoneEntry,
   TimelineConsequence,
 } from './timelineTypes';
@@ -165,6 +167,36 @@ function buildDecisionEntries(state: GameState): DecisionEntry[] {
 }
 
 // ---------------------------------------------------------------------------
+// Fired-effect entry generation
+// ---------------------------------------------------------------------------
+
+/** One row per consequence the engine really applied (state.firedEffects). */
+function buildEffectEntries(state: GameState): FiredEffectEntry[] {
+  const decisionById = new Map(state.history.map((record) => [record.id, record]));
+  return (state.firedEffects ?? []).map((effect, index) => {
+    const p = effect.parameters;
+    const changes =
+      p.kind === 'status'
+        ? `Mission ${p.status}`
+        : summariseChanges(p.changes);
+    const source = decisionById.get(effect.sourceDecisionId);
+    return {
+      kind: 'effect' as const,
+      id: `fired-${effect.id}`,
+      day: effect.firedDay,
+      // After milestones (0), before the decisions made on the same Sol (100+).
+      sortOrder: 50 + index / 1000,
+      description: effect.description,
+      effectType: effect.type,
+      changes,
+      cause: source
+        ? { decisionId: source.id, actionLabel: source.actionLabel, day: source.day }
+        : null,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -176,7 +208,9 @@ export function buildEnhancedTimeline(state: GameState): EnhancedTimelineEntry[]
   const milestones = buildMilestones(state);
   const decisions = buildDecisionEntries(state);
 
-  const all: EnhancedTimelineEntry[] = [...milestones, ...decisions];
+  const effects = buildEffectEntries(state);
+
+  const all: EnhancedTimelineEntry[] = [...milestones, ...effects, ...decisions];
 
   // Stable sort: primary by day, secondary by sortOrder.
   all.sort((a, b) => a.day - b.day || a.sortOrder - b.sortOrder);

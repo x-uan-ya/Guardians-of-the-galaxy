@@ -138,13 +138,14 @@ describe('Recommended / Alternative / Risky', () => {
     expect(calm?.options.map((o) => o.role)).toEqual(['recommended', 'alternative', 'alternative']);
     expect(calm?.options.every((o) => o.riskLevel === 'low')).toBe(true);
 
-    // Power 18%: a maintenance shift (-4 power) leaves 14%, which is dangerous.
+    // Power 18%: an emergency allocation (-8 power) leaves 10%, the most dangerous
+    // option on the list (a maintenance shift, -4 power, would leave 14%).
     const stressed = buildAdvice({ state: withResources({ power: 18 }) });
     expect(stressed?.options.map((o) => o.role)).toEqual(['recommended', 'alternative', 'risky']);
     const risky = stressed?.options.find((o) => o.role === 'risky');
-    expect(risky?.actionId).toBe('maintenance-shift');
+    expect(risky?.actionId).toBe('emergency-allocation');
     expect(risky?.riskLevel).toBe('high');
-    expect(risky?.risk).toContain('only 14% power reserve');
+    expect(risky?.risk).toContain('only 10% power reserve');
   });
 
   it('describes a problem that already exists without blaming the action', () => {

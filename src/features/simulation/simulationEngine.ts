@@ -69,6 +69,7 @@ import {
   applyResourceChanges,
   applySystemChanges,
   clamp,
+  computeDailyResourceBreakdown,
   computeDailyResourceDelta,
   isValidNumber,
   lifeSupportProductionFactor,
@@ -92,12 +93,13 @@ import {
   type MissionStatus,
   type Occupation,
   type ResourceChanges,
+  type ResourceKey,
   type SystemChanges,
   type SystemState,
 } from './simulationTypes';
 
 // Re-export selectors so callers have one import surface for the engine.
-export { calculateDerivedStatus } from './simulationSelectors';
+export { calculateDerivedStatus, calculateOverallStatus } from './simulationSelectors';
 export { InvalidDecisionError } from './eventResolver';
 
 /**
@@ -336,6 +338,9 @@ export function validateGameState(state: unknown): ValidationResult {
 
   if (!Array.isArray(s.history)) errors.push('history must be an array.');
   if (!Array.isArray(s.pendingEffects)) errors.push('pendingEffects must be an array.');
+  if (s.firedEffects !== undefined && !Array.isArray(s.firedEffects)) {
+    errors.push('firedEffects must be an array when present.');
+  }
   if (!Array.isArray(s.activeEvents)) errors.push('activeEvents must be an array.');
 
   return { valid: errors.length === 0, errors };
@@ -398,7 +403,7 @@ function clampSystems(systems: SystemState): SystemState {
 const CRITICAL_THRESHOLD = 15;
 const RADIATION_CRITICAL = 80;
 const RADIATION_LETHAL = 100;
-const SURVIVAL_TARGET_DAY = 30;
+export const SURVIVAL_TARGET_DAY = 30;
 
 function recomputeMissionStatus(state: GameState): MissionStatus {
   const current = state.mission.status;
@@ -618,6 +623,81 @@ export function processDelayedEffects(state: GameState): GameState {
 // advanceSimulationDay
 // ---------------------------------------------------------------------------
 
+export interface DailyProjection {
+  /** Systems after this Sol's occupation upkeep (what production is based on). */
+  systems: SystemState;
+  /** What the systems produce per Sol, including occupation bonuses. */
+  production: Record<ResourceKey, number>;
+  /** What the crew consumes per Sol. */
+  consumption: Record<ResourceKey, number>;
+  /** Net change per Sol (production minus consumption). This is what the engine applies. */
+  dailyDelta: ResourceChanges;
+}
+
+/**
+ * The routine daily resource change for the CURRENT state, exactly as
+ * advanceSimulationDay applies it (system upkeep, mission modifiers, power
+ * availability for life support, occupation bonuses). Pure: it does not change
+ * the state and ignores events, delayed effects and the one-time resupply.
+ */
+export function projectDailyResources(state: GameState): DailyProjection {
+  // Occupation daily system upkeep (engineer slows/reverses system wear).
+  const systems = clampSystems(applyDailySystemUpkeep(state.systems, state.character));
+
+  const mod = state.mission.modifiers;
+  const powerFactor = mod.powerGenerationFactor * mod.solarFactor;
+  const productionFactors = {
+    power: powerFactor,
+    water: mod.lifeSupportFactor,
+    food: mod.foodProductionFactor,
+    oxygen: mod.lifeSupportFactor,
+  };
+
+  // Baseline daily resource delta from the (maintained) systems, plus the
+  // botanist's flat food bonus and the other occupations' flat bonuses
+  // (geologist water, chemist oxygen, pilot power).
+  const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
+  const powerAvailabilityFactor = lifeSupportProductionFactor(state.resources.power);
+  const baseDelta = computeDailyResourceDelta(
+    systems,
+    state.crew,
+    consumptionFactor,
+    powerAvailabilityFactor,
+    productionFactors
+  );
+  const breakdown = computeDailyResourceBreakdown(
+    systems,
+    state.crew,
+    consumptionFactor,
+    powerAvailabilityFactor,
+    productionFactors
+  );
+  const foodBonus = foodProductionBonus(state.character);
+  const roleBonus = dailyResourceBonus(state.character);
+
+  // Occupation resource bonuses are production too, so apply the same mission
+  // output factors once to them as to the corresponding system output.
+  const bonus: Record<ResourceKey, number> = {
+    power: (roleBonus.power ?? 0) * powerFactor,
+    water: (roleBonus.water ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor,
+    food: (foodBonus + (roleBonus.food ?? 0)) * mod.foodProductionFactor,
+    oxygen: (roleBonus.oxygen ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor,
+  };
+  const dailyDelta: ResourceChanges = {
+    power: round2((baseDelta.power ?? 0) + bonus.power),
+    water: round2((baseDelta.water ?? 0) + bonus.water),
+    food: round2((baseDelta.food ?? 0) + bonus.food),
+    oxygen: round2((baseDelta.oxygen ?? 0) + bonus.oxygen),
+  };
+  const production = {} as Record<ResourceKey, number>;
+  const consumption = {} as Record<ResourceKey, number>;
+  for (const key of RESOURCE_KEYS) {
+    production[key] = round2(breakdown.production[key] + bonus[key]);
+    consumption[key] = round2(breakdown.consumption[key]);
+  }
+  return { systems, production, consumption, dailyDelta };
+}
+
 export interface AdvanceResult {
   state: GameState;
   /** Delayed effects that fired during this advance (for the activity feed). */
@@ -649,47 +729,10 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   const nextDay = state.day + 1;
 
-  // 1. Occupation daily system upkeep (engineer slows/reverses system wear).
-  const systems = clampSystems(applyDailySystemUpkeep(state.systems, state.character));
-
+  // 1-2. Occupation upkeep, then the baseline daily resource delta. Shared with
+  //      the forecast shown on the dashboard so the two always agree.
+  const { systems, dailyDelta } = projectDailyResources(state);
   const mod = state.mission.modifiers;
-  const powerFactor = mod.powerGenerationFactor * mod.solarFactor;
-  const productionFactors = {
-    power: powerFactor,
-    water: mod.lifeSupportFactor,
-    food: mod.foodProductionFactor,
-    oxygen: mod.lifeSupportFactor,
-  };
-
-  // 2. Baseline daily resource delta from the (maintained) systems, plus the
-  //    botanist's flat food bonus and the other occupations' flat bonuses
-  //    (geologist water, chemist oxygen, pilot power).
-  const consumptionFactor = PHILOSOPHY_CONSUMPTION[state.mission.operatingPhilosophy];
-  const powerAvailabilityFactor = lifeSupportProductionFactor(state.resources.power);
-  const baseDelta = computeDailyResourceDelta(
-    systems,
-    state.crew,
-    consumptionFactor,
-    powerAvailabilityFactor,
-    productionFactors
-  );
-  const foodBonus = foodProductionBonus(state.character);
-  const roleBonus = dailyResourceBonus(state.character);
-
-  // Occupation resource bonuses are production too, so apply the same mission
-  // output factors once to them as to the corresponding system output.
-  const dailyDelta: ResourceChanges = {
-    power: round2((baseDelta.power ?? 0) + (roleBonus.power ?? 0) * powerFactor),
-    water: round2(
-      (baseDelta.water ?? 0) +
-        (roleBonus.water ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor
-    ),
-    food: round2((baseDelta.food ?? 0) + (foodBonus + (roleBonus.food ?? 0)) * mod.foodProductionFactor),
-    oxygen: round2(
-      (baseDelta.oxygen ?? 0) +
-        (roleBonus.oxygen ?? 0) * powerAvailabilityFactor * mod.lifeSupportFactor
-    ),
-  };
   let resources = applyResourceChanges(state.resources, dailyDelta);
 
   // 2b. One-time resupply. On the day AFTER the supply window closes

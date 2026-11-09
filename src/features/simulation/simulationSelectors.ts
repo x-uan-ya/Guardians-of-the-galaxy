@@ -87,5 +87,62 @@ export function calculateDerivedStatus(state: GameState): DerivedStatus {
   return { resources, crew, systems, overall };
 }
 
+/** The single headline state of the outpost, from calm to dead. */
+export type OverallStatusId = 'normal' | 'warning' | 'critical' | 'emergency' | 'death';
+
+export interface OverallStatus {
+  id: OverallStatusId;
+  /** Short word for the badge, e.g. "WARNING". */
+  label: string;
+  /** One plain-English sentence saying why. */
+  detail: string;
+}
+
+const METRIC_NAMES: Record<string, string> = {
+  power: 'Power',
+  water: 'Water',
+  food: 'Food',
+  oxygen: 'Oxygen',
+  health: 'Crew health',
+  radiationExposure: 'Radiation',
+};
+
+/**
+ * One overall status for the dashboard:
+ *   normal -> warning -> critical -> emergency -> death
+ * death:     the mission has failed (the crew did not survive)
+ * emergency: a major or critical event is waiting for a response
+ * critical / warning: the worst of the life-support metrics (derived.overall)
+ * Pure: depends only on `state`.
+ */
+export function calculateOverallStatus(
+  state: GameState,
+  derived: DerivedStatus = calculateDerivedStatus(state)
+): OverallStatus {
+  if (state.mission.status === 'failed') {
+    return { id: 'death', label: 'CREW LOST', detail: 'The mission has failed.' };
+  }
+  if (state.mission.status === 'completed') {
+    return { id: 'normal', label: 'MISSION COMPLETE', detail: 'The crew survived until rescue.' };
+  }
+  const urgent = state.activeEvents.find((e) => e.severity === 'critical' || e.severity === 'major');
+  if (urgent) {
+    return { id: 'emergency', label: 'EMERGENCY', detail: `${urgent.title.replace(/^[^\w]+/, '')} needs a response.` };
+  }
+  const named = (level: StatusLevel): string => {
+    const names: string[] = [];
+    for (const key of RESOURCE_KEYS) if (derived.resources[key].level === level) names.push(METRIC_NAMES[key] ?? key);
+    if (derived.crew.health.level === level) names.push(METRIC_NAMES.health ?? 'Crew health');
+    if (derived.crew.radiationExposure.level === level) names.push(METRIC_NAMES.radiationExposure ?? 'Radiation');
+    return names.join(', ');
+  };
+  if (derived.overall === 'critical') {
+    return { id: 'critical', label: 'CRITICAL', detail: `Critical: ${named('critical')}.` };
+  }
+  if (derived.overall === 'warn') {
+    return { id: 'warning', label: 'WARNING', detail: `Keep an eye on: ${named('warn')}.` };
+  }
+  return { id: 'normal', label: 'NORMAL', detail: 'All life-support readings are stable.' };
+}
 /** Convenience: the list of resource metric keys in display order. */
 export const RESOURCE_DISPLAY_ORDER: readonly ResourceKey[] = RESOURCE_KEYS;

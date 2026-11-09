@@ -302,6 +302,15 @@ export interface DelayedEffect {
   parameters: DelayedEffectParameters;
 }
 
+/**
+ * A delayed effect after it has fired: the original effect plus the Sol it
+ * actually applied on. Kept so the timeline can show what happened and why.
+ */
+export interface FiredEffect extends DelayedEffect {
+  /** The Sol on which this effect was applied. */
+  firedDay: number;
+}
+
 export type DelayedEffectParameters =
   | { kind: 'resource'; changes: ResourceChanges }
   | { kind: 'crew'; changes: CrewChanges }
@@ -346,6 +355,11 @@ export interface GameState {
   history: DecisionRecord[];
   /** Consequences scheduled to fire on future days. */
   pendingEffects: DelayedEffect[];
+  /**
+   * Append-only log of consequences that have already fired. Optional so saves
+   * from before this log existed still load (treated as empty).
+   */
+  firedEffects?: FiredEffect[];
   /** ISO timestamp (ms since epoch stored as number) of creation. */
   createdAt: number;
   /** ISO timestamp (ms since epoch stored as number) of last update. */

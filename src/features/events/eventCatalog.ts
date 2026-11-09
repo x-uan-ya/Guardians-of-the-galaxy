@@ -11,6 +11,7 @@
  */
 
 import type { EventAction, GameEvent } from './eventTypes';
+import { ALLOCATION_ACTIONS } from './allocationActions';
 // Storyline chapters share the existing event catalogue and resolver.
 
 // Fixed storyline events for Sols 1-5.
@@ -59,6 +60,8 @@ export const FREE_ACTIONS: EventAction[] = [
       immediateCrew: { morale: -2 },
     },
   },
+  // Resource-allocation controls (power / life support / food / emergency).
+  ...ALLOCATION_ACTIONS,
 ];
 
 /**

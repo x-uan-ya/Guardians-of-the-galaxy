@@ -54,6 +54,18 @@ const ACTION_CLASSIFICATION: Record<string, TraitSignals> = {
   // FREE ACTIONS (always available, no event context)
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Resource-allocation controls (free actions, see events/allocationActions.ts).
+  // Air and water first: protecting the crew's basics.
+  'prioritise-life-support': { survivor: true, humanitarian: true },
+  // Food first: a steady, cautious choice.
+  'prioritise-food': { survivor: true },
+  // Cutting non-essential systems to stretch power: efficiency-minded.
+  'power-saving-mode': { optimiser: true },
+  // Trading generator wear for power now: a gamble on the future.
+  'activate-backup-generator': { riskTaker: true },
+  // Spending a lot of power to keep everyone supplied today.
+  'emergency-allocation': { humanitarian: true, riskTaker: true },
+
   // Routine operations: standard protocols, no distinctive leadership signal.
   'routine-operations': {},
 
@@ -342,6 +354,105 @@ const ACTION_CLASSIFICATION: Record<string, TraitSignals> = {
   'mission-deep-space-systems-failure--reroute': { riskTaker: true },
   // Engineer mitigation: precision repair at reduced cost.
   'mission-deep-space-systems-failure--engineer': { optimiser: true },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHAPTERS 3–5 — Sols 8 and 15–29 (storyline events added after the first
+  // version of this table). Routine / acknowledge choices carry no signal on
+  // purpose, like 'routine-operations' above.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Sol 16 — Recovery and Reassessment
+  'story-sol-16-routine-operations': {},
+  // Spend power to make generation more reliable: a long-term investment.
+  'story-sol-16-preventive-maintenance': { optimiser: true },
+  // Power spent on medical support and rest: looking after the crew.
+  'story-sol-16-crew-recovery': { humanitarian: true },
+
+  // Sol 17 — Unusual Sensor Readings
+  // Spend power gathering extra data for the next discovery.
+  'story-sol-17-detailed-scans': { explorer: true },
+  // Keep the readings for later at minimal cost: efficient use of power.
+  'story-sol-17-record-readings': { optimiser: true },
+  // Stop non-essential scanning to protect power.
+  'story-sol-17-prioritise-survival': { survivor: true },
+
+  // Sol 18 — Unexpected Discovery
+  // Go out and collect detailed observations, accepting hazards and injury.
+  'story-sol-18-direct-investigation': { explorer: true, riskTaker: true },
+  // Investigate by remote equipment: discovery without the exposure.
+  'story-sol-18-remote-investigation': { explorer: true, optimiser: true },
+  // Skip the opportunity to avoid operational risk.
+  'story-sol-18-preserve-discovery': { survivor: true },
+
+  // Sol 19 — Research or Recovery
+  'story-sol-19-research': { explorer: true },
+  'story-sol-19-greenhouse': { optimiser: true },
+  // Reduce workload so health and morale recover.
+  'story-sol-19-rest': { humanitarian: true },
+
+  // Sol 20 — Hidden System Vulnerability
+  // A complete, lasting fix for life support.
+  'story-sol-20-full-repair': { optimiser: true },
+  // Cut demand to protect power at the cost of food production.
+  'story-sol-20-isolate-system': { survivor: true },
+  // A cheap patch that is known to fail again later.
+  'story-sol-20-temporary-patch': { riskTaker: true },
+
+  // Sol 21 — Cost of Exploration
+  // Go outside to recover equipment, accepting health risk.
+  'story-sol-21-recover-equipment': { riskTaker: true },
+  // Give up on the recovery to protect reserves.
+  'story-sol-21-abandon-recovery': { survivor: true },
+  // Use remote equipment to keep the astronaut out of harm's way.
+  'story-sol-21-remote-recovery': { humanitarian: true },
+
+  // Sol 22 — Brief Opportunity
+  'story-sol-22-water-recovery': { optimiser: true },
+  'story-sol-22-greenhouse-maintenance': { optimiser: true },
+  'story-sol-22-routine-operations': {},
+
+  // Sol 23 — The Outpost's Secret
+  // Extract materials with exposure risk for a larger payoff.
+  'story-sol-23-extract-materials': { riskTaker: true },
+  'story-sol-23-scientific-survey': { explorer: true },
+  // Spend little to protect the site and the crew.
+  'story-sol-23-secure-discovery': { survivor: true },
+
+  // Sol 24 — Final Mission Assessment
+  'story-sol-24-maintenance': { optimiser: true },
+  'story-sol-24-rest': { humanitarian: true },
+  'story-sol-24-conserve': { survivor: true },
+
+  // Sol 25 — System Deterioration
+  'story-sol-25-repair-power': { optimiser: true },
+  'story-sol-25-repair-life-support': { survivor: true },
+  // A smaller repair that is expected to decline again.
+  'story-sol-25-temporary-patch': { riskTaker: true },
+
+  // Sol 26 — Dangerous Opportunity
+  'story-sol-26-external-recovery': { riskTaker: true },
+  // More power, but no personal exposure.
+  'story-sol-26-remote-recovery': { humanitarian: true },
+  'story-sol-26-reinforce': { survivor: true },
+
+  // Sol 27 — Last Major Crisis
+  // All-in on keeping life support running, even at the astronaut's expense.
+  'story-sol-27-emergency-repairs': { survivor: true },
+  // Save power now and accept system strain later.
+  'story-sol-27-conservation': { survivor: true, riskTaker: true },
+  // Contain the unstable equipment and strengthen shielding.
+  'story-sol-27-isolate-damaged-systems': { optimiser: true },
+
+  // Sol 28 — Stabilisation Efforts
+  'story-sol-28-restore-power': { optimiser: true },
+  'story-sol-28-restore-life-support': { survivor: true },
+  'story-sol-28-crew-recovery': { humanitarian: true },
+
+  // Sol 29 — Final Preparations
+  'story-sol-29-reinforce': { survivor: true },
+  'story-sol-29-conserve-reserves': { survivor: true },
+  'story-sol-29-conduct-survey': { explorer: true },
+
 };
 
 /**

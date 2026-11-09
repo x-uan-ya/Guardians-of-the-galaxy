@@ -26,7 +26,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import type { ActivityEntry } from '../../../hooks/useGameState';
 import type { AdviceSnapshot, DecisionInput, PlayerChoice } from '../../decisions/decisionTypes';
-import { calculateDerivedStatus, getFreeActions } from '../../simulation/simulationEngine';
+import { calculateDerivedStatus, calculateOverallStatus, getFreeActions } from '../../simulation/simulationEngine';
+import { calculateResourceForecast } from '../../simulation/resourceForecast';
 import type { GameState } from '../../simulation/simulationTypes';
 import { BunkerScene } from './BunkerScene';
 import { MissionTablet, type TabKey } from './MissionTablet';
@@ -48,6 +49,8 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
   // Derived status is computed ONCE here and passed down (the engine decides
   // what counts as ok / warn / critical, we only display it).
   const derived = useMemo(() => calculateDerivedStatus(state), [state]);
+  const overall = useMemo(() => calculateOverallStatus(state, derived), [state, derived]);
+  const forecast = useMemo(() => calculateResourceForecast(state), [state]);
   const delta = useStateDelta(state);
 
   const [tab, setTab] = useState<TabKey>('mission');
@@ -132,7 +135,7 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
           onSelect={handleSelectFacility}
           onRespond={handleRespond}
         />
-        <ResourceHud derived={derived} delta={delta} preview={preview} />
+        <ResourceHud derived={derived} forecast={forecast} overall={overall} delta={delta} preview={preview} />
         <details className="bunker-quick-access">
           <summary>Facility Quick Access</summary>
           <FacilityStrip

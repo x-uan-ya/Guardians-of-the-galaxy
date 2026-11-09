@@ -23,11 +23,18 @@ import type {
   SystemState,
 } from '../../simulation/simulationTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
+import type { ResourceForecast } from '../../simulation/resourceForecast';
+import type { OverallStatus } from '../../simulation/simulationSelectors';
 import { LEVEL_HEX } from './facilities';
+import { formatPerSol, formatRunway } from './formatFlow';
 import type { StateDelta } from './useStateDelta';
 
 interface ResourceHudProps {
   derived: DerivedStatus;
+  /** Per-Sol flow and shortage warnings, worked out by the engine. */
+  forecast: Record<ResourceKey, ResourceForecast>;
+  /** The single headline status (normal / warning / critical / emergency / death). */
+  overall: OverallStatus;
   delta: StateDelta | null;
   preview?: ActionPreview | null;
 }
@@ -77,7 +84,8 @@ function DeltaBadge({
   );
 }
 
-export function ResourceHud({ derived, delta, preview }: ResourceHudProps): ReactElement {
+export function ResourceHud({ derived, forecast, overall, delta, preview }: ResourceHudProps): ReactElement {
+  const warnings = HUD_RESOURCES.map(({ key }) => forecast[key]).filter((f) => f.warning !== null);
   const vitals: readonly {
     key: keyof CrewState;
     icon: LucideIcon;
@@ -94,6 +102,17 @@ export function ResourceHud({ derived, delta, preview }: ResourceHudProps): Reac
       className="rounded-xl border border-space-600/60 bg-space-850/80 p-3 backdrop-blur-md"
     >
       <div className="bunker-hud-preview-slot">
+        <span
+          className="bunker-overall-status"
+          data-status={overall.id}
+          data-testid="overall-status"
+          role="status"
+          title={overall.detail}
+        >
+          <span className="bunker-overall-dot" aria-hidden />
+          {overall.label}
+          <span className="sr-only">. {overall.detail}</span>
+        </span>
         {preview ? <span className="bunker-hud-preview-label" role="status" title={previewNotice(preview)}>
           Preview Mode<span className="sr-only">. {previewNotice(preview)}</span>
         </span> : null}
@@ -133,10 +152,33 @@ export function ResourceHud({ derived, delta, preview }: ResourceHudProps): Reac
                 </span>
                 {!preview ? <DeltaBadge value={delta?.resources[key]} stamp={delta?.stamp} /> : null}
               </div>
+              <div
+                className="bunker-flow-row tnum"
+                data-testid={`flow-${key}`}
+                title="Change per Sol at today's rate, worked out by the simulation"
+              >
+                <span className={forecast[key].net <= -0.05 ? 'text-status-warn' : 'text-slate-400'}>
+                  {formatPerSol(forecast[key].net)}
+                </span>
+                {forecast[key].daysRemaining !== null ? (
+                  <span style={{ color: LEVEL_HEX[forecast[key].level] }}>
+                    {formatRunway(forecast[key].daysRemaining, forecast[key].lastsToRescue)}
+                  </span>
+                ) : null}
+              </div>
             </div>
           );
         })}
       </div>
+      {warnings.length > 0 ? (
+        <ul className="bunker-shortage-list" aria-label="Shortage warnings" data-testid="shortage-warnings">
+          {warnings.map((f) => (
+            <li key={f.key} style={{ color: LEVEL_HEX[f.level], borderColor: LEVEL_HEX[f.level] }}>
+              {f.warning}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {/* Row 2: vitals + system efficiencies, kept small so they do not overwhelm. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-space-600/50 pt-2 text-[11px]">

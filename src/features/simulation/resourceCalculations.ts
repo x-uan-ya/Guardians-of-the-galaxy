@@ -145,10 +145,39 @@ export function computeDailyResourceDelta(
   lifeSupportProductionMultiplier = 1,
   productionFactors: Partial<Record<keyof Resources, number>> = {}
 ): ResourceChanges {
+  const { production, consumption } = computeDailyResourceBreakdown(
+    systems,
+    crew,
+    philosophyConsumptionFactor,
+    lifeSupportProductionMultiplier,
+    productionFactors
+  );
+  return {
+    power: round2(production.power - consumption.power),
+    water: round2(production.water - consumption.water),
+    food: round2(production.food - consumption.food),
+    oxygen: round2(production.oxygen - consumption.oxygen),
+  };
+}
+
+/** Per-resource daily figures, in the same 0..100 percentage points as the stores. */
+export type DailyResourceFigures = Record<keyof Resources, number>;
+
+/**
+ * Split one day's resource change into what the systems PRODUCE and what the
+ * crew CONSUMES. computeDailyResourceDelta is production minus consumption, so
+ * the two can never disagree. Values are unrounded; round when displaying.
+ */
+export function computeDailyResourceBreakdown(
+  systems: Readonly<SystemState>,
+  crew: Readonly<CrewState>,
+  philosophyConsumptionFactor: number,
+  lifeSupportProductionMultiplier = 1,
+  productionFactors: Partial<Record<keyof Resources, number>> = {}
+): { production: DailyResourceFigures; consumption: DailyResourceFigures } {
   // Baseline daily crew consumption (percentage points per day). Documented
   // gameplay assumption: a healthy crew draws these amounts from stores.
   const BASE = { power: 9, water: 7, food: 6, oxygen: 8 } as const;
-
   // Lower morale makes the crew slightly less efficient -> consumes a touch
   // more. Scales consumption from 1.0 (full morale) up to ~1.15 (zero morale).
   const moraleDrag = 1 + (1 - crew.morale / METRIC_MAX) * 0.15;
@@ -170,13 +199,15 @@ export function computeDailyResourceDelta(
   const foodGen = (systems.foodProduction / METRIC_MAX) * 7 * (productionFactors.food ?? 1);
 
   return {
-    power: round2(powerGen - BASE.power * consume),
-    water: round2(waterGen - BASE.water * consume),
-    food: round2(foodGen - BASE.food * consume),
-    oxygen: round2(oxygenGen - BASE.oxygen * consume),
+    production: { power: powerGen, water: waterGen, food: foodGen, oxygen: oxygenGen },
+    consumption: {
+      power: BASE.power * consume,
+      water: BASE.water * consume,
+      food: BASE.food * consume,
+      oxygen: BASE.oxygen * consume,
+    },
   };
 }
-
 /** Round to 2 decimal places (keeps deterministic math tidy). */
 export function round2(n: number): number {
   if (!isValidNumber(n)) {

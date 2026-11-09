@@ -708,3 +708,79 @@
     transparent 8px 16px
   );
 }
+
+/* Per-Sol flow line under each resource, and the shortage warning strip. */
+.bunker-flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 16px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.bunker-shortage-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bunker-shortage-list li {
+  border: 1px solid;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(10, 12, 24, 0.5);
+}
+.bunker-flow-table {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  font-size: 11px;
+}
+.bunker-flow-table dt { color: #94a3b8; }
+.bunker-flow-table dd { margin: 0; text-align: right; font-weight: 600; color: #e2e8f0; }
+
+/* Single overall status badge: normal -> warning -> critical -> emergency -> death. */
+.bunker-hud-preview-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bunker-overall-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.bunker-overall-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.bunker-overall-status[data-status='normal'] { color: #5fd08a; }
+.bunker-overall-status[data-status='warning'] { color: #f2c14e; }
+.bunker-overall-status[data-status='critical'] { color: #ff7a59; }
+.bunker-overall-status[data-status='emergency'] { color: #ff4d4d; background: rgba(255, 77, 77, 0.12); }
+.bunker-overall-status[data-status='death'] { color: #c9a0a0; background: rgba(120, 30, 30, 0.35); }
+@media (prefers-reduced-motion: no-preference) {
+  .bunker-overall-status[data-status='emergency'] .bunker-overall-dot { animation: bunker-overall-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes bunker-overall-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

@@ -41,6 +41,13 @@ const ACTION_TOPIC_MAP: Record<string, EducationalTopicId> = {
   // FREE ACTIONS
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Resource-allocation controls (events/allocationActions.ts).
+  'prioritise-life-support': 'oxygen-life-support',
+  'prioritise-food': 'water-recycling-food-production',
+  'power-saving-mode': 'energy-power-management',
+  'activate-backup-generator': 'redundancy-backup-systems',
+  'emergency-allocation': 'risk-management',
+
   // Rationing is a clear resource scarcity lesson.
   'ration-supplies': 'resource-scarcity',
 
@@ -230,6 +237,79 @@ const ACTION_TOPIC_MAP: Record<string, EducationalTopicId> = {
   'mission-deep-space-systems-failure--repair': 'cascading-failures',
   'mission-deep-space-systems-failure--reroute': 'cascading-failures',
   'mission-deep-space-systems-failure--engineer': 'cascading-failures',
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHAPTERS 4–5 — Sols 16–29 (storyline events added after the first version
+  // of this table). Routine / "acknowledge" choices are left out on purpose.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Sol 16 — Recovery and Reassessment
+  'story-sol-16-preventive-maintenance': 'redundancy-backup-systems',
+  'story-sol-16-crew-recovery': 'resource-scarcity',
+
+  // Sol 17 — Unusual Sensor Readings: acting on incomplete information.
+  'story-sol-17-detailed-scans': 'decision-under-uncertainty',
+  'story-sol-17-record-readings': 'decision-under-uncertainty',
+  'story-sol-17-prioritise-survival': 'energy-power-management',
+
+  // Sol 18 — Unexpected Discovery: risk against reward.
+  'story-sol-18-direct-investigation': 'risk-management',
+  'story-sol-18-remote-investigation': 'risk-management',
+  'story-sol-18-preserve-discovery': 'decision-under-uncertainty',
+
+  // Sol 19 — Research or Recovery
+  'story-sol-19-research': 'energy-power-management',
+  'story-sol-19-greenhouse': 'water-recycling-food-production',
+  'story-sol-19-rest': 'resource-scarcity',
+
+  // Sol 20 — Hidden System Vulnerability: quick fixes that come back later.
+  'story-sol-20-full-repair': 'oxygen-life-support',
+  'story-sol-20-isolate-system': 'cascading-failures',
+  'story-sol-20-temporary-patch': 'cascading-failures',
+
+  // Sol 21 — Cost of Exploration
+  'story-sol-21-recover-equipment': 'risk-management',
+  'story-sol-21-abandon-recovery': 'risk-management',
+  'story-sol-21-remote-recovery': 'risk-management',
+
+  // Sol 22 — Brief Opportunity
+  'story-sol-22-water-recovery': 'water-recycling-food-production',
+  'story-sol-22-greenhouse-maintenance': 'water-recycling-food-production',
+
+  // Sol 23 — The Outpost's Secret
+  'story-sol-23-extract-materials': 'risk-management',
+  'story-sol-23-scientific-survey': 'decision-under-uncertainty',
+  'story-sol-23-secure-discovery': 'radiation-protection',
+
+  // Sol 24 — Final Mission Assessment
+  'story-sol-24-maintenance': 'oxygen-life-support',
+  'story-sol-24-rest': 'resource-scarcity',
+  'story-sol-24-conserve': 'resource-scarcity',
+
+  // Sol 25 — System Deterioration
+  'story-sol-25-repair-power': 'energy-power-management',
+  'story-sol-25-repair-life-support': 'oxygen-life-support',
+  'story-sol-25-temporary-patch': 'cascading-failures',
+
+  // Sol 26 — Dangerous Opportunity
+  'story-sol-26-external-recovery': 'risk-management',
+  'story-sol-26-remote-recovery': 'energy-power-management',
+  'story-sol-26-reinforce': 'radiation-protection',
+
+  // Sol 27 — Last Major Crisis
+  'story-sol-27-emergency-repairs': 'oxygen-life-support',
+  'story-sol-27-conservation': 'resource-scarcity',
+  'story-sol-27-isolate-damaged-systems': 'cascading-failures',
+
+  // Sol 28 — Stabilisation Efforts
+  'story-sol-28-restore-power': 'energy-power-management',
+  'story-sol-28-restore-life-support': 'oxygen-life-support',
+  'story-sol-28-crew-recovery': 'resource-scarcity',
+
+  // Sol 29 — Final Preparations
+  'story-sol-29-reinforce': 'redundancy-backup-systems',
+  'story-sol-29-conserve-reserves': 'resource-scarcity',
+  'story-sol-29-conduct-survey': 'decision-under-uncertainty',
 };
 
 // ---------------------------------------------------------------------------
