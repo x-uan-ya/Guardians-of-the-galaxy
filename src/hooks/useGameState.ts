@@ -282,6 +282,14 @@ export function useGameState(): UseGameState {
   }, [pushActivity]);
 
   const dismissNotice = useCallback(() => setNotice({ kind: 'idle' }), []);
+
+  // "Saved mission restored" and "Mission saved" are confirmations, so they fade
+  // by themselves. Warnings and failures stay until the player closes them.
+  useEffect(() => {
+    if (notice.kind !== 'restored' && notice.kind !== 'saved') return;
+    const timer = window.setTimeout(() => setNotice({ kind: 'idle' }), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const dismissResupply = useCallback(() => setResupplyDeliveredOnDay(null), []);
 
   // Expose a compact summary for debugging in dev tools.

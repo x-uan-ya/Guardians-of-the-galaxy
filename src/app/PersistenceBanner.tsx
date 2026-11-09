@@ -5,7 +5,6 @@
  * useGameState (restored / saved / failed / storage unavailable). Pure UI.
  */
 
-import { useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { Info, X } from 'lucide-react';
 import type { PersistenceNotice } from '../hooks/useGameState';
@@ -42,21 +41,8 @@ function describe(notice: PersistenceNotice): { text: string; tone: string } | n
   }
 }
 
-/** Good-news notices fade away on their own after this long. Problems stay until dismissed. */
-const AUTO_DISMISS_MS = 4000;
-
 export function PersistenceBanner({ notice, onDismiss }: PersistenceBannerProps): ReactElement | null {
   const info = describe(notice);
-
-  // "restored" and "saved" are just confirmations, so they should not linger on
-  // every page. Warnings and failures stay until the player closes them. Each new
-  // notice is a new object, so saving again restarts the timer.
-  const transient = notice.kind === 'restored' || notice.kind === 'saved';
-  useEffect(() => {
-    if (!transient) return;
-    const timer = window.setTimeout(onDismiss, AUTO_DISMISS_MS);
-    return () => window.clearTimeout(timer);
-  }, [notice, transient, onDismiss]);
 
   if (!info) return null;
 

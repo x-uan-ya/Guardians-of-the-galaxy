@@ -20,7 +20,7 @@
  * flow changes route through useGameFlow.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -82,8 +82,13 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   // --- Engine <-> flow synchronisation --------------------------------------
 
   // A restored saved run jumps straight into PLAYING (skipping mission select).
+  // This must happen ONCE at start-up. If it ran every time the notice said
+  // "restored", pressing New later would bounce straight back into the old run.
+  const restoreHandledRef = useRef(false);
   useEffect(() => {
+    if (restoreHandledRef.current) return;
     if (game.notice.kind === 'restored' && flow.phase === 'MISSION_SELECT') {
+      restoreHandledRef.current = true;
       flow.restoreRun();
     }
   }, [game.notice.kind, flow]);
@@ -181,6 +186,13 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   // Sidebar navigation (Mission Control, Debrief, Badges, Leaderboard, How to Play).
   const handleNavigate = (view: SubView): void => setSubView(view);
 
+  // The end screens' "View mission debrief": open the Debrief page. The sidebar
+  // keeps working afterwards, so the player is never stuck on it.
+  const handleViewDebrief = (): void => {
+    setSubView('debrief');
+    flow.viewDebrief();
+  };
+
   // TopBar "Reset" during play: confirm, then relaunch the SAME run from Sol 1
   // (same mission + occupation) — straight back into play, not occupation select.
   const handleReset = (): void => setConfirm({ kind: 'restart' });
@@ -261,11 +273,10 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
           onRespond={() => setSubView('dashboard')}
         />
       ) : null}
-      {/* DEBRIEF takes over the main panel; otherwise show the sub-view. */}
-      {flow.phase === 'DEBRIEF' ? (
-        <Debrief state={game.state} />
-      ) : (
-        <>
+      {/* The page follows the sidebar. "View mission debrief" on the end screen
+          selects the Debrief page (see handleViewDebrief), and every other page
+          stays reachable from there. */}
+      <>
           {subView === 'dashboard' ? (
             <Dashboard
               state={game.state}
@@ -281,8 +292,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
           {subView === 'achievements' ? <AchievementsPage progression={progression} /> : null}
           {subView === 'leaderboard' ? <Leaderboard highlightId={lastLeaderboardId} /> : null}
           {subView === 'how-to-play' ? <HowToPlay /> : null}
-        </>
-      )}
+      </>
 
       <ProgressToasts events={progression.run.events} onDismiss={dismissNotifications} />
 
@@ -302,7 +312,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
           state={game.state}
           onRestartSame={handleRestartSame}
           onNewRun={goToNewRun}
-          onViewDebrief={flow.viewDebrief}
+          onViewDebrief={handleViewDebrief}
         />
       ) : null}
 
@@ -310,7 +320,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
       {flow.phase === 'MISSION_COMPLETE' ? (
         <MissionComplete
           state={game.state}
-          onViewDebrief={flow.viewDebrief}
+          onViewDebrief={handleViewDebrief}
           onNewRun={goToNewRun}
         />
       ) : null}
