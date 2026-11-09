@@ -7,6 +7,7 @@
  */
 
 import { FREE_ACTIONS } from '../events/eventCatalog';
+import { unavailableReason } from '../simulation/actionValidation';
 import type { AdvisorContext } from './advisorTypes';
 
 export interface AdviceInput {
@@ -31,7 +32,7 @@ const UPCOMING_LIMIT = 5;
 export function adviceInputFor(context: AdvisorContext): AdviceInput {
   const { state, eventId } = context;
   const event = eventId ? state.activeEvents.find((e) => e.id === eventId) : undefined;
-  const actions = event ? event.availableActions : FREE_ACTIONS;
+  const actions = event ? event.availableActions : FREE_ACTIONS.filter((a) => unavailableReason(state, a) === null);
 
   return {
     day: state.day,

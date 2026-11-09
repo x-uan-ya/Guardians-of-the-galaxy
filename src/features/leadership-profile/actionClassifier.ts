@@ -66,6 +66,16 @@ const ACTION_CLASSIFICATION: Record<string, TraitSignals> = {
   // Spending a lot of power to keep everyone supplied today.
   'emergency-allocation': { humanitarian: true, riskTaker: true },
 
+  // Multi-Sol projects (see events/projectActions.ts).
+  // Fixing the generator now so it pays off later: efficiency and foresight.
+  'repair-generator': { optimiser: true },
+  // A slow, safe investment in food.
+  'plant-crops': { survivor: true },
+  // Spending power now to cut the radiation dose for the rest of the mission.
+  'reinforce-shielding': { survivor: true, optimiser: true },
+  // Giving the crew time to heal.
+  'rest-and-recover': { humanitarian: true },
+
   // Routine operations: standard protocols, no distinctive leadership signal.
   'routine-operations': {},
 

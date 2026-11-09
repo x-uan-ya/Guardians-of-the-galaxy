@@ -9,6 +9,7 @@
  * It is a forecast "at today's rate": events, delayed effects and the one-time
  * resupply are not predicted.
  */
+import { radiationShieldingFactor, type PowerDrawKey } from './resourceCalculations';
 import { SURVIVAL_TARGET_DAY, projectDailyResources } from './simulationEngine';
 import { RESOURCE_KEYS, type GameState, type ResourceKey, type StatusLevel } from './simulationTypes';
 
@@ -91,4 +92,35 @@ export function calculateResourceForecast(state: GameState): Record<ResourceKey,
     };
   }
   return result;
+}
+
+/** Who uses the power, per Sol (parts add up to the crew's total power use). */
+export function calculatePowerDraw(state: GameState): Record<PowerDrawKey, number> {
+  return projectDailyResources(state).powerDraw;
+}
+
+export interface RadiationForecast {
+  /** Exposure added per Sol after shielding (0 on a mission without radiation). */
+  dosePerSol: number;
+  /** Health lost per Sol to radiation sickness (0 or negative). */
+  healthPerSol: number;
+  /** Current shielding integrity, 0..100. */
+  shielding: number;
+  /** 1 while shielding is intact; higher when damaged shielding lets more through. */
+  doseMultiplier: number;
+  /** Whole Sols until exposure reaches the lethal level at today's rate, or null when it is not rising. */
+  solsToLethal: number | null;
+}
+
+/** Radiation figures for the medical bay and the shielding monitor. */
+export function calculateRadiationForecast(state: GameState): RadiationForecast {
+  const { radiationDose, radiationHealth, systems } = projectDailyResources(state);
+  const remaining = 100 - state.crew.radiationExposure;
+  return {
+    dosePerSol: radiationDose,
+    healthPerSol: radiationHealth,
+    shielding: systems.shieldingIntegrity,
+    doseMultiplier: radiationShieldingFactor(systems.shieldingIntegrity),
+    solsToLethal: radiationDose > 0 ? Math.max(0, Math.ceil(remaining / radiationDose)) : null,
+  };
 }

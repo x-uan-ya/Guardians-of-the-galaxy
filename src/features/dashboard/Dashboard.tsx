@@ -27,6 +27,8 @@ interface DashboardProps {
   activity: ActivityEntry[];
   onDecide: (input: DecisionInput) => void;
   onAdvanceDay: () => void;
+  /** Play a whole turn (decision + advance) in one engine call. */
+  onEndTurn?: (input?: DecisionInput) => void;
   progression: ProgressionState;
   onNavigate: (view: ViewKey) => void;
 }
@@ -36,6 +38,7 @@ export function Dashboard({
   activity,
   onDecide,
   onAdvanceDay,
+  onEndTurn,
   progression,
   onNavigate,
 }: DashboardProps): ReactElement {
@@ -46,6 +49,7 @@ export function Dashboard({
         activity={activity}
         onDecide={onDecide}
         onAdvanceDay={onAdvanceDay}
+        {...(onEndTurn ? { onEndTurn } : {})}
       />
       <details className="panel p-4">
         <summary className="cursor-pointer font-semibold text-slate-200">

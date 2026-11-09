@@ -43,9 +43,11 @@ interface BunkerGameProps {
   activity: ActivityEntry[];
   onDecide: (input: DecisionInput) => void;
   onAdvanceDay: () => void;
+  /** When given, the planned action and the day advance run as ONE engine turn. */
+  onEndTurn?: (input?: DecisionInput) => void;
 }
 
-export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGameProps): ReactElement {
+export function BunkerGame({ state, activity, onDecide, onAdvanceDay, onEndTurn }: BunkerGameProps): ReactElement {
   // Derived status is computed ONCE here and passed down (the engine decides
   // what counts as ok / warn / critical, we only display it).
   const derived = useMemo(() => calculateDerivedStatus(state), [state]);
@@ -107,7 +109,16 @@ export function BunkerGame({ state, activity, onDecide, onAdvanceDay }: BunkerGa
   // End of the sol: do the planned action (if any), THEN advance the day.
   // Both calls go through useGameState, which routes them through the engine.
   const handleEndDay = (choice: PlayerChoice, advice?: AdviceSnapshot): void => {
-    if (planned) onDecide({ actionId: planned, playerChoice: choice, ...(advice ? { advice } : {}) });
+    const input: DecisionInput | undefined = planned
+      ? { actionId: planned, playerChoice: choice, ...(advice ? { advice } : {}) }
+      : undefined;
+    if (onEndTurn) {
+      // One engine call: validate, apply, advance, events. A rejected decision
+      // does not advance the day.
+      onEndTurn(input);
+      return;
+    }
+    if (input) onDecide(input);
     onAdvanceDay();
   };
 

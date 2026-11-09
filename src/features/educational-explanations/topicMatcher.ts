@@ -41,6 +41,12 @@ const ACTION_TOPIC_MAP: Record<string, EducationalTopicId> = {
   // FREE ACTIONS
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Multi-Sol projects (events/projectActions.ts).
+  'repair-generator': 'redundancy-backup-systems',
+  'plant-crops': 'water-recycling-food-production',
+  'reinforce-shielding': 'radiation-protection',
+  'rest-and-recover': 'risk-management',
+
   // Resource-allocation controls (events/allocationActions.ts).
   'prioritise-life-support': 'oxygen-life-support',
   'prioritise-food': 'water-recycling-food-production',

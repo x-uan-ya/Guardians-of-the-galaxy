@@ -19,7 +19,7 @@ import { useAdvice } from '../../hooks/useAdvice';
 import { AdviceAskButton } from '../ai-advisor/AdviceAskButton';
 import { AdvicePanel } from '../ai-advisor/AdvicePanel';
 import { decisionWithAdvice } from '../ai-advisor/adviceSnapshot';
-import { getFreeActions } from '../simulation/simulationEngine';
+import { getFreeActions, unavailableReason } from '../simulation/simulationEngine';
 import type { GameEvent } from '../events/eventTypes';
 import type { GameState } from '../simulation/simulationTypes';
 import type { DecisionInput } from '../decisions/decisionTypes';
@@ -81,17 +81,18 @@ export function OperationsPanel({ state, onDecide }: OperationsPanelProps): Reac
         <div className="flex flex-wrap gap-2">
           {freeActions.map((action) => {
             const recommended = advice?.actionId === action.id;
+            const reason = unavailableReason(state, action);
             return (
               <button
                 key={action.id}
                 type="button"
-                disabled={terminal || eventBlocking}
+                disabled={terminal || eventBlocking || reason !== null}
                 onClick={() => decideFree(action.id)}
                 className={`btn-secondary ${recommended ? 'ring-1 ring-accent-blue/60' : ''}`}
                 title={
                   eventBlocking
                     ? 'Resolve the active event before taking a routine action.'
-                    : action.description
+                    : reason ?? action.description
                 }
               >
                 {action.label}

@@ -15,13 +15,13 @@ import type { ReactElement } from 'react';
 import { MapPin } from 'lucide-react';
 import { PreviewBar, PreviewMetric } from './PreviewMetric';
 import type { ActionPreview, MetricPreview } from './actionPreview';
-import { getFreeActions } from '../../simulation/simulationEngine';
+import { getFreeActions, unavailableReason } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, StatusLevel } from '../../simulation/simulationTypes';
 import type { GameEvent } from '../../events/eventTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
 import { GlossaryText } from '../../glossary/GlossaryText';
 import { EffectChips } from './EffectChips';
-import { calculateResourceForecast } from '../../simulation/resourceForecast';
+import { calculatePowerDraw, calculateRadiationForecast, calculateResourceForecast } from '../../simulation/resourceForecast';
 import { formatPerSol, formatRunway } from './formatFlow';
 import { FACILITIES, LEVEL_HEX, facilityLevel, type FacilityId } from './facilities';
 
@@ -81,6 +81,8 @@ export function FacilityTab({
   // Per-Sol flow for the room's resource, worked out by the engine.
   const flowResource = def.resource ?? (def.id === 'greenhouse' ? 'food' : null);
   const flow = flowResource ? calculateResourceForecast(state)[flowResource] : null;
+  const powerDraw = def.resource === 'power' ? calculatePowerDraw(state) : null;
+  const radiation = def.vitals || def.id === 'computer' ? calculateRadiationForecast(state) : null;
   if (def.resource) {
     const m = derived.resources[def.resource];
     rows.push({ id: `r-${def.resource}`, label: RESOURCE_LABELS[def.resource], value: m.value, level: m.level, preview: preview?.resources[def.resource] });
@@ -183,6 +185,46 @@ export function FacilityTab({
                 {flow.warning}
               </p>
             ) : null}
+            {powerDraw ? (
+              <div className="mt-2 border-t border-space-600/40 pt-2" data-testid="power-draw">
+                <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  Where the power goes
+                </div>
+                <dl className="bunker-flow-table tnum">
+                  <dt>Life support</dt>
+                  <dd>{'\u2212'}{powerDraw.lifeSupport.toFixed(1)}</dd>
+                  <dt>Food systems</dt>
+                  <dd>{'\u2212'}{powerDraw.foodSystems.toFixed(1)}</dd>
+                  <dt>Equipment</dt>
+                  <dd>{'\u2212'}{powerDraw.equipment.toFixed(1)}</dd>
+                  <dt>Emergency systems</dt>
+                  <dd>{'\u2212'}{powerDraw.emergency.toFixed(1)}</dd>
+                </dl>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {radiation ? (
+          <div className="border-t border-space-600/60 pt-2" data-testid="radiation-forecast">
+            <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+              Radiation, per Sol
+            </div>
+            <dl className="bunker-flow-table tnum">
+              <dt>Shielding</dt>
+              <dd>{radiation.shielding.toFixed(0)}%</dd>
+              <dt>Dose reaching the crew</dt>
+              <dd>
+                {radiation.dosePerSol === 0 ? 'None on this mission' : `+${radiation.dosePerSol.toFixed(1)}`}
+              </dd>
+              <dt>Damaged shielding lets through</dt>
+              <dd>{'\u00D7'}{radiation.doseMultiplier.toFixed(1)}</dd>
+              <dt>Radiation sickness</dt>
+              <dd style={{ color: radiation.healthPerSol < 0 ? LEVEL_HEX.warn : undefined }}>
+                {radiation.healthPerSol === 0 ? 'None' : `${'\u2212'}${Math.abs(radiation.healthPerSol).toFixed(1)} health`}
+              </dd>
+              <dt>Lethal dose in</dt>
+              <dd>{radiation.solsToLethal === null ? 'Not rising' : `${radiation.solsToLethal} Sols`}</dd>
+            </dl>
           </div>
         ) : null}
         {def.id === 'computer' ? (
@@ -201,13 +243,14 @@ export function FacilityTab({
         <div className="space-y-2">
           {realActions.map((action) => {
             const planned = plannedActionId === action.id;
+            const reason = unavailableReason(state, action);
             return (
               <button
                 key={action.id}
                 type="button"
                 className="bunker-action"
                 aria-pressed={planned}
-                disabled={disabled}
+                disabled={disabled || reason !== null}
                 onClick={() => onPlanAction(planned ? null : action.id)}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -221,6 +264,9 @@ export function FacilityTab({
                 <p className="text-[11px] leading-snug text-slate-300">
                   <GlossaryText focusable={false}>{action.description}</GlossaryText>
                 </p>
+                {reason ? (
+                  <p className="mt-1 text-[11px] font-semibold text-status-warn">Unavailable: {reason}</p>
+                ) : null}
                 <EffectChips action={action} />
               </button>
             );

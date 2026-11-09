@@ -12,6 +12,7 @@
 
 import type { EventAction, GameEvent } from './eventTypes';
 import { ALLOCATION_ACTIONS } from './allocationActions';
+import { PROJECT_ACTIONS } from './projectActions';
 // Storyline chapters share the existing event catalogue and resolver.
 
 // Fixed storyline events for Sols 1-5.
@@ -62,6 +63,8 @@ export const FREE_ACTIONS: EventAction[] = [
   },
   // Resource-allocation controls (power / life support / food / emergency).
   ...ALLOCATION_ACTIONS,
+  // Multi-Sol projects: repairs, crops, shielding work and recovery.
+  ...PROJECT_ACTIONS,
 ];
 
 /**

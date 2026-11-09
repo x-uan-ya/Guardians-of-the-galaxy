@@ -11,6 +11,7 @@
 import { findFreeAction } from '../events/eventCatalog';
 import type { EventAction } from '../events/eventTypes';
 import type { DecisionInput } from '../decisions/decisionTypes';
+import { unavailableReason } from './actionValidation';
 import type { GameState } from './simulationTypes';
 
 /** Thrown when a decision references an unknown or unavailable action. */
@@ -40,6 +41,10 @@ export function resolveDecisionAction(state: GameState, input: DecisionInput): E
     const free = findFreeAction(input.actionId);
     if (!free) {
       throw new InvalidDecisionError(`Unknown free action: "${input.actionId}".`);
+    }
+    const reason = unavailableReason(state, free);
+    if (reason) {
+      throw new InvalidDecisionError(reason);
     }
     return free;
   }

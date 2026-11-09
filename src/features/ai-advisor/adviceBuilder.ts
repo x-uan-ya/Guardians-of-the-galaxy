@@ -13,6 +13,7 @@
  */
 
 import { FREE_ACTIONS } from '../events/eventCatalog';
+import { unavailableReason } from '../simulation/actionValidation';
 import type { ActionEffect, EventAction } from '../events/eventTypes';
 import { summariseChanges, metricWord } from '../decisions/decisionOutcome';
 import {
@@ -483,7 +484,8 @@ function candidateActions(context: AdvisorContext): EventAction[] {
   if (eventId !== undefined) {
     return state.activeEvents.find((e) => e.id === eventId)?.availableActions ?? [];
   }
-  return FREE_ACTIONS;
+  // Only actions the engine would accept today (enough stock, not already under way).
+  return FREE_ACTIONS.filter((action) => unavailableReason(state, action) === null);
 }
 
 /**

@@ -71,9 +71,13 @@ import {
   clamp,
   computeDailyResourceBreakdown,
   computeDailyResourceDelta,
+  dailyRadiationDose,
   isValidNumber,
   lifeSupportProductionFactor,
+  radiationHealthChange,
   round2,
+  splitPowerDraw,
+  type PowerDrawKey,
   sanitizeResourceChanges,
   shortageCrewChanges,
 } from './resourceCalculations';
@@ -101,6 +105,7 @@ import {
 // Re-export selectors so callers have one import surface for the engine.
 export { calculateDerivedStatus, calculateOverallStatus } from './simulationSelectors';
 export { InvalidDecisionError } from './eventResolver';
+export { unavailableReason, isActionInProgress } from './actionValidation';
 
 /**
  * One-time resupply tuning (illustrative gameplay values).
@@ -632,6 +637,12 @@ export interface DailyProjection {
   consumption: Record<ResourceKey, number>;
   /** Net change per Sol (production minus consumption). This is what the engine applies. */
   dailyDelta: ResourceChanges;
+  /** Power use per Sol divided by consumer (life support, food systems, equipment, emergency). */
+  powerDraw: Record<PowerDrawKey, number>;
+  /** Radiation exposure added per Sol after shielding. */
+  radiationDose: number;
+  /** Health lost per Sol to radiation sickness (0 or negative). */
+  radiationHealth: number;
 }
 
 /**
@@ -695,7 +706,15 @@ export function projectDailyResources(state: GameState): DailyProjection {
     production[key] = round2(breakdown.production[key] + bonus[key]);
     consumption[key] = round2(breakdown.consumption[key]);
   }
-  return { systems, production, consumption, dailyDelta };
+  return {
+    systems,
+    production,
+    consumption,
+    dailyDelta,
+    powerDraw: splitPowerDraw(consumption.power),
+    radiationDose: dailyRadiationDose(mod.radiationPerDay, systems.shieldingIntegrity),
+    radiationHealth: radiationHealthChange(state.crew.radiationExposure),
+  };
 }
 
 export interface AdvanceResult {
@@ -731,7 +750,7 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 
   // 1-2. Occupation upkeep, then the baseline daily resource delta. Shared with
   //      the forecast shown on the dashboard so the two always agree.
-  const { systems, dailyDelta } = projectDailyResources(state);
+  const { systems, dailyDelta, radiationDose } = projectDailyResources(state);
   const mod = state.mission.modifiers;
   let resources = applyResourceChanges(state.resources, dailyDelta);
 
@@ -755,12 +774,15 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   const moraleRecovery = dailyMoraleRecovery(state.character);
   const shortageChanges = shortageCrewChanges(resources);
   const crewChanges: CrewChanges = {};
-  const healthChange = recovery + (shortageChanges.health ?? 0);
+  // Radiation sickness: the exposure the crew already carries wears health down.
+  const healthChange =
+    recovery + (shortageChanges.health ?? 0) + radiationHealthChange(state.crew.radiationExposure);
   const moraleChange = moraleRecovery + (shortageChanges.morale ?? 0);
   if (healthChange !== 0) crewChanges.health = healthChange;
   if (moraleChange !== 0) crewChanges.morale = moraleChange;
-  // Mission radiation hazard (Mars / deep-space) accrues each day.
-  if (mod.radiationPerDay > 0) crewChanges.radiationExposure = mod.radiationPerDay;
+  // Mission radiation hazard (Mars / deep-space) accrues each day; the shielding
+  // that is left decides how much of it reaches the crew.
+  if (radiationDose > 0) crewChanges.radiationExposure = radiationDose;
   const crew =
     Object.keys(crewChanges).length > 0 ? applyCrewChanges(state.crew, crewChanges) : state.crew;
 
@@ -809,6 +831,49 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
 // ---------------------------------------------------------------------------
 // getSimulationSummary
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// processTurn: the single authoritative pathway for a whole turn
+// ---------------------------------------------------------------------------
+
+/** What one full turn produced. */
+export interface TurnResult extends AdvanceResult {
+  /** The decision recorded this turn, or null when the player only ended the Sol. */
+  decision: DecisionRecord | null;
+}
+
+/**
+ * Play one whole turn (1 turn = 1 Sol), in this order:
+ *   1. Validate the player's decision (when there is one). A decision that is
+ *      not allowed throws InvalidDecisionError and NOTHING changes: the Sol does
+ *      not advance on a rejected decision.
+ *   2. Apply its consequences (immediate effects, delayed effects scheduled,
+ *      decision recorded).
+ *   3. Advance time: daily production and consumption, radiation, delayed
+ *      effects that are due, the one-time resupply.
+ *   4. Trigger the next event, if one is due.
+ *   5. Return the updated state, with mission status and score recomputed.
+ *
+ * Throws InvalidDecisionError if the mission is already over, or if an event is
+ * still waiting for a response when the time comes to advance.
+ */
+export function processTurn(state: GameState, input?: DecisionInput): TurnResult {
+  if (state.mission.status === 'failed' || state.mission.status === 'completed') {
+    throw new InvalidDecisionError(`Cannot play a turn while mission status is "${state.mission.status}".`);
+  }
+  let current = state;
+  let decision: DecisionRecord | null = null;
+  if (input) {
+    current = applyPlayerDecision(current, input);
+    decision = current.history[current.history.length - 1] ?? null;
+    // The decision itself may have ended the mission (e.g. a fatal cost).
+    if (current.mission.status === 'failed' || current.mission.status === 'completed') {
+      return { state: current, firedEffects: [], dailyDelta: {}, resupplyFired: false, decision };
+    }
+  }
+  const advanced = advanceSimulationDay(current);
+  return { ...advanced, decision };
+}
 
 export interface SimulationSummary {
   day: number;

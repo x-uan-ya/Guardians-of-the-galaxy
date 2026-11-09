@@ -160,6 +160,9 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   const handleAdvanceDay = (): void => {
     if (!chapterIntroOpen) game.advanceDay();
   };
+  const handleEndTurn = (input?: Parameters<typeof game.decide>[0]): void => {
+    if (!chapterIntroOpen) game.endTurn(input);
+  };
   const handleDecide = (input: Parameters<typeof game.decide>[0]): void => {
     if (chapterIntroOpen) return;
 
@@ -456,6 +459,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
               activity={game.activity}
               onDecide={handleDecide}
               onAdvanceDay={handleAdvanceDay}
+              onEndTurn={handleEndTurn}
               progression={progression}
               onNavigate={handleNavigate}
             />

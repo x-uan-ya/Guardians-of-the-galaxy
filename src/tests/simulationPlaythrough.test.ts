@@ -6,6 +6,7 @@ import {
   applyPlayerDecision,
   createInitialGameState,
   getFreeActions,
+  unavailableReason,
   getGameOverReason,
   resolveEvent,
   validateGameState,
@@ -328,14 +329,16 @@ function runPlaythrough(
 
     if (state.mission.status === 'completed' || state.mission.status === 'failed') break;
 
+    // A real player can only pick actions the engine will accept (the UI greys
+    // out the rest), so the simulated player does the same.
+    const available = getFreeActions().filter((action) => unavailableReason(state, action) === null);
     let routineAction: EventAction | undefined;
     if (strategy === 'seeded-random') {
       if (policyRng.next() < 0.5) {
-        const freeActions = getFreeActions();
-        routineAction = freeActions[policyRng.nextInt(0, freeActions.length - 1)];
+        routineAction = available[policyRng.nextInt(0, available.length - 1)];
       }
     } else {
-      const best = chooseAction(getFreeActions(), strategy, policyRng);
+      const best = chooseAction(available, strategy, policyRng);
       if (scoreEffect(best.effect, strategy) > 0) routineAction = best;
     }
 

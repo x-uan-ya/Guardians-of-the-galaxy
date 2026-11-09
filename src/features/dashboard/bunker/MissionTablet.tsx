@@ -28,8 +28,9 @@ import type { Advice } from '../../ai-advisor/advisorTypes';
 import { recentDecisions, sourceDecisionFor, upcomingEffects } from '../../decisions/decisionHistory';
 import type { AdviceSnapshot, PlayerChoice } from '../../decisions/decisionTypes';
 import { ALLOCATION_ACTION_IDS } from '../../events/allocationActions';
+import { PROJECT_ACTION_IDS } from '../../events/projectActions';
 import type { GameEvent } from '../../events/eventTypes';
-import { getFreeActions, resupplyDay } from '../../simulation/simulationEngine';
+import { getFreeActions, resupplyDay, unavailableReason } from '../../simulation/simulationEngine';
 import type { DerivedStatus, GameState, MissionStatus } from '../../simulation/simulationTypes';
 import { CREW_LABELS, RESOURCE_LABELS, SYSTEM_LABELS } from '../labels';
 import { AstronautProfile } from './AstronautProfile';
@@ -324,21 +325,20 @@ function MissionTab(
               {!adviceAsked ? <AdviceAskButton onAsk={onAskAdvice} disabled={terminal} /> : null}
               {actions.map((action, index) => {
                 const planned = plannedActionId === action.id;
-                const startsAllocation =
-                  ALLOCATION_ACTION_IDS.has(action.id) &&
-                  !ALLOCATION_ACTION_IDS.has(actions[index - 1]?.id ?? '');
+                const reason = unavailableReason(state, action);
+                const groupHeading = groupHeadingFor(action.id, actions[index - 1]?.id);
                 return (
                   <Fragment key={action.id}>
-                  {startsAllocation ? (
+                  {groupHeading ? (
                     <div className="pt-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                      Resource allocation
+                      {groupHeading}
                     </div>
                   ) : null}
                   <button
                     type="button"
                     className="bunker-action"
                     aria-pressed={planned}
-                    disabled={terminal}
+                    disabled={terminal || reason !== null}
                     onClick={() => onPlanAction(planned ? null : action.id)}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -352,6 +352,11 @@ function MissionTab(
                     <p className="text-[11px] leading-snug text-slate-300">
                       <GlossaryText focusable={false}>{action.description}</GlossaryText>
                     </p>
+                    {reason ? (
+                      <p className="mt-1 text-[11px] font-semibold text-status-warn" data-testid="action-unavailable">
+                        Unavailable: {reason}
+                      </p>
+                    ) : null}
                     <EffectChips action={action} />
                   </button>
                   </Fragment>
@@ -363,6 +368,17 @@ function MissionTab(
       ) : null}
     </div>
   );
+}
+
+/** A small heading shown where one group of free actions ends and the next begins. */
+function groupHeadingFor(actionId: string, previousId: string | undefined): string | null {
+  if (ALLOCATION_ACTION_IDS.has(actionId) && !ALLOCATION_ACTION_IDS.has(previousId ?? '')) {
+    return 'Resource allocation';
+  }
+  if (PROJECT_ACTION_IDS.has(actionId) && !PROJECT_ACTION_IDS.has(previousId ?? '')) {
+    return 'Projects that take several Sols';
+  }
+  return null;
 }
 
 /** What just changed, in plain colour-coded chips. */

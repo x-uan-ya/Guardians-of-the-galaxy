@@ -9,6 +9,7 @@
  * helpers enforce the bounds and reject invalid numbers (NaN/Infinity).
  */
 
+import { RADIATION_THRESHOLDS } from '../mission/missionDefaults';
 import {
   METRIC_MAX,
   METRIC_MIN,
@@ -208,6 +209,71 @@ export function computeDailyResourceBreakdown(
     },
   };
 }
+// ---------------------------------------------------------------------------
+// Radiation
+// ---------------------------------------------------------------------------
+
+/** Shielding integrity every run starts near; at this level the mission dose is unchanged. */
+export const BASELINE_SHIELDING = 88;
+
+/**
+ * How much of the mission's radiation reaches the crew, as a multiplier on
+ * radiationPerDay. A mission's radiationPerDay assumes intact shielding, so the
+ * multiplier is 1.0 at or above the baseline. Every point of shielding lost
+ * below the baseline lets 4% more through, up to 3x when it is wrecked.
+ */
+export function radiationShieldingFactor(shieldingIntegrity: number): number {
+  if (!isValidNumber(shieldingIntegrity)) {
+    throw new RangeError(`Invalid shielding: ${String(shieldingIntegrity)}`);
+  }
+  const factor = 1 + (BASELINE_SHIELDING - shieldingIntegrity) * 0.04;
+  return Math.min(3, Math.max(1, factor));
+}
+
+/** Radiation exposure added in one Sol, after shielding. */
+export function dailyRadiationDose(radiationPerDay: number, shieldingIntegrity: number): number {
+  if (radiationPerDay <= 0) return 0;
+  return round2(radiationPerDay * radiationShieldingFactor(shieldingIntegrity));
+}
+
+/**
+ * Health lost in one Sol to radiation sickness, from the exposure the crew
+ * already carries. Nothing below the warning level; mild above it; severe at
+ * the critical level. (Lethal exposure ends the mission separately.)
+ */
+export function radiationHealthChange(radiationExposure: number): number {
+  if (radiationExposure >= RADIATION_THRESHOLDS.critical) return -1.5;
+  if (radiationExposure >= RADIATION_THRESHOLDS.warn) return -0.5;
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Power draw
+// ---------------------------------------------------------------------------
+
+/**
+ * How the outpost's daily power use is divided between what uses it
+ * (a gameplay model, not real engineering data). The shares add up to 1, so the
+ * split always sums to the exact consumption that the power balance uses.
+ */
+export const POWER_DRAW_SHARES = {
+  lifeSupport: 0.4,
+  foodSystems: 0.2,
+  equipment: 0.3,
+  emergency: 0.1,
+} as const;
+
+export type PowerDrawKey = keyof typeof POWER_DRAW_SHARES;
+
+/** Split one Sol's total power use by consumer. The parts sum exactly to `total`. */
+export function splitPowerDraw(total: number): Record<PowerDrawKey, number> {
+  const lifeSupport = round2(total * POWER_DRAW_SHARES.lifeSupport);
+  const foodSystems = round2(total * POWER_DRAW_SHARES.foodSystems);
+  const equipment = round2(total * POWER_DRAW_SHARES.equipment);
+  const emergency = round2(total - lifeSupport - foodSystems - equipment);
+  return { lifeSupport, foodSystems, equipment, emergency };
+}
+
 /** Round to 2 decimal places (keeps deterministic math tidy). */
 export function round2(n: number): number {
   if (!isValidNumber(n)) {

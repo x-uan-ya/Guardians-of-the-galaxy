@@ -15,11 +15,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  advanceSimulationDay,
   applyPlayerDecision,
   createInitialGameState,
   getSimulationSummary,
   InvalidDecisionError,
+  processTurn,
   RESUPPLY_AMOUNT,
   withTimestamp,
 } from '../features/simulation/simulationEngine';
@@ -70,6 +70,8 @@ export interface UseGameState {
   dismissResupply: () => void;
   /** Advance the simulation one day through the engine. */
   advanceDay: () => void;
+  /** Play a whole turn in one engine call: validate + apply the decision (if any), then advance the Sol. */
+  endTurn: (input?: DecisionInput) => void;
   /** Apply a validated player decision; surfaces errors via the activity feed. */
   decide: (input: DecisionInput) => void;
   /** Resolve an active event by action id. */
@@ -155,7 +157,10 @@ export function useGameState(): UseGameState {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const advanceDay = useCallback(() => {
+  // One whole turn through the engine's single pathway: validate the decision
+  // (if any), apply it, advance the Sol, fire delayed effects and events.
+  // A rejected decision leaves the game exactly as it was.
+  const endTurn = useCallback((input?: DecisionInput) => {
     const prev = stateRef.current;
     if (prev.mission.status === 'failed' || prev.mission.status === 'completed') {
       pushActivity(prev.day, `Mission is ${prev.mission.status}. Start a new mission to continue.`, 'warn');
@@ -167,9 +172,17 @@ export function useGameState(): UseGameState {
     }
 
     const stamped = withTimestamp(prev, Date.now());
-    const { state: next, firedEffects, dailyDelta, resupplyFired } = advanceSimulationDay(stamped);
+    let result: ReturnType<typeof processTurn>;
+    try {
+      result = processTurn(stamped, input);
+    } catch (err) {
+      pushActivity(prev.day, err instanceof InvalidDecisionError ? err.message : 'Turn rejected.', 'bad');
+      return;
+    }
+    const { state: next, firedEffects, dailyDelta, resupplyFired, decision } = result;
     stateRef.current = next;
     setState(next);
+    if (decision) pushActivity(prev.day, `Decision: ${decision.actionLabel}.`, 'good');
 
     const deltaSummary = Object.entries(dailyDelta)
       .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v}`)
@@ -198,6 +211,7 @@ export function useGameState(): UseGameState {
       pushActivity(next.day, `Mission status is now ${next.mission.status.toUpperCase()}.`, tone);
     }
   }, [pushActivity]);
+  const advanceDay = useCallback(() => endTurn(), [endTurn]);
 
   const decide = useCallback(
     (input: DecisionInput) => {
@@ -307,6 +321,7 @@ export function useGameState(): UseGameState {
     resupplyDeliveredOnDay,
     dismissResupply,
     advanceDay,
+    endTurn,
     decide,
     resolveActiveEvent,
     startNewMission,
