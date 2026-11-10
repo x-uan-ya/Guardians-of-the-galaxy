@@ -247,6 +247,11 @@ export interface MissionState {
   supplyWindow: number;
   /** True once the one-time resupply has been delivered (fires exactly once). */
   resupplyDelivered: boolean;
+  /**
+   * Blackout Sols in a row (Sols that ended with power at zero). Optional so
+   * older saves still load; missing means 0. Reaching the limit ends the mission.
+   */
+  blackoutSols?: number;
 }
 
 // ---------------------------------------------------------------------------

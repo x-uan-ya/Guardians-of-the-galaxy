@@ -68,12 +68,15 @@ import {
   applyCrewChanges,
   applyResourceChanges,
   applySystemChanges,
+  BLACKOUT_LIMIT_SOLS,
+  blackoutCrewChanges,
   clamp,
   computeDailyResourceBreakdown,
   computeDailyResourceDelta,
   dailyRadiationDose,
   isValidNumber,
   lifeSupportProductionFactor,
+  nextBlackoutSols,
   radiationHealthChange,
   round2,
   splitPowerDraw,
@@ -397,7 +400,9 @@ function clampSystems(systems: SystemState): SystemState {
  *
  * STATUS RULES (documented behaviour):
  *  - failed:    oxygen OR crew.health reaches 0 (outpost is lost), or
- *               radiationExposure reaches 100. Terminal.
+ *               radiationExposure reaches 100, or the outpost is without
+ *               power (power at 0) for BLACKOUT_LIMIT_SOLS Sols in a row.
+ *               Terminal.
  *  - completed: survived to/through day 30 while still active. Terminal.
  *  - critical:  any life-support resource <= 15, or health <= 15, or
  *               radiationExposure >= 80. Recoverable — reverts to active if the
@@ -439,7 +444,8 @@ function hasFatalMissionCondition(state: GameState): boolean {
   return (
     state.resources.oxygen <= 0 ||
     state.crew.health <= 0 ||
-    state.crew.radiationExposure >= RADIATION_LETHAL
+    state.crew.radiationExposure >= RADIATION_LETHAL ||
+    (state.mission.blackoutSols ?? 0) >= BLACKOUT_LIMIT_SOLS
   );
 }
 
@@ -775,9 +781,14 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
   const shortageChanges = shortageCrewChanges(resources);
   const crewChanges: CrewChanges = {};
   // Radiation sickness: the exposure the crew already carries wears health down.
+  // Blackout: a Sol that ends with no power at all hurts the crew.
+  const blackout = blackoutCrewChanges(resources.power);
   const healthChange =
-    recovery + (shortageChanges.health ?? 0) + radiationHealthChange(state.crew.radiationExposure);
-  const moraleChange = moraleRecovery + (shortageChanges.morale ?? 0);
+    recovery +
+    (shortageChanges.health ?? 0) +
+    radiationHealthChange(state.crew.radiationExposure) +
+    (blackout.health ?? 0);
+  const moraleChange = moraleRecovery + (shortageChanges.morale ?? 0) + (blackout.morale ?? 0);
   if (healthChange !== 0) crewChanges.health = healthChange;
   if (moraleChange !== 0) crewChanges.morale = moraleChange;
   // Mission radiation hazard (Mars / deep-space) accrues each day; the shielding
@@ -792,9 +803,12 @@ export function advanceSimulationDay(state: GameState): AdvanceResult {
     resources,
     crew,
     systems,
-    mission: resupplyFired
-      ? { ...state.mission, resupplyDelivered: true }
-      : state.mission,
+    mission: {
+      ...state.mission,
+      ...(resupplyFired ? { resupplyDelivered: true } : {}),
+      // Blackout Sols in a row; reaching BLACKOUT_LIMIT_SOLS ends the mission.
+      blackoutSols: nextBlackoutSols(state.mission.blackoutSols ?? 0, resources.power),
+    },
     updatedAt: state.updatedAt,
   };
 
@@ -909,6 +923,7 @@ export type GameOverReason =
   | 'character-died'
   | 'oxygen-depleted'
   | 'radiation-lethal'
+  | 'power-outage'
   | 'unknown';
 
 /**
@@ -928,6 +943,7 @@ export function getGameOverReason(state: GameState): GameOverReason {
   if (state.crew.health <= 0) return 'character-died';
   if (state.resources.oxygen <= 0) return 'oxygen-depleted';
   if (state.crew.radiationExposure >= 100) return 'radiation-lethal';
+  if ((state.mission.blackoutSols ?? 0) >= BLACKOUT_LIMIT_SOLS) return 'power-outage';
   return 'unknown';
 }
 

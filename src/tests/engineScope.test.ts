@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PROJECT_ACTIONS } from '../features/events/projectActions';
-import { calculatePowerDraw, calculateRadiationForecast } from '../features/simulation/resourceForecast';
+import { calculatePowerDraw, calculateRadiationForecast, calculateResourceForecast } from '../features/simulation/resourceForecast';
 import {
   BASELINE_SHIELDING,
   dailyRadiationDose,
@@ -335,5 +335,76 @@ describe('power balance and radiation readouts', () => {
     const r = calculateRadiationForecast(state);
     expect(r.dosePerSol).toBe(0);
     expect(r.solsToLethal).toBeNull();
+  });
+});
+
+describe('blackout: power at zero', () => {
+  /** A state where the next Sol will end with no power at all. */
+  function dark(blackoutSols = 0): GameState {
+    const base = marsGame({ power: 0 });
+    return {
+      ...withSystems(base, { powerGeneration: 0 }),
+      mission: { ...base.mission, blackoutSols },
+    };
+  }
+
+  it('counts a Sol that ends with no power', () => {
+    const next = advanceSimulationDay(dark()).state;
+    expect(next.resources.power).toBe(0);
+    expect(next.mission.blackoutSols).toBe(1);
+  });
+
+  it('hurts the crew on a blackout Sol', () => {
+    const lit = advanceSimulationDay(marsGame({ power: 60 })).state;
+    const blackout = advanceSimulationDay(dark()).state;
+    expect(blackout.crew.health).toBeLessThan(lit.crew.health);
+    expect(blackout.crew.morale).toBeLessThan(lit.crew.morale);
+  });
+
+  it('ends the mission after 3 blackout Sols in a row, with a power-outage reason', () => {
+    let state = dark();
+    for (let i = 0; i < 2; i += 1) {
+      state = advanceSimulationDay({ ...state, activeEvents: [] }).state;
+      expect(state.mission.status).not.toBe('failed');
+    }
+    state = advanceSimulationDay({ ...state, activeEvents: [] }).state;
+    expect(state.mission.blackoutSols).toBe(3);
+    expect(state.mission.status).toBe('failed');
+    expect(isGameOver(state)).toBe(true);
+    expect(getGameOverReason(state)).toBe('power-outage');
+    expect(() => processTurn(state)).toThrow(InvalidDecisionError);
+  });
+
+  it('is survivable: power back above zero resets the count', () => {
+    let state = advanceSimulationDay(dark()).state;
+    state = advanceSimulationDay({ ...state, activeEvents: [] }).state;
+    expect(state.mission.blackoutSols).toBe(2);
+    // Power-saving mode needs no power and adds some.
+    state = applyPlayerDecision(
+      { ...state, activeEvents: [] },
+      { actionId: 'power-saving-mode', playerChoice: 'self-directed' }
+    );
+    state = { ...state, systems: { ...state.systems, powerGeneration: 100 } };
+    state = advanceSimulationDay({ ...state, activeEvents: [] }).state;
+    expect(state.resources.power).toBeGreaterThan(0);
+    expect(state.mission.blackoutSols).toBe(0);
+    expect(state.mission.status).not.toBe('failed');
+  });
+
+  it('warns how many Sols are left before the mission is lost', () => {
+    expect(calculateResourceForecast(dark(0)).power.warning).toMatch(/lost in 3 Sols/);
+    expect(calculateResourceForecast(dark(2)).power.warning).toMatch(/lost in 1 Sol\b/);
+  });
+
+  it('a save from before this rule (no counter) still works', () => {
+    const base = marsGame({ power: 0 });
+    const legacy = withSystems({ ...base, mission: { ...base.mission } }, { powerGeneration: 0 });
+    delete legacy.mission.blackoutSols;
+    expect(advanceSimulationDay(legacy).state.mission.blackoutSols).toBe(1);
+  });
+
+  it('does not count Sols when power is simply low', () => {
+    const next = advanceSimulationDay(marsGame({ power: 5 })).state;
+    expect(next.mission.blackoutSols).toBe(0);
   });
 });

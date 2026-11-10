@@ -33,6 +33,7 @@ const REASON_TEXT: Record<ReturnType<typeof getGameOverReason>, string> = {
   'character-died': 'Your character succumbed to their injuries. Health reached zero.',
   'oxygen-depleted': 'The outpost ran out of breathable oxygen.',
   'radiation-lethal': 'Your character absorbed a lethal dose of radiation.',
+  'power-outage': 'The outpost stayed without power for too long. Life support failed.',
   unknown: 'The mission failed.',
 };
 

@@ -248,6 +248,28 @@ export function radiationHealthChange(radiationExposure: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Blackout (power at zero)
+// ---------------------------------------------------------------------------
+
+/**
+ * A Sol that ends with the power store at zero is a blackout Sol. Blackout
+ * Sols in a row wear the crew down, and this many in a row mean life support
+ * has failed and the mission is lost. Any Sol that ends with power above zero
+ * resets the count.
+ */
+export const BLACKOUT_LIMIT_SOLS = 3;
+
+/** Extra health and morale lost on a blackout Sol (cold, dark, no air handling). */
+export function blackoutCrewChanges(power: number): CrewChanges {
+  return power <= 0 ? { health: -2, morale: -2 } : {};
+}
+
+/** The blackout count after a Sol ends with `power` in store. */
+export function nextBlackoutSols(previous: number, power: number): number {
+  return power <= 0 ? previous + 1 : 0;
+}
+
+// ---------------------------------------------------------------------------
 // Power draw
 // ---------------------------------------------------------------------------
 

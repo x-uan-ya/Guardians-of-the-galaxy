@@ -9,7 +9,7 @@
  * It is a forecast "at today's rate": events, delayed effects and the one-time
  * resupply are not predicted.
  */
-import { radiationShieldingFactor, type PowerDrawKey } from './resourceCalculations';
+import { BLACKOUT_LIMIT_SOLS, radiationShieldingFactor, type PowerDrawKey } from './resourceCalculations';
 import { SURVIVAL_TARGET_DAY, projectDailyResources } from './simulationEngine';
 import { RESOURCE_KEYS, type GameState, type ResourceKey, type StatusLevel } from './simulationTypes';
 
@@ -69,6 +69,11 @@ export function calculateResourceForecast(state: GameState): Record<ResourceKey,
       daysRemaining = 0;
       level = 'critical';
       warning = `${NAMES[key]} has run out`;
+      if (key === 'power') {
+        // A blackout that lasts too long ends the mission, so say how long is left.
+        const left = Math.max(0, BLACKOUT_LIMIT_SOLS - (state.mission.blackoutSols ?? 0));
+        warning = `Power has run out. Blackout: the mission is lost in ${solsText(left)} unless power is restored`;
+      }
     } else if (net < 0) {
       daysRemaining = Math.ceil(available / -net);
       lastsToRescue = daysRemaining > solsLeft;

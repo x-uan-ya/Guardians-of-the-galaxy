@@ -10,6 +10,7 @@
 
 import { findEvent } from '../events/eventCatalog';
 import { getMission } from '../mission/missions';
+import { BLACKOUT_LIMIT_SOLS } from '../simulation/resourceCalculations';
 import { getGameOverReason } from '../simulation/simulationEngine';
 import { calculateDerivedStatus } from '../simulation/simulationSelectors';
 import {
@@ -217,6 +218,9 @@ function buildPrimaryReason(state: GameState): string {
       case 'radiation-lethal':
         return `Your character absorbed a lethal dose of radiation by Sol ${state.day}. ` +
           `Insufficient shielding or repeated exposure events caused this outcome.`;
+      case 'power-outage':
+        return `The outpost was without power for ${BLACKOUT_LIMIT_SOLS} Sols in a row, ending on Sol ${state.day}. ` +
+          `With no power, life support could not keep the crew alive.`;
       default:
         return `The mission failed on Sol ${state.day}.`;
     }
