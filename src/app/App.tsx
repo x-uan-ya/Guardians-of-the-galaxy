@@ -56,12 +56,16 @@ import type { MissionConfig, MissionType } from '../features/mission/missionType
 import type { DecisionInput } from '../features/decisions/decisionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
-import { getCurrentSession, logout } from '../features/auth/authService';
+import { getCurrentSession, logout, syncUsersFromApi } from '../features/auth/authService';
 import type { User } from '../features/auth/authTypes';
 import {
   completeChapterIntroduction,
   loadCompletedChapterIntroductions,
+  hydrateSaveFromApi,
 } from '../lib/storage';
+import { hydrateAchievementsFromApi } from '../features/achievements/achievementService';
+import { hydrateProgressionFromApi } from '../features/progression/progressionStorage';
+import { hydrateHistoryFromApi } from '../features/history/historyService';
 
 /** Sidebar views available as SECONDARY navigation during the PLAYING phase. */
 type SubView = Extract<
@@ -566,6 +570,35 @@ export { DEFAULT_MISSION_CONFIG };
 export function App(): ReactElement {
   const [user, setUser] = useState<User | null>(() => getCurrentSession());
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+  // Gate GameApp until this user's Neon-backed state has been pulled into the
+  // local mirror, because GameApp reads save/achievements/progression/history
+  // synchronously on mount. Keyed by user id so switching accounts re-hydrates.
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+
+  // Pull the Neon-backed account registry into the local mirror once at startup
+  // so an account created on another device can sign in here. No-op offline.
+  useEffect(() => {
+    void syncUsersFromApi();
+  }, []);
+
+  // Hydrate this player's per-user state from Neon before showing the game.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const userId = user.id;
+    void Promise.allSettled([
+      hydrateSaveFromApi(),
+      hydrateAchievementsFromApi(),
+      hydrateProgressionFromApi(),
+      hydrateHistoryFromApi(),
+    ]).then(() => {
+      // Even if every call failed (offline), proceed on the local mirror.
+      if (!cancelled) setHydratedFor(userId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   if (!user) {
     // A successful login or sign-up has already stored the session.
@@ -577,5 +610,13 @@ export function App(): ReactElement {
     );
   }
 
-  return <GameApp key={user.id} onLogout={() => setUser(null)} />;
+  if (hydratedFor !== user.id) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-space-900 text-slate-300">
+        <p className="text-sm">Syncing your mission data…</p>
+      </div>
+    );
+  }
+
+  return <GameApp key={user.id} onLogout={() => { setHydratedFor(null); setUser(null); }} />;
 }

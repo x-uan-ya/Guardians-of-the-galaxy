@@ -11,7 +11,8 @@
  * result later.
  */
 
-import { scopedKey } from '../../lib/userScope';
+import { scopedKey, getActiveUserId } from '../../lib/userScope';
+import { fetchState, putState } from '../../lib/stateApi';
 import { MISSION_TYPES, OCCUPATIONS, type GameState } from '../simulation/simulationTypes';
 import type { MissionType, Occupation } from '../simulation/simulationTypes';
 
@@ -68,10 +69,32 @@ function readAll(): PlayHistoryEntry[] {
 }
 
 function writeAll(entries: PlayHistoryEntry[]): void {
+  const capped = entries.slice(0, MAX_HISTORY_ROWS);
   try {
-    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(entries.slice(0, MAX_HISTORY_ROWS)));
+    localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(capped));
   } catch {
     // Storage unavailable or full: the history just will not be saved.
+  }
+  // Mirror to Neon (fire-and-forget; no-op when signed out / API unavailable).
+  const userId = getActiveUserId();
+  if (userId) void putState(userId, 'history', capped);
+}
+
+/**
+ * Pull the signed-in player's play history from Neon into the local mirror so a
+ * synchronous getPlayHistory() afterwards sees the cross-device value. No-op
+ * when signed out or the API is unavailable (keeps the local copy).
+ */
+export async function hydrateHistoryFromApi(): Promise<void> {
+  const userId = getActiveUserId();
+  if (!userId) return;
+  const remote = await fetchState<PlayHistoryEntry[]>(userId, 'history');
+  if (Array.isArray(remote)) {
+    try {
+      localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(remote.filter(isEntry)));
+    } catch {
+      /* ignore */
+    }
   }
 }
 

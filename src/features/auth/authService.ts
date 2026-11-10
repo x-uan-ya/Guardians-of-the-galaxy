@@ -12,6 +12,7 @@ import {
   hashPassword,
   verifyPassword,
 } from './authValidation';
+import { pullUsersFromApi, pushUserToApi } from './authSync';
 
 const USERS_STORAGE_KEY = 'mars-outpost-users';
 const SESSION_STORAGE_KEY = 'mars-outpost-session';
@@ -144,8 +145,34 @@ export function resetPassword(email: string, newPassword: string): AuthResult {
   // Update password
   target.passwordHash = hashPassword(newPassword);
   saveUsers(users);
+  void pushUserToApi(target);
 
   return { success: true, user: target };
+}
+
+/**
+ * Merge the Neon-backed account registry into the local mirror. Call once at
+ * startup so an account created on another device can sign in here. Local-only
+ * accounts are preserved and pushed up. Resolves silently when the API is
+ * unavailable (static build / offline), leaving the local registry intact.
+ */
+export async function syncUsersFromApi(): Promise<void> {
+  const remote = await pullUsersFromApi();
+  if (!remote) return; // API unavailable — keep local as-is.
+
+  const local = getUsers();
+  const byId = new Map<string, User>();
+  for (const u of remote) byId.set(u.id, u);
+
+  // Local accounts the DB does not know about: keep them and push them up.
+  for (const u of local) {
+    if (!byId.has(u.id)) {
+      byId.set(u.id, u);
+      void pushUserToApi(u);
+    }
+  }
+
+  saveUsers([...byId.values()]);
 }
 
 /**
@@ -214,9 +241,10 @@ export function signup(credentials: SignupCredentials): AuthResult {
     createdAt: new Date().toISOString(),
   };
 
-  // Save user
+  // Save user locally (synchronous mirror), then mirror to Neon.
   users.push(newUser);
   saveUsers(users);
+  void pushUserToApi(newUser);
 
   // Auto-login after signup
   saveSession(newUser);
@@ -252,6 +280,8 @@ export function login(credentials: LoginCredentials): AuthResult {
   // Save session
   saveSession(user);
   saveLastEmail(user.email);
+  // Keep the DB copy of this account in sync (no-op if the API is unavailable).
+  void pushUserToApi(user);
 
   return { success: true, user };
 }

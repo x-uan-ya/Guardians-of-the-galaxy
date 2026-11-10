@@ -7,9 +7,15 @@
  * touches Postgres (keeping DATABASE_URL off the client).
  *
  * Endpoints:
- *   GET  /api/health       -> { ok, db }     (proves DB connectivity)
- *   GET  /api/leaderboard  -> LeaderboardEntry[]
- *   POST /api/leaderboard  -> LeaderboardEntry[]  (body = one entry; returns board)
+ *   GET  /api/health                       -> { ok, db }   (proves DB connectivity)
+ *   GET  /api/leaderboard                  -> LeaderboardEntry[]
+ *   POST /api/leaderboard                  -> LeaderboardEntry[] (body = one entry)
+ *   GET  /api/users                        -> DbUser[]     (account registry)
+ *   POST /api/users                        -> DbUser[]     (body = one account; upsert)
+ *   GET  /api/state?userId=&kind=          -> { payload }  (per-user blob or null)
+ *   POST /api/state?userId=&kind=          -> { payload }  (body = { payload })
+ *
+ * `kind` is one of: save | chapters | achievements | progression | history.
  *
  * It injects DATABASE_URL into process.env from Vite's loaded env so the DB
  * module can read it. If DATABASE_URL is absent, the endpoints return 503 and
@@ -20,6 +26,8 @@ import type { Connect, Plugin, ViteDevServer, PreviewServer } from 'vite';
 import { loadEnv } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getTopEntries, submitEntry, type DbLeaderboardEntry } from './leaderboardDb';
+import { getUsers, upsertUser, type DbUser } from './usersDb';
+import { getUserState, putUserState, isUserStateKind } from './userStateDb';
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
@@ -75,6 +83,49 @@ function parseEntry(raw: string): DbLeaderboardEntry | null {
   return null;
 }
 
+/** Validate one account record coming from the client's auth layer. */
+function parseUser(value: unknown): DbUser | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.id !== 'string' ||
+    typeof v.email !== 'string' ||
+    typeof v.passwordHash !== 'string' ||
+    typeof v.createdAt !== 'string' ||
+    !Array.isArray(v.securityQuestions)
+  ) {
+    return null;
+  }
+  const securityQuestions = [];
+  for (const q of v.securityQuestions) {
+    if (
+      typeof q === 'object' &&
+      q !== null &&
+      typeof (q as Record<string, unknown>).question === 'string' &&
+      typeof (q as Record<string, unknown>).answer === 'string'
+    ) {
+      const qq = q as { question: string; answer: string };
+      securityQuestions.push({ question: qq.question, answer: qq.answer });
+    } else {
+      return null;
+    }
+  }
+  return {
+    id: v.id,
+    email: v.email,
+    passwordHash: v.passwordHash,
+    securityQuestions,
+    createdAt: v.createdAt,
+  };
+}
+
+/** Read a query-string value from a request URL (which may be path-only). */
+function queryParam(url: string, name: string): string | null {
+  const q = url.indexOf('?');
+  if (q < 0) return null;
+  return new URLSearchParams(url.slice(q + 1)).get(name);
+}
+
 /** The shared request handler used by both the dev and preview servers. */
 function makeMiddleware(hasDb: boolean): Connect.NextHandleFunction {
   return (req, res, next) => {
@@ -100,6 +151,58 @@ function makeMiddleware(hasDb: boolean): Connect.NextHandleFunction {
             const entry = parseEntry(body);
             if (!entry) return sendJson(res, 400, { error: 'Invalid leaderboard entry' });
             return sendJson(res, 200, await submitEntry(entry));
+          }
+          res.statusCode = 405;
+          return res.end('Method Not Allowed');
+        }
+
+        if (url.startsWith('/api/users')) {
+          if (!hasDb) return sendJson(res, 503, { error: 'Database not configured' });
+
+          if (req.method === 'GET') {
+            return sendJson(res, 200, await getUsers());
+          }
+          if (req.method === 'POST') {
+            const body = await readBody(req);
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(body);
+            } catch {
+              return sendJson(res, 400, { error: 'Invalid JSON' });
+            }
+            const user = parseUser(parsed);
+            if (!user) return sendJson(res, 400, { error: 'Invalid user record' });
+            return sendJson(res, 200, await upsertUser(user));
+          }
+          res.statusCode = 405;
+          return res.end('Method Not Allowed');
+        }
+
+        if (url.startsWith('/api/state')) {
+          if (!hasDb) return sendJson(res, 503, { error: 'Database not configured' });
+
+          const userId = queryParam(url, 'userId');
+          const kind = queryParam(url, 'kind');
+          if (!userId) return sendJson(res, 400, { error: 'Missing userId' });
+          if (!isUserStateKind(kind)) return sendJson(res, 400, { error: 'Invalid kind' });
+
+          if (req.method === 'GET') {
+            const payload = await getUserState(userId, kind);
+            // 200 with {payload:null} when nothing stored, so the client can tell
+            // "DB reachable but empty" from "DB unreachable".
+            return sendJson(res, 200, { payload });
+          }
+          if (req.method === 'POST') {
+            const body = await readBody(req);
+            let parsed: unknown;
+            try {
+              parsed = (JSON.parse(body) as { payload?: unknown }).payload;
+            } catch {
+              return sendJson(res, 400, { error: 'Invalid JSON' });
+            }
+            if (parsed === undefined) return sendJson(res, 400, { error: 'Missing payload' });
+            const saved = await putUserState(userId, kind, parsed);
+            return sendJson(res, 200, { payload: saved });
           }
           res.statusCode = 405;
           return res.end('Method Not Allowed');

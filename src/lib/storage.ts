@@ -13,8 +13,9 @@
 
 import { validateGameState } from '../features/simulation/simulationEngine';
 import type { GameState } from '../features/simulation/simulationTypes';
-import { scopedKey } from './userScope';
+import { scopedKey, getActiveUserId } from './userScope';
 import { parseGameState, serializeGameState } from './validation';
+import { fetchState, putState } from './stateApi';
 
 /** Base localStorage key for a saved game. Each account gets its own copy (see userScope). */
 export const STORAGE_KEY = 'mars-outpost-zero:save:v1';
@@ -101,6 +102,9 @@ export function completeChapterIntroduction(gameId: string, chapterNumber: numbe
     const chapters = Array.isArray(progress[gameId]) ? progress[gameId] : [];
     progress[gameId] = [...new Set([...chapters, chapterNumber])];
     storage.setItem(scopedKey(CHAPTER_INTRODUCTIONS_KEY), JSON.stringify(progress));
+    // Mirror to Neon (fire-and-forget; no-op when signed out / API unavailable).
+    const userId = getActiveUserId();
+    if (userId) void putState(userId, 'chapters', progress);
     return true;
   } catch {
     return false;
@@ -144,6 +148,9 @@ export function saveGame(state: GameState): SaveResult {
 
   try {
     storage.setItem(scopedKey(STORAGE_KEY), serializeGameState(state));
+    // Mirror the validated save to Neon (fire-and-forget).
+    const userId = getActiveUserId();
+    if (userId) void putState(userId, 'save', state);
     return { status: 'saved' };
   } catch {
     // Quota exceeded or similar — treat as unavailable rather than crashing.
@@ -153,11 +160,50 @@ export function saveGame(state: GameState): SaveResult {
 
 /** Remove the saved game (used by reset). Safe to call when unavailable. */
 export function clearGame(): void {
+  // Clear the DB copy too (null payload = no save).
+  const userId = getActiveUserId();
+  if (userId) void putState(userId, 'save', null);
+
   const storage = getStorage();
   if (!storage) return;
   try {
     storage.removeItem(scopedKey(STORAGE_KEY));
   } catch {
     // Ignore — nothing we can do, and there is no state to corrupt.
+  }
+}
+
+/**
+ * Pull the signed-in player's saved game and completed chapter intros from Neon
+ * into the local mirror, so the synchronous loadGame() / chapter reads that run
+ * on mount see the cross-device values. No-op when signed out or the API is
+ * unavailable (keeps the local copies). The save is validated before it is
+ * trusted, so a corrupt remote blob cannot clobber a good local save.
+ */
+export async function hydrateSaveFromApi(): Promise<void> {
+  const userId = getActiveUserId();
+  if (!userId) return;
+  const storage = getStorage();
+  if (!storage) return;
+
+  const remoteSave = await fetchState<GameState>(userId, 'save');
+  if (remoteSave && typeof remoteSave === 'object') {
+    const result = validateGameState(remoteSave);
+    if (result.valid) {
+      try {
+        storage.setItem(scopedKey(STORAGE_KEY), serializeGameState(remoteSave));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const remoteChapters = await fetchState<Record<string, number[]>>(userId, 'chapters');
+  if (remoteChapters && typeof remoteChapters === 'object') {
+    try {
+      storage.setItem(scopedKey(CHAPTER_INTRODUCTIONS_KEY), JSON.stringify(remoteChapters));
+    } catch {
+      /* ignore */
+    }
   }
 }

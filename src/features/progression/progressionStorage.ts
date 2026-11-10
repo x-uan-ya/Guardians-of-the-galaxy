@@ -10,7 +10,8 @@
 
 import { runHasProgress, type RunProgression } from './progressionEngine';
 
-import { scopedKey } from '../../lib/userScope';
+import { scopedKey, getActiveUserId } from '../../lib/userScope';
+import { fetchState, putState } from '../../lib/stateApi';
 
 /** Base key. Each account gets its own progress (see lib/userScope). */
 const STORAGE_KEY = 'mars-run-progression-v2';
@@ -52,17 +53,38 @@ export function loadRun(gameId: string): RunProgression | null {
 /** Save a run (only if it has real progress), pruning to the newest few. */
 export function saveRun(run: RunProgression): void {
   if (!runHasProgress(run)) return;
+  const all = readAll();
+  all[run.gameId] = run;
+  const newest = Object.values(all)
+    .filter(isValidRun)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, MAX_RUNS);
+  const pruned: RunMap = {};
+  for (const r of newest) pruned[r.gameId] = r;
   try {
-    const all = readAll();
-    all[run.gameId] = run;
-    const newest = Object.values(all)
-      .filter(isValidRun)
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, MAX_RUNS);
-    const pruned: RunMap = {};
-    for (const r of newest) pruned[r.gameId] = r;
     localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(pruned));
   } catch {
     // Storage unavailable or full: progress just will not persist.
+  }
+  // Mirror to Neon (fire-and-forget; no-op when signed out / API unavailable).
+  const userId = getActiveUserId();
+  if (userId) void putState(userId, 'progression', pruned);
+}
+
+/**
+ * Pull the signed-in player's run-progression map from Neon into the local
+ * mirror so a synchronous loadRun() afterwards sees the cross-device value.
+ * No-op when signed out or the API is unavailable (keeps the local copy).
+ */
+export async function hydrateProgressionFromApi(): Promise<void> {
+  const userId = getActiveUserId();
+  if (!userId) return;
+  const remote = await fetchState<RunMap>(userId, 'progression');
+  if (remote && typeof remote === 'object') {
+    try {
+      localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(remote));
+    } catch {
+      /* ignore */
+    }
   }
 }

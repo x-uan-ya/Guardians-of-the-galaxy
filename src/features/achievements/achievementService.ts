@@ -12,7 +12,8 @@ import {
   type AchievementId,
 } from './achievementData';
 
-import { scopedKey } from '../../lib/userScope';
+import { scopedKey, getActiveUserId } from '../../lib/userScope';
+import { fetchState, putState } from '../../lib/stateApi';
 
 /** Base key. Each account gets its own badges (see lib/userScope). */
 const STORAGE_KEY = 'mars-achievements-v2';
@@ -52,6 +53,27 @@ function saveAchievements(store: AchievementStore): void {
     localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(store));
   } catch {
     // Storage unavailable: badges just will not persist.
+  }
+  // Mirror to Neon (fire-and-forget; no-op when signed out or API unavailable).
+  const userId = getActiveUserId();
+  if (userId) void putState(userId, 'achievements', store);
+}
+
+/**
+ * Pull the signed-in player's badges from Neon into the local mirror, so a
+ * synchronous loadAchievements() afterwards sees the cross-device value. No-op
+ * when signed out or when the API is unavailable (keeps the local copy).
+ */
+export async function hydrateAchievementsFromApi(): Promise<void> {
+  const userId = getActiveUserId();
+  if (!userId) return;
+  const remote = await fetchState<AchievementStore>(userId, 'achievements');
+  if (remote && typeof remote === 'object') {
+    try {
+      localStorage.setItem(scopedKey(STORAGE_KEY), JSON.stringify(remote));
+    } catch {
+      /* ignore */
+    }
   }
 }
 
