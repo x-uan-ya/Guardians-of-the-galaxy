@@ -38,7 +38,7 @@ import { AchievementsPage } from '../features/progression/AchievementsPage';
 import { Leaderboard } from '../features/leaderboard/Leaderboard';
 import { PlayHistory } from '../features/history/PlayHistory';
 import { recordRun } from '../features/history/historyService';
-import { submitScore } from '../features/leaderboard/leaderboardService';
+import { submitScore, submitScoreToApi } from '../features/leaderboard/leaderboardService';
 import { ProgressToasts } from '../features/progression/ProgressToasts';
 import { EmergencyNotice } from '../features/events/EmergencyNotice';
 import { CrisisModal } from '../features/events/CrisisModal';
@@ -219,7 +219,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
     const session = getCurrentSession();
     const name = session ? session.email.split('@')[0] || 'Operator' : 'Operator';
 
-    submitScore({
+    const entry = {
       id: runId,
       ...(session ? { userId: session.id } : {}),
       name,
@@ -227,9 +227,12 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
       score: game.state.mission.score,
       missionType: game.state.mission.missionType,
       occupation: game.state.character.occupation,
-      outcome: status === 'completed' ? 'completed' : 'failed',
+      outcome: (status === 'completed' ? 'completed' : 'failed') as 'completed' | 'failed',
       timestamp: Date.now(),
-    });
+    };
+    // Local board (instant, offline-safe) + Neon Postgres board (fire-and-forget).
+    submitScore(entry);
+    void submitScoreToApi(entry);
     setLastLeaderboardId(runId);
   }, [status, game.state, lastLeaderboardId]);
 

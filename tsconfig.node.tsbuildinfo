@@ -1,1 +1,1 @@
-{"root":["./vite.config.ts"],"version":"5.9.3"}
+{"root":["./vite.config.ts","./server/leaderboardapiplugin.ts","./server/leaderboarddb.ts"],"version":"5.9.3"}

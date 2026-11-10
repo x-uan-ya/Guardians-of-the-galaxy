@@ -6,11 +6,12 @@
  * it optionally highlights the player's most recent entry.
  */
 
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { Medal, Trophy } from 'lucide-react';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { getActiveUserId } from '../../lib/userScope';
-import { getLeaderboard } from './leaderboardService';
+import { getLeaderboard, fetchLeaderboardFromApi } from './leaderboardService';
+import type { LeaderboardEntry } from './leaderboardTypes';
 import { getMission } from '../mission/missions';
 import { getOccupation } from '../mission/occupations';
 
@@ -22,8 +23,25 @@ interface LeaderboardProps {
 const RANK_COLOR = ['text-mars-orange', 'text-slate-300', 'text-amber-600'];
 
 export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
-  const entries = getLeaderboard();
+  // Start from the instant local board so the panel renders immediately, then
+  // replace it with the Postgres-backed board once the API responds. If the API
+  // is unavailable (static build / offline), the local board stays.
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(() => getLeaderboard());
+  const [source, setSource] = useState<'local' | 'database'>('local');
   const me = getActiveUserId();
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchLeaderboardFromApi().then((remote) => {
+      if (!cancelled && remote) {
+        setEntries(remote);
+        setSource('database');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="panel mx-auto max-w-3xl p-5">
@@ -47,8 +65,17 @@ export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
 
           {entries.map((entry, index) => {
             const rank = index + 1;
-            const mission = getMission(entry.missionType);
-            const occupation = getOccupation(entry.occupation);
+            // Defensive lookups: a persisted entry with an unknown/missing
+            // missionType or occupation must not crash the whole board.
+            const mission = getMission(entry.missionType) as
+              | ReturnType<typeof getMission>
+              | undefined;
+            const occupation = getOccupation(entry.occupation) as
+              | ReturnType<typeof getOccupation>
+              | undefined;
+            const missionLabel = mission?.label ?? 'Unknown site';
+            const missionGlyph = mission?.glyph ?? '🛰️';
+            const occupationLabel = occupation?.label ?? 'Unknown role';
             // Your own row is marked. Each player appears once, with their best run.
             const highlighted = entry.id === highlightId || (me !== null && entry.userId === me);
             return (
@@ -85,8 +112,8 @@ export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
                     ) : null}
                   </span>
                   <span className="block truncate text-[11px] text-slate-400">
-                    <span aria-hidden>{mission.glyph} </span>
-                    {mission.label} · {occupation.label} ·{' '}
+                    <span aria-hidden>{missionGlyph} </span>
+                    {missionLabel} · {occupationLabel} ·{' '}
                     <span className={entry.outcome === 'completed' ? 'text-status-ok' : 'text-status-critical'}>
                       {entry.outcome === 'completed' ? 'Survived' : 'Lost'}
                     </span>
@@ -107,7 +134,9 @@ export function Leaderboard({ highlightId }: LeaderboardProps): ReactElement {
       )}
 
       <p className="mt-4 text-[10px] text-slate-500">
-        Demo entries are placeholder data. Finish a run to post your own score.
+        {source === 'database'
+          ? 'Live leaderboard — backed by Neon Postgres. Finish a run to post your score.'
+          : 'Local demo board. Finish a run to post your own score.'}
       </p>
     </section>
   );

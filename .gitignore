@@ -34,3 +34,4 @@ coverage/
 
 # How to Play video tools: generated frames and output
 tools/tutorial-video/out/
+.neon

@@ -20,6 +20,50 @@ import {
 /** localStorage key for the persisted leaderboard. */
 export const LEADERBOARD_KEY = 'mars-outpost-zero:leaderboard:v1';
 
+/**
+ * Server API (Neon Postgres) base path. When the API is reachable the board is
+ * backed by Postgres; otherwise the local (localStorage) board is used so the
+ * app keeps working offline / in a pure static build. See server/*.
+ */
+const LEADERBOARD_API = '/api/leaderboard';
+
+/**
+ * Fetch the ranked board from the Postgres-backed API. Returns null if the API
+ * is unavailable (static build with no server, DB not configured, or offline),
+ * so callers can fall back to the local board.
+ */
+export async function fetchLeaderboardFromApi(): Promise<LeaderboardEntry[] | null> {
+  try {
+    const res = await fetch(LEADERBOARD_API, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const data: unknown = await res.json();
+    if (!Array.isArray(data)) return null;
+    return data.filter(isEntry);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Submit a run result to the Postgres-backed API, returning the refreshed board
+ * or null if the API is unavailable.
+ */
+export async function submitScoreToApi(entry: LeaderboardEntry): Promise<LeaderboardEntry[] | null> {
+  try {
+    const res = await fetch(LEADERBOARD_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    });
+    if (!res.ok) return null;
+    const data: unknown = await res.json();
+    if (!Array.isArray(data)) return null;
+    return data.filter(isEntry);
+  } catch {
+    return null;
+  }
+}
+
 /** Access localStorage safely (SSR / private mode / disabled all return null). */
 function getStorage(): Storage | null {
   try {
