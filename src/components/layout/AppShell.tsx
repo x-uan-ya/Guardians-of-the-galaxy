@@ -6,10 +6,9 @@
  * the active view provides. All data/handlers come from App via props.
  */
 
-import type { ReactElement, ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import type { MissionStatus } from '../../features/simulation/simulationTypes';
 import type { ViewKey } from '../../app/routes';
-import { PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { MissionBackdrop } from './MissionBackdrop';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
@@ -51,8 +50,25 @@ export function AppShell({
   onLogout,
   children,
 }: AppShellProps): ReactElement {
+  const shellRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    const header = shell?.querySelector('header');
+    if (!shell || !header) return;
+    const update = (): void => {
+      shell.style.setProperty('--app-header-height', `${header.getBoundingClientRect().height}px`);
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(header);
+    window.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, []);
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <div ref={shellRef} className="relative flex min-h-screen flex-col">
       <MissionBackdrop />
       <TopBar
         day={day}
@@ -67,44 +83,16 @@ export function AppShell({
         onLogoClick={onLogoClick}
         onLogout={onLogout}
       />
-      {/* One box does both jobs. It reserves room for the fixed sidebar only while the sidebar is
-          open, so closing the sidebar leaves the content centred on the whole screen. The
-          dashboard fills the width (the bunker layout manages its own columns); other pages keep a
-          readable maximum width. */}
+      {/* Match the desktop sidebar width; secondary pages retain their readable width cap. */}
       <div
         className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-out motion-reduce:transition-none md:flex-row ${
           activeView === 'dashboard' ? '' : 'max-w-7xl'
-        } ${sidebarOpen ? 'md:pl-56' : ''}`}
+        } ${sidebarOpen ? 'md:pl-56' : 'md:pl-16'}`}
       >
-        {/* Close sidebar button - fixed at bottom of sidebar area, always visible when sidebar is open */}
-        {sidebarOpen && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="fixed left-4 bottom-6 z-50 hidden rounded-md bg-space-800 p-2 text-slate-400 shadow-lg ring-1 ring-space-600 transition-colors hover:bg-space-700 hover:text-slate-200 md:flex md:items-center md:justify-center"
-            aria-label="Close sidebar"
-            title="Close sidebar"
-          >
-            <PanelLeftClose className="h-5 w-5" />
-          </button>
-        )}
-
-        {/* Open Sidebar Button - only shown when sidebar is closed, fixed and always visible */}
-        {!sidebarOpen && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="fixed left-2 bottom-6 z-50 hidden rounded-md bg-space-800 p-2 text-slate-400 shadow-lg ring-1 ring-space-600 transition-colors hover:bg-space-700 hover:text-slate-200 md:flex md:items-center md:justify-center"
-            aria-label="Open sidebar"
-            title="Open sidebar"
-          >
-            <PanelLeftOpen className="h-5 w-5" />
-          </button>
-        )}
-
         {/* Sidebar - fixed to viewport on desktop, always visible on mobile */}
-        <aside className={`${sidebarOpen ? 'md:block' : 'md:hidden'}`}>
-          <Sidebar active={activeView} onNavigate={onNavigate} />
+        <aside className="min-w-0">
+          <Sidebar active={activeView} onNavigate={onNavigate}
+            expanded={sidebarOpen} onToggleSidebar={onToggleSidebar} />
         </aside>
 
         <main 
