@@ -136,17 +136,19 @@ describe('shared event decision confirmation', () => {
     );
   });
 
-  it('routes Classic OperationsPanel event responses through the same review before applying them', async () => {
+  it('renders the bunker without classic panels and preserves event review and confirmation', async () => {
     authenticateTestUser();
-    const savedState = prepareSavedMission('classic-event-review', true);
+    const savedState = prepareSavedMission('bunker-only-event-review', true);
     await restoreApp();
 
-    const summary = [...document.body.querySelectorAll('summary')].find((item) =>
-      item.textContent?.includes('Classic dashboard panels'),
-    );
-    if (!summary) throw new Error('Could not find the Classic dashboard panels section.');
-    act(() => summary.click());
-    clickButton('Inspect Essential Systems', true);
+    expect(document.body.textContent).not.toContain('Classic dashboard panels');
+    expect(document.querySelectorAll('[aria-label="Mars bunker"]')).toHaveLength(1);
+    expect(document.querySelector('[aria-label="Survival resources"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Mission tablet"]')).not.toBeNull();
+    expect([...document.querySelectorAll('summary')].some((item) =>
+      item.textContent?.includes('Facility Quick Access'),
+    )).toBe(true);
+    clickButton('Inspect Essential Systems');
 
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(
       'Review your decision',
