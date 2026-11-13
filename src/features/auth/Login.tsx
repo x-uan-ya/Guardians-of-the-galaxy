@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, type ReactElement, type FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { login, getLastEmail } from './authService';
 import type { AuthError } from './authTypes';
 import { ForgotEmail } from './ForgotEmail';
@@ -30,6 +31,7 @@ const ERROR_MESSAGES: Record<AuthError, string> = {
 export function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps): ReactElement {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotEmail, setShowForgotEmail] = useState(false);
@@ -119,16 +121,28 @@ export function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps): ReactEl
               <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-300">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-md border border-space-600 bg-space-800 px-4 py-2 text-white placeholder-gray-500 focus:border-mars-orange focus:outline-none focus:ring-2 focus:ring-mars-orange/50"
-                placeholder="Enter your password"
-                required
-                autoComplete="current-password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-md border border-space-600 bg-space-800 px-4 py-2 pr-11 text-white placeholder-gray-500 focus:border-mars-orange focus:outline-none focus:ring-2 focus:ring-mars-orange/50"
+                  placeholder="Enter your password"
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-mars-orange focus:outline-none focus:text-mars-orange transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                </button>
+              </div>
             </div>
 
             {/* Submit Button */}

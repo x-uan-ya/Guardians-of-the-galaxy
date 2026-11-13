@@ -5,6 +5,7 @@
  */
 
 import { useState, type ReactElement, type FormEvent } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { signup, SECURITY_QUESTIONS } from './authService';
 import type { AuthError, SecurityQuestion } from './authTypes';
 
@@ -29,6 +30,8 @@ export function Signup({ onSignupSuccess, onSwitchToLogin }: SignupProps): React
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [securityQuestion1, setSecurityQuestion1] = useState('');
   const [securityAnswer1, setSecurityAnswer1] = useState('');
   const [securityQuestion2, setSecurityQuestion2] = useState('');
@@ -130,20 +133,32 @@ export function Signup({ onSignupSuccess, onSwitchToLogin }: SignupProps): React
               <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-300">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`w-full rounded-md border px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${
-                  passwordLengthValid
-                    ? 'border-space-600 bg-space-800 focus:border-mars-orange focus:ring-mars-orange/50'
-                    : 'border-red-500/50 bg-red-950/20 focus:border-red-500 focus:ring-red-500/50'
-                }`}
-                placeholder="At least 8 characters"
-                required
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`w-full rounded-md border px-4 py-2 pr-11 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${
+                    passwordLengthValid
+                      ? 'border-space-600 bg-space-800 focus:border-mars-orange focus:ring-mars-orange/50'
+                      : 'border-red-500/50 bg-red-950/20 focus:border-red-500 focus:ring-red-500/50'
+                  }`}
+                  placeholder="At least 8 characters"
+                  required
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-mars-orange focus:outline-none focus:text-mars-orange transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                </button>
+              </div>
               {password.length > 0 && !passwordLengthValid && (
                 <p className="mt-1 text-xs text-red-400">
                   Password must be at least 8 characters
@@ -156,20 +171,32 @@ export function Signup({ onSignupSuccess, onSwitchToLogin }: SignupProps): React
               <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-gray-300">
                 Confirm Password
               </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`w-full rounded-md border px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${
-                  passwordsMatchValid
-                    ? 'border-space-600 bg-space-800 focus:border-mars-orange focus:ring-mars-orange/50'
-                    : 'border-red-500/50 bg-red-950/20 focus:border-red-500 focus:ring-red-500/50'
-                }`}
-                placeholder="Re-enter your password"
-                required
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full rounded-md border px-4 py-2 pr-11 text-white placeholder-gray-500 focus:outline-none focus:ring-2 ${
+                    passwordsMatchValid
+                      ? 'border-space-600 bg-space-800 focus:border-mars-orange focus:ring-mars-orange/50'
+                      : 'border-red-500/50 bg-red-950/20 focus:border-red-500 focus:ring-red-500/50'
+                  }`}
+                  placeholder="Re-enter your password"
+                  required
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-mars-orange focus:outline-none focus:text-mars-orange transition-colors"
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showConfirmPassword}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                </button>
+              </div>
               {confirmPassword.length > 0 && !passwordsMatchValid && (
                 <p className="mt-1 text-xs text-red-400">
                   Passwords do not match
