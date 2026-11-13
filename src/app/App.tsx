@@ -467,8 +467,6 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
               onDecide={handleDecide}
               onAdvanceDay={handleAdvanceDay}
               onEndTurn={handleEndTurn}
-              progression={progression}
-              onNavigate={handleNavigate}
             />
           ) : null}
           {subView === 'debrief' ? (
