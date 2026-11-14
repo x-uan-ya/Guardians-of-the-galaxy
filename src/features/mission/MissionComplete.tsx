@@ -11,6 +11,7 @@ import type { KeyboardEvent } from 'react';
 import type { ReactElement } from 'react';
 import { ClipboardList, Rocket } from 'lucide-react';
 import { ModalPortal } from '../../components/ui/ModalPortal';
+import { AiImageBadge } from '../../components/ui/AiImageBadge';
 import { getOccupation } from './occupations';
 import type { GameState } from '../simulation/simulationTypes';
 
@@ -84,12 +85,13 @@ export function MissionComplete({
         className="relative my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl border border-status-ok/50 bg-space-900/95 p-4 text-center shadow-2xl shadow-status-ok/20 animate-fade-in-up sm:max-h-[calc(100dvh-2rem)] sm:p-6"
       >
         <div className="relative">
-          <div className="mx-auto mb-4 aspect-[4/1] w-full max-w-[360px] overflow-hidden rounded-lg border border-status-ok/40 sm:mb-5 sm:max-w-[480px]">
+          <div className="relative mx-auto mb-4 aspect-[4/1] w-full max-w-[360px] overflow-hidden rounded-lg border border-status-ok/40 sm:mb-5 sm:max-w-[480px]">
             <img
               src="/endings/mission-success.png"
               alt="Astronaut looking out from a habitat over a sunlit landscape."
               className="h-full w-full object-cover"
             />
+            <AiImageBadge />
           </div>
 
           <h2 id={titleId} className="font-mono text-2xl font-bold tracking-tight text-slate-100 sm:text-3xl">

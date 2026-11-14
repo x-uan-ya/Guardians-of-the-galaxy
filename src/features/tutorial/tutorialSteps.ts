@@ -36,8 +36,8 @@ export const STEPS: readonly TutorialStepMeta[] = [
   {
     id: 'occupation',
     title: 'Occupations',
-    subtitle: 'Choose Your Occupation',
-    description: 'Preview the eight roles and how their skills change gameplay.',
+    subtitle: 'Meet the Occupations',
+    description: 'Look through the eight roles. You pick yours after you choose a mission site.',
   },
   {
     id: 'decision',

@@ -46,12 +46,12 @@ const TOPICS: EducationalTopic[] = [
       'careful resource budgeting a matter of survival.',
     references: [
       {
-        label: 'NASA — Life Support Systems',
-        url: 'https://www.nasa.gov/humans-in-space/life-support-systems/',
+        label: 'NASA — Environmental Control and Life Support Systems (ECLSS)',
+        url: 'https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/',
       },
       {
-        label: 'ESA — Closing the Loop: Recycling on the ISS',
-        url: 'https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/Research/Closing_the_loop_Recycling_on_the_ISS',
+        label: 'ESA — Advanced Closed Loop System',
+        url: 'https://www.esa.int/articles/about-us/directorates/human-and-robotic-exploration/advanced-closed-loop-system',
       },
     ],
     keyTakeaway:
@@ -87,8 +87,8 @@ const TOPICS: EducationalTopic[] = [
       'and creative problem-solving saved the crew after an oxygen tank explosion.',
     references: [
       {
-        label: 'NASA — Reliability and Redundancy in Spacecraft Design',
-        url: 'https://www.nasa.gov/reference/5-0-spacecraft-reliability/',
+        label: 'NASA — Fault Tolerance in Space Shuttle Systems (technical paper)',
+        url: 'https://ntrs.nasa.gov/api/citations/20070031840/downloads/20070031840.pdf',
       },
       {
         label: 'NASA — Apollo 13: Mission Overview',
@@ -131,7 +131,7 @@ const TOPICS: EducationalTopic[] = [
     references: [
       {
         label: 'NASA — Space Radiation',
-        url: 'https://www.nasa.gov/humans-in-space/space-radiation/',
+        url: 'https://www.nasa.gov/directorates/esdmd/hhp/space-radiation/',
       },
       {
         label: 'NOAA — Space Weather Prediction Center',
@@ -173,12 +173,12 @@ const TOPICS: EducationalTopic[] = [
       'tracked for months before finding and patching it.',
     references: [
       {
-        label: 'NASA — Environmental Control and Life Support System',
-        url: 'https://www.nasa.gov/reference/eclss/',
+        label: 'NASA — ECLSS Fact Sheet for the International Space Station',
+        url: 'https://www.nasa.gov/missions/station/station-tech-demo-eclss-factsheet/',
       },
       {
-        label: 'ESA — Life Support',
-        url: 'https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/International_Space_Station/Life_support',
+        label: 'ESA — New life support system cleans air on the Space Station',
+        url: 'https://www.esa.int/articles/about-us/directorates/human-and-robotic-exploration/new-life-support-system-cleans-air-during-full-house-space-station',
       },
     ],
     keyTakeaway:
@@ -216,8 +216,8 @@ const TOPICS: EducationalTopic[] = [
       'and buried habitats that use regolith (Martian soil) as natural insulation.',
     references: [
       {
-        label: 'NASA — Active Thermal Control System',
-        url: 'https://www.nasa.gov/reference/active-thermal-control-system-atcs/',
+        label: 'NASA — ISS Active Thermal Control System Overview (PDF)',
+        url: 'https://www.nasa.gov/wp-content/uploads/2021/02/473486main_iss_atcs_overview.pdf',
       },
       {
         label: 'NASA — Mars Facts',
@@ -261,7 +261,7 @@ const TOPICS: EducationalTopic[] = [
     references: [
       {
         label: 'NASA — Solar Arrays on the ISS',
-        url: 'https://www.nasa.gov/reference/solar-arrays/',
+        url: 'https://www.nasa.gov/image-article/solar-arrays-international-space-station-2/',
       },
       {
         label: 'NASA — Radioisotope Power Systems',
@@ -305,12 +305,12 @@ const TOPICS: EducationalTopic[] = [
       'schedule pressure overrode their concerns.',
     references: [
       {
-        label: 'NASA — Risk Management',
-        url: 'https://www.nasa.gov/reference/2-0-fundamentals-of-risk-management/',
+        label: "NASA — NASA's Understanding of Risk in Apollo and Shuttle (PDF)",
+        url: 'https://ntrs.nasa.gov/api/citations/20190002249/downloads/20190002249.pdf',
       },
       {
         label: 'NASA — Challenger Accident',
-        url: 'https://www.nasa.gov/history/the-space-shuttle-challenger-accident/',
+        url: 'https://www.nasa.gov/history/35-years-ago-remembering-challenger-and-her-crew/',
       },
     ],
     keyTakeaway:
@@ -352,7 +352,7 @@ const TOPICS: EducationalTopic[] = [
       },
       {
         label: 'NASA — Mars Communication Delay',
-        url: 'https://mars.nasa.gov/mars2020/spacecraft/rover/communications/',
+        url: 'https://science.nasa.gov/mission/mars-2020-perseverance/rover-components/',
       },
     ],
     keyTakeaway:
@@ -393,11 +393,11 @@ const TOPICS: EducationalTopic[] = [
     references: [
       {
         label: 'NASA — Columbia Accident Investigation',
-        url: 'https://www.nasa.gov/columbia-accident/',
+        url: 'https://www.nasa.gov/history/columbia-accident-investigation-board-synopsis/',
       },
       {
-        label: 'NASA — ISS Failure Analysis',
-        url: 'https://www.nasa.gov/reference/5-0-spacecraft-reliability/',
+        label: 'NASA — Challenger STS-51L Accident',
+        url: 'https://www.nasa.gov/challenger-sts-51l-accident/',
       },
     ],
     keyTakeaway:
@@ -438,11 +438,11 @@ const TOPICS: EducationalTopic[] = [
     references: [
       {
         label: 'NASA — Water Recovery on the ISS',
-        url: 'https://www.nasa.gov/missions/station/water-recovery-system/',
+        url: 'https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/',
       },
       {
         label: 'NASA — Growing Plants in Space',
-        url: 'https://www.nasa.gov/missions/station/growing-plants-in-space/',
+        url: 'https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/',
       },
     ],
     keyTakeaway:

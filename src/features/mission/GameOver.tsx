@@ -15,6 +15,7 @@ import type { KeyboardEvent } from 'react';
 import type { ReactElement } from 'react';
 import { ClipboardList, RotateCcw, Rocket } from 'lucide-react';
 import { ModalPortal } from '../../components/ui/ModalPortal';
+import { AiImageBadge } from '../../components/ui/AiImageBadge';
 import { getGameOverReason } from '../simulation/simulationEngine';
 import { getOccupation } from './occupations';
 import type { GameState } from '../simulation/simulationTypes';
@@ -104,12 +105,13 @@ export function GameOver({
         className="panel relative my-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-contain border-status-critical/35 p-4 text-center shadow-2xl shadow-status-critical/20 animate-fade-in-up hover:border-status-critical/50 sm:max-h-[calc(100dvh-2rem)] sm:p-6"
       >
         <div className="relative">
-          <div className="mx-auto mb-4 aspect-[4/1] w-full max-w-[360px] overflow-hidden rounded-lg border border-status-critical/50 sm:mb-5 sm:max-w-[480px]">
+          <div className="relative mx-auto mb-4 aspect-[4/1] w-full max-w-[360px] overflow-hidden rounded-lg border border-status-critical/50 sm:mb-5 sm:max-w-[480px]">
             <img
               src="/endings/mission-failure.png"
               alt="Astronaut inside a damaged habitat beneath a planet-filled sky."
               className="h-full w-full object-cover"
             />
+            <AiImageBadge />
           </div>
 
           <h2 id={titleId} className="font-mono text-2xl font-bold tracking-tight text-slate-100 sm:text-3xl">

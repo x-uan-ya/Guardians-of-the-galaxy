@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { KeyboardEvent, ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChapterIntroduction } from './chapterIntroductions';
+import { AiImageBadge } from '../../components/ui/AiImageBadge';
 
 interface ChapterIntroModalProps {
   chapter: ChapterIntroduction;
@@ -81,7 +82,7 @@ export function ChapterIntroModal({
             aria-hidden="true"
           />
           <div className="relative">
-            <div className="mx-auto mb-3 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg border border-mars-orange/30 sm:mb-4 sm:max-w-[450px]">
+            <div className="relative mx-auto mb-3 aspect-video w-full max-w-[360px] overflow-hidden rounded-lg border border-mars-orange/30 sm:mb-4 sm:max-w-[450px]">
               <img
                 src={`/chapters/chapter-${chapter.chapterNumber}.png`}
                 alt={imageDescriptions[chapter.chapterNumber] ?? ''}
@@ -91,6 +92,7 @@ export function ChapterIntroModal({
                     : ''
                 }`}
               />
+              <AiImageBadge />
             </div>
             <p className="font-mono text-xs font-semibold uppercase tracking-[0.35em] text-mars-orange">
               Chapter {String(chapter.chapterNumber).padStart(2, '0')}

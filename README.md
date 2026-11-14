@@ -1,258 +1,200 @@
 # MARS: OUTPOST ZERO
 
-An educational **space survival and engineering strategy simulation**. Players
-manage a Mars outpost, balance limited resources, respond to crises, and learn
-how their decisions create both immediate and delayed consequences.
+**An educational space-survival simulation made for the 2026 NASA Space Apps Challenge.**
 
-This repository currently contains the **shared foundation**: a deterministic
-simulation engine, a polished mission-control dashboard, localStorage
-persistence, mission setup, a debrief view, an AI-advisor integration seam, and
-tests. It is designed so a team of six can build the remaining gameplay features
-independently without stepping on each other.
+You manage a Mars outpost for 30 Sols — balancing power, water, food and oxygen, responding to crises and learning how every decision ripples forward in time. When the mission ends, a full debrief shows what happened, why it mattered and how real NASA missions handled the same problems.
 
-> ⚠️ All gameplay numbers (starting resources, consumption rates, thresholds)
-> are **illustrative assumptions for an educational game**. They are **not** real
-> NASA mission data or engineering specifications.
+🌐 **Play now (no account needed):** [guardians-of-the-galaxy-flax.vercel.app](https://guardians-of-the-galaxy-flax.vercel.app/)
+*Click **Continue as Guest** on the login screen. Account sign-up and the shared leaderboard need a database that is not connected on the public copy.*
+
+📦 **Source code:** [github.com/x-uan-ya/Guardians-of-the-galaxy](https://github.com/x-uan-ya/Guardians-of-the-galaxy)
+
+---
+
+## What the game does
+
+| Feature | Detail |
+| --- | --- |
+| **30-Sol survival loop** | Each Sol you pick one action and end the day. The engine applies production, consumption, delayed effects and then checks whether a new event fires. |
+| **Eight occupations** | Engineer, Scientist, Medical Officer, Botanist, Geologist, Chemist, Commander, Pilot — each changes starting attributes and adds a unique passive every Sol. |
+| **Three mission sites** | Lunar Outpost (Moderate), Mars Outpost (Hard), Deep-Space Outpost (Extreme). Each has distinct modifiers: radiation rate, solar factor, resupply rules. |
+| **50+ events across 5 chapters** | Storyline events trigger on fixed Sols; crisis events (solar storm, water contamination, power instability …) trigger when conditions are met. |
+| **Resource allocation controls** | Prioritise life support, food, power-saving mode, backup generator and emergency allocation — all go through the engine, never direct state mutations. |
+| **Multi-Sol projects** | Repair the generator (2 Sols), plant crops (3 Sols), reinforce shielding (3 Sols), rest and recover — the result fires as a delayed effect. |
+| **Power blackout rule** | A Sol that ends at 0 power counts. Three consecutive blackout Sols end the mission: "The outpost stayed without power for too long. Life support failed." |
+| **Decision timeline** | The debrief shows every decision as an expandable row; consequence rows (delayed effects that really fired) are linked back to the choice that caused them. |
+| **Leadership profile** | Five trait signals (Risk Taker, Survivor, Optimiser, Humanitarian, Explorer) are scored across all decisions and shown in the debrief. |
+| **Educational lessons** | 10 topics — resource scarcity, redundancy, radiation, life support, thermal control, power management, risk management, decision under uncertainty, cascading failures, water and food — each with real NASA/ESA references. |
+| **AI Mission Controller** | Rule-based by default (the Mission Safety Protocol). Plug in your own LLM server via `VITE_ADVISOR_ENDPOINT` in `.env`. |
+| **Accounts + leaderboard** | Optional: requires a Neon Postgres database (see Server setup below). Without it, the game runs entirely in browser localStorage. |
+
+---
+
+## NASA data and resources used
+
+The game's educational lessons link directly to NASA and ESA primary sources.
+All gameplay numbers are illustrative assumptions — they are not real NASA mission data or engineering specifications.
+
+**NASA pages referenced inside the game's debrief:**
+
+| Topic | NASA source |
+| --- | --- |
+| Resource scarcity | [Environmental Control and Life Support Systems (ECLSS)](https://www.nasa.gov/reference/environmental-control-and-life-support-systems-eclss/) |
+| Redundancy | [Fault Tolerance in Space Shuttle Systems (NTRS paper)](https://ntrs.nasa.gov/api/citations/20070031840/downloads/20070031840.pdf) |
+| Apollo 13 | [Apollo 13: Mission Overview](https://www.nasa.gov/mission/apollo-13/) |
+| Radiation | [Space Radiation](https://www.nasa.gov/directorates/esdmd/hhp/space-radiation/) |
+| Space weather | [NOAA Space Weather Prediction Center](https://www.spaceweather.gov/) |
+| Oxygen / life support | [ECLSS Fact Sheet](https://www.nasa.gov/missions/station/station-tech-demo-eclss-factsheet/) |
+| Thermal control | [ISS Active Thermal Control System Overview (PDF)](https://www.nasa.gov/wp-content/uploads/2021/02/473486main_iss_atcs_overview.pdf) |
+| Mars environment | [Mars Facts](https://science.nasa.gov/mars/facts/) |
+| Solar power | [Solar Arrays on the ISS](https://www.nasa.gov/image-article/solar-arrays-international-space-station-2/) |
+| Radioisotope power | [Radioisotope Power Systems](https://science.nasa.gov/planetary-science/programs/radioisotope-power-systems/) |
+| Risk management | [NASA's Understanding of Risk in Apollo and Shuttle (PDF)](https://ntrs.nasa.gov/api/citations/20190002249/downloads/20190002249.pdf) |
+| Challenger | [35 Years Ago: Remembering Challenger](https://www.nasa.gov/history/35-years-ago-remembering-challenger-and-her-crew/) |
+| Mars comms delay | [Mars 2020 Perseverance Rover Communications](https://science.nasa.gov/mission/mars-2020-perseverance/rover-components/) |
+| Columbia | [Columbia Accident Investigation Board Synopsis](https://www.nasa.gov/history/columbia-accident-investigation-board-synopsis/) |
+| Water recovery | [NASA Achieves Water Recovery Milestone on the ISS](https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/) |
+| Growing food in space | [Growing Plants in Space](https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/) |
+
+**ESA pages referenced:**
+- [Advanced Closed Loop System](https://www.esa.int/articles/about-us/directorates/human-and-robotic-exploration/advanced-closed-loop-system)
+- [New life support system cleans air on the Space Station](https://www.esa.int/articles/about-us/directorates/human-and-robotic-exploration/new-life-support-system-cleans-air-during-full-house-space-station)
+
+**Background image:** the Mars background (`public/mars-bg.webp`) is an official NASA concept artwork showing two astronauts working on Mars. It has been cropped to remove the NASA logo and www.nasa.gov caption.
+
+---
+
+## AI tools used
+
+This project used AI tools to accelerate implementation.
+
+| What | Tool | How |
+| --- | --- | --- |
+| Code (all TypeScript / React / CSS) | Kiro (AI coding assistant) | Implementation, test generation, debugging |
+| Chapter introduction artwork (`public/chapters/`) | AI image generator | Labelled "AI-generated image" in the game UI as required by the NASA Space Apps rules |
+| Mission ending artwork (`public/endings/`) | AI image generator | Labelled "AI-generated image" in the game UI |
+| How to Play video (`public/tutorial/how-to-play.webm`) | Screen-recording script + AI-assisted caption | The script plays the real game; captions and title cards were AI-assisted |
+
+The game concept, design, game rules, educational content and NASA references were created by the team.
+No NASA logos, flags or mission identifiers appear in any AI-generated content.
 
 ---
 
 ## Tech stack
 
-| Concern        | Choice                        |
-| -------------- | ----------------------------- |
-| UI library     | React 18                      |
-| Language       | TypeScript (strict mode)      |
-| Build / dev    | Vite 5                        |
-| Styling        | Tailwind CSS 3                |
-| Icons          | lucide-react                  |
-| Tests          | Vitest + jsdom                |
-| Persistence    | Browser `localStorage`        |
-
-No backend, database, authentication, paid services, or live AI integration are
-part of this foundation. Simulation is fully local and deterministic.
+| Concern | Choice |
+| --- | --- |
+| UI library | React 18 |
+| Language | TypeScript (strict mode) |
+| Build / dev | Vite 5 |
+| Styling | Tailwind CSS 3 |
+| Icons | lucide-react |
+| Tests | Vitest + jsdom (35 test files) |
+| Persistence | Browser `localStorage` (guest) + optional Neon Postgres (accounts) |
+| Hosting | Vercel (static front-end) |
 
 ---
 
-## Installation and run
+## Running locally
 
 Requires Node 18+ and npm.
 
 ```bash
 npm install        # install dependencies
-npm run dev        # start the Vite dev server (http://localhost:5173)
+npm run dev        # start the dev server  (http://localhost:5173)
 npm run build      # type-check + production build to dist/
 npm run preview    # preview the production build locally
-npm test           # run the test suite once
-npm run test:watch # run tests in watch mode
+npm test           # run all tests once
 npm run lint       # run ESLint
-npm run typecheck  # type-check without emitting
 ```
+
+The game works without any environment variables. Guest mode runs entirely in the browser.
+
+### Optional: accounts and leaderboard
+
+Create a `.env` file in the project root:
+
+```
+DATABASE_URL=postgres://...   # Neon Postgres connection string (pooled)
+```
+
+The dev server reads this and exposes `/api/users`, `/api/leaderboard` and `/api/state` via the Vite plugin in `server/leaderboardApiPlugin.ts`. The front-end tables are managed by `server/usersDb.ts` and `server/leaderboardDb.ts`.
+
+### Optional: live AI advisor
+
+```
+VITE_ADVISOR_ENDPOINT=https://your-server/advisor
+```
+
+The game POSTs a compact summary to that URL and expects JSON
+`{ actionId, confidence: "low"|"medium"|"high", reason, risk, expectedConsequence }`.
+The fallback (rule-based Mission Safety Protocol) activates automatically if the endpoint is missing, slow or returns invalid data. To test the fallback without a server, open the game with `?advisor=outage`.
 
 ---
 
-## Folder structure
+## Project structure
 
 ```
 src/
   app/                  Composition root + navigation
-    App.tsx             Wires the hook, views, and controls together
-    routes.ts           View keys + nav metadata (tiny string router)
-    PersistenceBanner.tsx
-  components/
-    layout/             App chrome: AppShell, Sidebar, TopBar
-    ui/                 Reusable presentational pieces: StatusCard,
-                        ProgressBar, SectionHeader, ConfirmDialog
+  components/           App chrome and reusable UI pieces
   features/
-    mission/            Mission config, defaults, setup screen
-    dashboard/          Dashboard + resource/crew/system/activity panels
-    simulation/         ★ The authoritative engine (see below)
+    simulation/         ★ The authoritative engine (owns game state)
     decisions/          Decision types + read-only history selectors
-    ai-advisor/         Advisor types + rule-based placeholder
-    events/             Event types + event/action catalog (content)
-    debrief/            Debrief types, builder, and screen
+    events/             Event types, catalog and triggers
+    dashboard/          Mission tablet, bunker view, resource HUD
+    mission/            Mission config, occupations, setup screens
+    debrief/            Timeline, outcome analysis, leadership profile
+    educational-explanations/  Topic lessons + live NASA/ESA references
+    storyline/          Chapter introductions
+    ai-advisor/         Rule-based advisor + optional AI provider
+    auth/               Login, sign-up, guest session
+    leaderboard/        Score submission and display
+    history/            Per-account play history
+    progression/        Badges and rank progression
+    glossary/           Hover tooltips for space terms
+    how-to-play/        In-game tutorial video
+    tutorial/           First-time 5-step interactive tutorial
   hooks/
     useGameState.ts     ★ The single React entry point to the engine
-    useLocalStorage.ts  Generic persisted-state hook (UI prefs)
-  lib/
-    storage.ts          The only module that touches localStorage
-    validation.ts       Safe parse + validate of stored data
-    random.ts           Seeded deterministic RNG (no Math.random in sim)
-    ids.ts              Deterministic id helpers
-  styles/
-    index.css           Tailwind layers + component classes
-  tests/                Vitest suites + fixtures
+  lib/                  localStorage, validation, seeded RNG, IDs
+  tests/                35 Vitest suites
   main.tsx              Entry point
+server/                 Node-side Vite plugin + Neon DB modules (optional)
+tools/tutorial-video/   How to Play video recording tools (not part of the app)
+docs/                   Architecture notes
+public/
+  chapters/             Chapter introduction artwork (AI-generated)
+  endings/              Mission outcome artwork (AI-generated)
+  tutorial/             How to Play video
+  mars-bg.webp          NASA Mars concept artwork (cropped, credit: NASA)
 ```
 
 ---
 
-## Shared type definitions (single source of truth)
+## Engine guarantees
 
-**All shared game types live in `src/features/simulation/simulationTypes.ts`.**
-Import from there. Do **not** create feature-local copies of `GameState`,
-`Resources`, `CrewState`, etc.
+The simulation engine (`src/features/simulation/simulationEngine.ts`) is the only thing that mutates game state. All other modules read state and dispatch intents.
 
-| Type                                   | Location                                          |
-| -------------------------------------- | ------------------------------------------------- |
-| `GameState`, `Resources`, `CrewState`, `SystemState`, `MissionState`, `DelayedEffect`, `StatusLevel`, `DerivedStatus`, enums | `features/simulation/simulationTypes.ts` |
-| `DecisionInput`, `DecisionRecord`, `PlayerChoice` | `features/decisions/decisionTypes.ts` |
-| `GameEvent`, `EventAction`, `ActionEffect`, `EventSeverity` | `features/events/eventTypes.ts` |
-| `MissionConfig`                        | `features/mission/missionTypes.ts`                |
-| `Advisor`, `Recommendation`, `AdvisorContext` | `features/ai-advisor/advisorTypes.ts`      |
-| `DebriefSummary`, `TimelineEntry`, `LeadershipProfile` | `features/debrief/debriefTypes.ts` |
+- **Immutability** — inputs are never mutated; a new state is always returned.
+- **Determinism** — same config + same decision sequence = identical result. No `Math.random` in the engine.
+- **Bounds** — all metrics stay within `[0, 100]`; `NaN` / `Infinity` are rejected.
+- **Causality** — each delayed effect fires exactly once, only when `day >= scheduledDay`.
+- **Validation** — unknown or unavailable action IDs are rejected; decisions cannot be made after the mission has ended.
 
-### Units and bounds
+### Mission status rules
 
-Every primary resource (power, water, food, oxygen), every crew metric
-(health, morale, radiationExposure), and every system metric is stored as a
-**0–100 value**. Resources/crew/systems are percentages; `radiationExposure` is
-a 0–100 accumulation index where **higher is worse**. Do not mix units — keep
-everything on the 0–100 scale and let the engine clamp.
+| Status | Trigger |
+| --- | --- |
+| `failed` | Oxygen or crew health hits 0, radiation reaches 100, or power is 0 for 3 consecutive Sols |
+| `completed` | Survived to Sol 30 while active |
+| `critical` | Any resource ≤ 15, health ≤ 15, or radiation ≥ 80 (recoverable) |
+| `active` | Otherwise |
+
+Terminal statuses (`failed` / `completed`) are never downgraded.
 
 ---
 
-## Public simulation-engine API
+## Team
 
-Import from `features/simulation/simulationEngine.ts`. The engine **owns** the
-game state. Components never mutate state; they call these functions, which
-always return a **new** `GameState`.
-
-| Function | Purpose |
-| -------- | ------- |
-| `createInitialGameState(config: MissionConfig): GameState` | Build a fresh, valid, playable game. |
-| `validateGameState(state): { valid, errors }` | Structural + numeric validation. Never throws. |
-| `applyPlayerDecision(state, input: DecisionInput): GameState` | Validate + apply a decision, record history, schedule delayed effects. Throws `InvalidDecisionError` on invalid/terminal. |
-| `resolveEvent(state, eventId, actionId, choice?): GameState` | Convenience wrapper around `applyPlayerDecision` for events. |
-| `advanceSimulationDay(state): { state, firedEffects, dailyDelta }` | Advance one day: apply daily deltas, fire due effects, recompute status/score. |
-| `processDelayedEffects(state): GameState` | Apply any effects due on the current day (used internally by advance). |
-| `calculateDerivedStatus(state): DerivedStatus` | Compute UI status levels (ok/warn/critical). Pure. |
-| `getSimulationSummary(state): SimulationSummary` | Compact snapshot for header/logging/tests. |
-| `getFreeActions(): EventAction[]` | The always-available routine actions. |
-
-### Guarantees
-
-- **Immutability** — inputs are never mutated; a new state is returned.
-- **Determinism** — same `MissionConfig` (with fixed `gameId`/`now`) + same
-  decision sequence ⇒ identical results. No `Math.random` in the engine.
-- **Bounds** — all metrics stay within `[0, 100]`; `NaN`/`Infinity` are rejected.
-- **Causality** — each `DelayedEffect` records its `sourceDecisionId` and fires
-  exactly once, only when `day >= scheduledDay`.
-- **Integrity** — unknown/unavailable action ids are rejected; history is
-  append-only.
-
-### Mission status rules (documented behaviour)
-
-- **failed** — oxygen or crew health hits 0, or radiation reaches 100. Terminal.
-- **completed** — survived to day 30 while active. Terminal.
-- **critical** — any resource ≤ 15, health ≤ 15, or radiation ≥ 80. Recoverable.
-- **active** — otherwise. Terminal states are never downgraded.
-
----
-
-## Module ownership recommendations
-
-Six teammates, six lanes. Each owner primarily edits files in their folder and
-consumes the shared engine + types.
-
-| Owner | Folder(s) | Responsibility |
-| ----- | --------- | -------------- |
-| 1. Simulation | `features/simulation/` | Engine rules, balancing, selectors. **Owns game state.** |
-| 2. Dashboard / UI | `features/dashboard/`, `components/` | Panels, visual polish, layout. |
-| 3. Events | `features/events/` | Event + action content via `eventCatalog.ts`. |
-| 4. Decisions / Debrief | `features/decisions/`, `features/debrief/` | History views, timeline, leadership profile. |
-| 5. AI Advisor | `features/ai-advisor/` | Real advisor implementing the `Advisor` interface. |
-| 6. Mission / Persistence | `features/mission/`, `lib/`, `hooks/` | Setup flow, save/load, app wiring. |
-
-**Boundaries:**
-
-- The **simulation engine** is the only thing that mutates game state.
-- **React components** read derived status and dispatch intents; they never
-  calculate resources themselves.
-- The **AI advisor** receives a read-only snapshot and returns a
-  `Recommendation`. It never mutates state; the engine validates its suggestion
-  like any player decision.
-- **Event modules** define content only. The engine validates and applies it.
-- The **debrief** reads recorded history; it never rewrites past decisions.
-
----
-
-## Working as a team
-
-### Create a feature branch
-
-```bash
-git checkout main
-git pull
-git checkout -b feature/<your-area>-<short-description>
-# e.g. feature/events-solar-flare
-```
-
-### Avoid editing another person's files
-
-- Stay within your module folder (see ownership table).
-- Need a change to a **shared type**? Open a short discussion/PR against
-  `simulationTypes.ts` (or the relevant `*Types.ts`) so everyone updates together.
-- Never copy shared interfaces into your folder. Import them.
-
-### Integrate changes and resolve conflicts
-
-```bash
-git fetch origin
-git rebase origin/main        # replay your work on top of latest main
-# resolve conflicts, then:
-git add <files>
-git rebase --continue
-npm run typecheck && npm test # must pass before you push
-git push -u origin HEAD
-```
-
-Open a pull request; keep it focused on one module/feature where possible.
-
-### How to add new events and actions
-
-Edit `features/events/eventCatalog.ts` only:
-
-1. Add a `GameEvent` to `EVENT_CATALOG` with a unique `id` and at least one
-   action. Set effects with `immediateResources/Crew/Systems` and optional
-   `delayed[]` entries (`delayInDays >= 1`).
-2. To add an always-available routine action, append an `EventAction` to
-   `FREE_ACTIONS`.
-3. The engine picks these up automatically — it validates and applies them. No
-   engine changes needed for new content.
-
-### Run tests and build
-
-```bash
-npm test          # all suites
-npm run build     # type-check + production build (must succeed)
-```
-
----
-
-## Where to go next
-
-See [`docs/INTEGRATION_CONTRACT.md`](docs/INTEGRATION_CONTRACT.md) for the exact
-interfaces each teammate must use.
-
-## AI Mission Advisor
-
-The Mission Controller **recommends; the player decides.** It never acts on its own.
-
-- **Optional:** advice appears only when the player presses *Ask Mission Controller for advice*
-  (nothing is computed or sent to an AI service before that). It resets for every decision.
-- **What it shows:** a headline, the reason, the risk and the expected consequence, plus up to three
-  options labelled Recommended / Alternative / Risky. The player presses *Accept recommendation* or
-  *Override*. Code: `src/features/ai-advisor/` (`adviceBuilder.ts` builds the advice, `AdvicePanel.tsx`
-  shows it, `adviceService.ts` handles the optional AI provider and the fallback).
-- **No AI model is bundled.** Advice comes from deterministic rules (the *Mission Safety Protocol*), for
-  example "IF power < 20% → reduce non-essential systems".
-- **Optional AI provider:** set `VITE_ADVISOR_ENDPOINT` (an `http(s)` URL you control) in `.env`. The game
-  POSTs a compact summary (`adviceContext.ts`) and expects JSON
-  `{ actionId, confidence: "low"|"medium"|"high", reason, risk, expectedConsequence }`. Never put API keys
-  in the browser; point the endpoint at your own server, which calls the model.
-- **Fallback:** if the provider is unreachable, slow (4 s), or answers with anything invalid (including an
-  action that is not on offer), the game shows *"AI unavailable — switching to Mission Safety Protocol."*
-  and keeps working. To see this without a server, open the game with `?advisor=outage`.
-- **History for the debrief:** every decision stores the advice shown, the player's choice and the outcome
-  (`DecisionRecord.advice` / `.outcome`). Selectors are in `decisions/decisionHistory.ts`
-  (`advisorHistory`, `advisorStats`); the Debrief page shows them.
+Built for the 2026 NASA Space Apps Challenge.

@@ -1,7 +1,7 @@
 /**
  * StepOccupation.tsx
  * ------------------
- * Tutorial Step 3 — "Choose Your Occupation"
+ * Tutorial Step 3 — "Meet the Occupations" (a preview, not the real choice)
  *
  * INTEGRATES with the existing occupation system by importing from
  * features/mission/occupations.ts. This is a PREVIEW only — the real selection
@@ -117,9 +117,13 @@ export function StepOccupation({ direction }: StepOccupationProps): ReactElement
         Your occupation determines your starting attributes and a unique passive ability that
         activates every Sol. No occupation is the best at everything — each has trade-offs.
       </p>
-      <p className="mb-4 text-xs text-slate-400">
-        <User className="mr-1 inline h-3 w-3" aria-hidden />
-        Click any role below to preview its stats. You will make your real choice on the next screen.
+      <p
+        className="mb-4 rounded-md border border-accent-blue/40 bg-accent-blue/10 px-3 py-2 text-xs font-medium text-slate-100"
+        data-testid="occupation-preview-note"
+      >
+        <User className="mr-1.5 inline h-3.5 w-3.5 text-accent-blue" aria-hidden />
+        Preview only. Nothing you click here is saved. You will choose your occupation later, after you
+        pick a mission site.
       </p>
 
       {/* Occupation grid */}
@@ -134,7 +138,7 @@ export function StepOccupation({ direction }: StepOccupationProps): ReactElement
               aria-expanded={isSelected}
               className={`tut-card-interactive flex flex-col items-center rounded-lg border p-3 text-center ${
                 isSelected
-                  ? 'border-mars-orange/60 bg-mars-red/10 ring-1 ring-mars-orange/40'
+                  ? 'border-accent-blue/60 bg-accent-blue/10 ring-1 ring-accent-blue/40'
                   : 'border-space-600 bg-space-700/40'
               }`}
             >
