@@ -8,11 +8,12 @@
  * account's game. Now each key gets the account's id added to it, so every
  * account has its own saves.
  *
- * With nobody signed in the plain key is used. That only happens in tests and
- * tools, because the app asks for a login before any game screen.
+ * Guest data uses its own browser-local namespace. With neither a registered
+ * session nor a guest identity the plain key remains available to tests/tools.
  */
 
 import { getCurrentSession } from '../features/auth/authService';
+import { getActiveGuestId, isGuestSessionActive } from '../features/auth/guestSession';
 
 /** The id of the signed-in account, or null when nobody is signed in. */
 export function getActiveUserId(): string | null {
@@ -29,5 +30,13 @@ export function getActiveUserId(): string | null {
  */
 export function scopedKey(baseKey: string): string {
   const userId = getActiveUserId();
-  return userId ? `${baseKey}:user:${userId}` : baseKey;
+  if (userId) return `${baseKey}:user:${userId}`;
+  if (isGuestSessionActive()) {
+    const guestId = getActiveGuestId();
+    if (!guestId) {
+      throw new Error('Active guest session has no guest ID; refusing unscoped storage access.');
+    }
+    return `${baseKey}:guest:${guestId}`;
+  }
+  return baseKey;
 }

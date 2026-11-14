@@ -7,6 +7,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ACHIEVEMENTS } from '../features/achievements/achievementData';
 import { loadAchievements } from '../features/achievements/achievementService';
+import {
+  endGuestSession,
+  getActiveGuestId,
+  getOrCreateGuestId,
+  startGuestSession,
+} from '../features/auth/guestSession';
 import { applyPlayerDecision } from '../features/simulation/simulationEngine';
 import { clearGame, loadGame, saveGame, STORAGE_KEY } from '../lib/storage';
 import { getActiveUserId, scopedKey } from '../lib/userScope';
@@ -25,11 +31,15 @@ function signInAs(id: string | null): void {
 }
 
 beforeEach(() => {
+  endGuestSession();
   localStorage.clear();
   localStorage.setItem(USERS_KEY, JSON.stringify([user('acc1', 'one@gmail.com'), user('acc2', 'two@gmail.com')]));
 });
 
-afterEach(() => localStorage.clear());
+afterEach(() => {
+  endGuestSession();
+  localStorage.clear();
+});
 
 describe('saved data belongs to the signed-in account', () => {
   it('uses a different storage key for each account', () => {
@@ -100,6 +110,48 @@ describe('saved data belongs to the signed-in account', () => {
     signInAs(null);
     expect(getActiveUserId()).toBeNull();
     expect(scopedKey(STORAGE_KEY)).toBe(STORAGE_KEY);
+  });
+
+  it('keeps guest saves separate from both registered accounts', () => {
+    signInAs('acc1');
+    saveGame(freshGame({ gameId: 'registered-save' }));
+    const guestId = getOrCreateGuestId();
+
+    signInAs(null);
+    expect(startGuestSession()).toBe(guestId);
+    const guestKey = scopedKey(STORAGE_KEY);
+    expect(guestKey).toContain(`:guest:${guestId}`);
+    expect(guestKey).not.toBe(STORAGE_KEY);
+    expect(loadGame().status).toBe('empty');
+
+    saveGame(freshGame({ gameId: 'guest-save' }));
+    expect(loadGame().status).toBe('loaded');
+
+    signInAs('acc1');
+    const registered = loadGame();
+    expect(registered.status === 'loaded' && registered.state.gameId).toBe('registered-save');
+
+    endGuestSession();
+    signInAs(null);
+    startGuestSession();
+    const guest = loadGame();
+    expect(guest.status === 'loaded' && guest.state.gameId).toBe('guest-save');
+  });
+
+  it('keeps the active guest namespace if its persisted id is removed', () => {
+    signInAs(null);
+    const guestId = startGuestSession();
+    expect(saveGame(freshGame({ gameId: 'guest-before-removal' })).status).toBe('saved');
+
+    localStorage.removeItem('mars-outpost-guest-id');
+    expect(getOrCreateGuestId()).toBe(guestId);
+    expect(getActiveGuestId()).toBe(guestId);
+    expect(scopedKey(STORAGE_KEY)).toBe(`${STORAGE_KEY}:guest:${guestId}`);
+
+    expect(saveGame(freshGame({ gameId: 'guest-after-removal' })).status).toBe('saved');
+    const guest = loadGame();
+    expect(guest.status === 'loaded' && guest.state.gameId).toBe('guest-after-removal');
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
   it('a session for a deleted account counts as signed out', () => {

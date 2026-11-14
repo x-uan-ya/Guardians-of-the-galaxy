@@ -14,6 +14,7 @@ import { ForgotPassword } from './ForgotPassword';
 interface LoginProps {
   onLoginSuccess: () => void;
   onSwitchToSignup: () => void;
+  onContinueAsGuest: () => void;
 }
 
 const ERROR_MESSAGES: Record<AuthError, string> = {
@@ -28,7 +29,11 @@ const ERROR_MESSAGES: Record<AuthError, string> = {
   'unknown-error': 'An unexpected error occurred',
 };
 
-export function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps): ReactElement {
+export function Login({
+  onLoginSuccess,
+  onSwitchToSignup,
+  onContinueAsGuest,
+}: LoginProps): ReactElement {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -154,6 +159,14 @@ export function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps): ReactEl
               {isLoading ? 'Logging in...' : 'Log In'}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={onContinueAsGuest}
+            className="mt-4 w-full rounded-md border border-mars-orange/60 bg-space-800 px-4 py-3 font-semibold text-slate-100 transition-colors hover:border-mars-orange hover:bg-space-700 focus:outline-none focus:ring-2 focus:ring-mars-orange/70"
+          >
+            Continue as Guest
+          </button>
 
           {/* Sign Up Link */}
           <div className="mt-6 text-center text-sm">
