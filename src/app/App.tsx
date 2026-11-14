@@ -57,6 +57,7 @@ import type { DecisionInput } from '../features/decisions/decisionTypes';
 import { type ViewKey } from './routes';
 import { PersistenceBanner } from './PersistenceBanner';
 import { getCurrentSession, logout, syncUsersFromApi } from '../features/auth/authService';
+import { endGuestSession, startGuestSession } from '../features/auth/guestSession';
 import type { User } from '../features/auth/authTypes';
 import {
   completeChapterIntroduction,
@@ -78,7 +79,13 @@ type SubView = Extract<
  * signing out and in as someone else throws all of this away and starts fresh
  * from THAT account's own saved game. Nothing can carry over between accounts.
  */
-function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
+function GameApp({
+  onLogout,
+  guestId,
+}: {
+  onLogout: () => void;
+  guestId: string | null;
+}): ReactElement {
   const game = useGameState();
   const { decide } = game;
   // Flow starts at TITLE: the player sees the title screen, then the tutorial,
@@ -213,7 +220,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
     }
   }, [status, flow]);
 
-  // Auto-submit the player's result to the leaderboard once, when the run ends.
+  // Auto-submit registered players' results once, when the run ends.
   // Keyed on the run's gameId so each run posts a single entry.
   useEffect(() => {
     if (status !== 'failed' && status !== 'completed') return;
@@ -221,7 +228,11 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
     if (lastLeaderboardId === runId) return; // already submitted this run
 
     const session = getCurrentSession();
-    const name = session ? session.email.split('@')[0] || 'Operator' : 'Operator';
+    if (!session) {
+      setLastLeaderboardId(runId);
+      return;
+    }
+    const name = session.email.split('@')[0] || 'Operator';
 
     const entry = {
       id: runId,
@@ -234,7 +245,7 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
       outcome: (status === 'completed' ? 'completed' : 'failed') as 'completed' | 'failed',
       timestamp: Date.now(),
     };
-    // Local board (instant, offline-safe) + Neon Postgres board (fire-and-forget).
+    // Guest runs never enter either the local shared board or the remote board.
     submitScore(entry);
     void submitScoreToApi(entry);
     setLastLeaderboardId(runId);
@@ -339,10 +350,10 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   };
 
   const handleLogout = (): void => {
-    // The log-out prompt promises "Your game progress will be saved", so do it.
-    // This runs before the session is removed, so it saves to THIS account.
+    // Save before leaving the current identity's storage scope.
     game.save();
-    logout();
+    if (guestId) endGuestSession();
+    else logout();
     onLogout();
   };
 
@@ -359,21 +370,21 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
   // completed the tutorial. First-time players see the tutorial; returning
   // players skip straight to mission selection.
   const handleStartMission = useCallback((): void => {
-    const session = getCurrentSession();
-    if (session && hasTutorialCompleted(session.id)) {
+    const playerId = getCurrentSession()?.id ?? guestId;
+    if (playerId && hasTutorialCompleted(playerId)) {
       flow.skipTutorial(); // TITLE -> MISSION_SELECT
     } else {
       flow.start(); // TITLE -> TUTORIAL
     }
-  }, [flow]);
+  }, [flow, guestId]);
 
   // When the first-run tutorial finishes (completed or skipped), persist the
   // flag and advance to mission selection.
   const handleTutorialDone = useCallback((): void => {
-    const session = getCurrentSession();
-    if (session) markTutorialComplete(session.id);
+    const playerId = getCurrentSession()?.id ?? guestId;
+    if (playerId) markTutorialComplete(playerId);
     flow.completeTutorial(); // TUTORIAL -> MISSION_SELECT
-  }, [flow]);
+  }, [flow, guestId]);
 
   // Replay tutorial: open as overlay (no flow change, no game state change).
   const handleReplayTutorial = useCallback((): void => {
@@ -562,11 +573,12 @@ function GameApp({ onLogout }: { onLogout: () => void }): ReactElement {
 export { DEFAULT_MISSION_CONFIG };
 
 /**
- * Sign-in gate. While nobody is signed in only the login / sign-up screens exist,
- * so there is no game in memory that another account could see.
+ * Sign-in gate. Registered players and guests enter the same game shell, but
+ * guest state is kept separate from registered sessions and saved data.
  */
 export function App(): ReactElement {
   const [user, setUser] = useState<User | null>(() => getCurrentSession());
+  const [guestId, setGuestId] = useState<string | null>(null);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
   // Gate GameApp until this user's Neon-backed state has been pulled into the
   // local mirror, because GameApp reads save/achievements/progression/history
@@ -598,17 +610,25 @@ export function App(): ReactElement {
     };
   }, [user]);
 
-  if (!user) {
+  if (!user && !guestId) {
     // A successful login or sign-up has already stored the session.
-    const onSignedIn = (): void => setUser(getCurrentSession());
+    const onSignedIn = (): void => {
+      setGuestId(null);
+      setUser(getCurrentSession());
+    };
+    const onContinueAsGuest = (): void => setGuestId(startGuestSession());
     return authView === 'login' ? (
-      <Login onLoginSuccess={onSignedIn} onSwitchToSignup={() => setAuthView('signup')} />
+      <Login
+        onLoginSuccess={onSignedIn}
+        onSwitchToSignup={() => setAuthView('signup')}
+        onContinueAsGuest={onContinueAsGuest}
+      />
     ) : (
       <Signup onSignupSuccess={onSignedIn} onSwitchToLogin={() => setAuthView('login')} />
     );
   }
 
-  if (hydratedFor !== user.id) {
+  if (user && hydratedFor !== user.id) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-space-900 text-slate-300">
         <p className="text-sm">Syncing your mission data…</p>
@@ -616,5 +636,15 @@ export function App(): ReactElement {
     );
   }
 
-  return <GameApp key={user.id} onLogout={() => { setHydratedFor(null); setUser(null); }} />;
+  return (
+    <GameApp
+      key={user?.id ?? guestId ?? 'guest'}
+      guestId={user ? null : guestId}
+      onLogout={() => {
+        setHydratedFor(null);
+        setUser(null);
+        setGuestId(null);
+      }}
+    />
+  );
 }
