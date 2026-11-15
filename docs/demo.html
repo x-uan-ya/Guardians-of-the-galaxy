@@ -23,7 +23,8 @@ h2{font-size:clamp(18px,2.6vw,32px);font-weight:800;line-height:1.1;color:#fff}
 .dots{display:flex;gap:6px;align-items:center}
 .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:background .2s}
 .dot.active{background:#e07a3f;width:10px;height:10px}
-</style>
+/* AI watermark – required by NASA Space Apps rules */
+.ai-watermark{position:fixed;bottom:12px;left:12px;z-index:9999;pointer-events:none;background:rgba(0,0,0,.72);color:#ffd700;font-family:ui-monospace,monospace;font-size:10px;font-weight:700;letter-spacing:.10em;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,215,0,.45);text-transform:uppercase;user-select:none;}</style>
 </head>
 <body>
 <section class="slide" id="s1" aria-label="Slide 1 of 7">
@@ -164,5 +165,5 @@ document.addEventListener('keydown',e=>{
   if(e.key==='ArrowLeft')go(Math.max(cur-1,1));
 });
 </script>
-</body>
+<div class="ai-watermark" aria-label="This content was created with AI tools">AI-generated · created with AI tools</div></body>
 </html>
